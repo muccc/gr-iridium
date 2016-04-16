@@ -6,8 +6,7 @@ import sys
 import threading
 
 import multiprocessing
-#import iridium
-import flow_graph
+import iridium_toolkit.iridium_extractor_flowgraph
 
 queue_len_max = 0
 
@@ -183,7 +182,7 @@ if __name__ == "__main__":
         exit(1)
 
 
-    tb = flow_graph.FlowGraph(center_frequency=center, sample_rate=sample_rate, decimation=decimation, 
+    tb = iridium_toolkit.iridium_extractor_flowgraph.FlowGraph(center_frequency=center, sample_rate=sample_rate, decimation=decimation, 
             filename=filename, sample_format=fmt,
             threshold=threshold, signal_width=search_window,
             offline=offline,
