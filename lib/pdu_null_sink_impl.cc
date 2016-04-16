@@ -26,7 +26,7 @@
 #include "pdu_null_sink_impl.h"
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     pdu_null_sink::sptr
     pdu_null_sink::make()
@@ -67,6 +67,6 @@ namespace gr {
       return noutput_items;
     }
 
-  } /* namespace iridium_toolkit */
+  } /* namespace iridium */
 } /* namespace gr */
 

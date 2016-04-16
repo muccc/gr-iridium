@@ -24,7 +24,7 @@
 
 #include <gnuradio/attributes.h>
 
-#ifdef gnuradio_iridium_toolkit_EXPORTS
+#ifdef gnuradio_iridium_EXPORTS
 #  define IRIDIUM_TOOLKIT_API __GR_ATTR_EXPORT
 #else
 #  define IRIDIUM_TOOLKIT_API __GR_ATTR_IMPORT

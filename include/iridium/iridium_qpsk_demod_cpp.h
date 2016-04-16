@@ -19,43 +19,41 @@
  */
 
 
-#ifndef INCLUDED_IRIDIUM_TOOLKIT_FFT_BURST_TAGGER_H
-#define INCLUDED_IRIDIUM_TOOLKIT_FFT_BURST_TAGGER_H
+#ifndef INCLUDED_IRIDIUM_TOOLKIT_IRIDIUM_QPSK_DEMOD_CPP_H
+#define INCLUDED_IRIDIUM_TOOLKIT_IRIDIUM_QPSK_DEMOD_CPP_H
 
-#include <iridium_toolkit/api.h>
+#include <iridium/api.h>
 #include <gnuradio/sync_block.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     /*!
      * \brief <+description of block+>
-     * \ingroup iridium_toolkit
+     * \ingroup iridium
      *
      */
-    class IRIDIUM_TOOLKIT_API fft_burst_tagger : virtual public gr::sync_block
+    class IRIDIUM_TOOLKIT_API iridium_qpsk_demod_cpp : virtual public gr::sync_block
     {
      public:
-      typedef boost::shared_ptr<fft_burst_tagger> sptr;
+      typedef boost::shared_ptr<iridium_qpsk_demod_cpp> sptr;
 
       /*!
-       * \brief Return a shared_ptr to a new instance of iridium_toolkit::fft_burst_tagger.
+       * \brief Return a shared_ptr to a new instance of iridium::iridium_qpsk_demod_cpp.
        *
-       * To avoid accidental use of raw pointers, iridium_toolkit::fft_burst_tagger's
+       * To avoid accidental use of raw pointers, iridium::iridium_qpsk_demod_cpp's
        * constructor is in a private implementation
-       * class. iridium_toolkit::fft_burst_tagger::make is the public interface for
+       * class. iridium::iridium_qpsk_demod_cpp::make is the public interface for
        * creating new instances.
        */
-      static sptr make(float center_frequency, int fft_size, int sample_rate,
-                            int burst_pre_len, int burst_post_len,
-                            int burst_width, int max_bursts=0, float threshold=7,
-                            int history_size=512, bool debug=false);
+      static sptr make();
 
-      virtual uint64_t get_n_tagged_bursts() = 0;
+      virtual uint64_t get_n_handled_bursts() = 0;
+      virtual uint64_t get_n_access_ok_bursts() = 0;
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
-#endif /* INCLUDED_IRIDIUM_TOOLKIT_FFT_BURST_TAGGER_H */
+#endif /* INCLUDED_IRIDIUM_TOOLKIT_IRIDIUM_QPSK_DEMOD_CPP_H */
 

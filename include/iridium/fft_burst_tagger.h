@@ -19,44 +19,43 @@
  */
 
 
-#ifndef INCLUDED_IRIDIUM_TOOLKIT_TAGGED_BURST_TO_PDU_H
-#define INCLUDED_IRIDIUM_TOOLKIT_TAGGED_BURST_TO_PDU_H
+#ifndef INCLUDED_IRIDIUM_TOOLKIT_FFT_BURST_TAGGER_H
+#define INCLUDED_IRIDIUM_TOOLKIT_FFT_BURST_TAGGER_H
 
-#include <iridium_toolkit/api.h>
+#include <iridium/api.h>
 #include <gnuradio/sync_block.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     /*!
      * \brief <+description of block+>
-     * \ingroup iridium_toolkit
+     * \ingroup iridium
      *
      */
-    class IRIDIUM_TOOLKIT_API tagged_burst_to_pdu : virtual public gr::sync_block
+    class IRIDIUM_TOOLKIT_API fft_burst_tagger : virtual public gr::sync_block
     {
      public:
-      typedef boost::shared_ptr<tagged_burst_to_pdu> sptr;
+      typedef boost::shared_ptr<fft_burst_tagger> sptr;
 
       /*!
-       * \brief Return a shared_ptr to a new instance of iridium_toolkit::tagged_burst_to_pdu.
+       * \brief Return a shared_ptr to a new instance of iridium::fft_burst_tagger.
        *
-       * To avoid accidental use of raw pointers, iridium_toolkit::tagged_burst_to_pdu's
+       * To avoid accidental use of raw pointers, iridium::fft_burst_tagger's
        * constructor is in a private implementation
-       * class. iridium_toolkit::tagged_burst_to_pdu::make is the public interface for
+       * class. iridium::fft_burst_tagger::make is the public interface for
        * creating new instances.
        */
-      static sptr make(int max_burst_size, float relative_center_frequency, float relative_span,
-                        float d_relative_sample_rate, int outstanding_limit, bool drop_overflow);
+      static sptr make(float center_frequency, int fft_size, int sample_rate,
+                            int burst_pre_len, int burst_post_len,
+                            int burst_width, int max_bursts=0, float threshold=7,
+                            int history_size=512, bool debug=false);
 
-      virtual uint64_t get_n_dropped_bursts() = 0;
-      virtual int get_output_queue_size() = 0;
-      virtual int get_output_max_queue_size() = 0;
-
+      virtual uint64_t get_n_tagged_bursts() = 0;
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
-#endif /* INCLUDED_IRIDIUM_TOOLKIT_TAGGED_BURST_TO_PDU_H */
+#endif /* INCLUDED_IRIDIUM_TOOLKIT_FFT_BURST_TAGGER_H */
 

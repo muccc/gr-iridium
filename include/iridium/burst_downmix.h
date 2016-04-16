@@ -19,38 +19,41 @@
  */
 
 
-#ifndef INCLUDED_IRIDIUM_TOOLKIT_CPDU_NULL_SINK_H
-#define INCLUDED_IRIDIUM_TOOLKIT_CPDU_NULL_SINK_H
+#ifndef INCLUDED_IRIDIUM_TOOLKIT_BURST_DOWNMIX_H
+#define INCLUDED_IRIDIUM_TOOLKIT_BURST_DOWNMIX_H
 
-#include <iridium_toolkit/api.h>
+#include <iridium/api.h>
 #include <gnuradio/sync_block.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     /*!
      * \brief <+description of block+>
-     * \ingroup iridium_toolkit
+     * \ingroup iridium
      *
      */
-    class IRIDIUM_TOOLKIT_API pdu_null_sink : virtual public gr::sync_block
+    class IRIDIUM_TOOLKIT_API burst_downmix : virtual public gr::sync_block
     {
      public:
-      typedef boost::shared_ptr<pdu_null_sink> sptr;
+      typedef boost::shared_ptr<burst_downmix> sptr;
 
       /*!
-       * \brief Return a shared_ptr to a new instance of iridium_toolkit::pdu_null_sink.
+       * \brief Return a shared_ptr to a new instance of iridium::burst_downmix.
        *
-       * To avoid accidental use of raw pointers, iridium_toolkit::pdu_null_sink's
+       * To avoid accidental use of raw pointers, iridium::burst_downmix's
        * constructor is in a private implementation
-       * class. iridium_toolkit::pdu_null_sink::make is the public interface for
+       * class. iridium::burst_downmix::make is the public interface for
        * creating new instances.
        */
-      static sptr make();
+      static sptr make(int sample_rate, int search_depth, size_t hard_max_queue_len,
+            const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps);
+
+      virtual size_t get_input_queue_size() = 0;
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
-#endif /* INCLUDED_IRIDIUM_TOOLKIT_CPDU_NULL_SINK_H */
+#endif /* INCLUDED_IRIDIUM_TOOLKIT_BURST_DOWNMIX_H */
 

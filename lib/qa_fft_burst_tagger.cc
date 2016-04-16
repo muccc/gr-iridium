@@ -22,10 +22,10 @@
 #include <gnuradio/attributes.h>
 #include <cppunit/TestAssert.h>
 #include "qa_fft_burst_tagger.h"
-#include <iridium_toolkit/fft_burst_tagger.h>
+#include <iridium/fft_burst_tagger.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     void
     qa_fft_burst_tagger::t1()
@@ -33,6 +33,6 @@ namespace gr {
       fft_burst_tagger::make(1024, 1000000, 1000, 1000, 100, 0, 7.0, 512, false);
     }
 
-  } /* namespace iridium_toolkit */
+  } /* namespace iridium */
 } /* namespace gr */
 

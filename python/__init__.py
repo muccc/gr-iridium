@@ -23,10 +23,10 @@ This is the GNU Radio IRIDIUM_TOOLKIT module. Place your Python package
 description here (python/__init__.py).
 '''
 
-# import swig generated symbols into the iridium_toolkit namespace
+# import swig generated symbols into the iridium namespace
 try:
 	# this might fail if the module is python-only
-	from iridium_toolkit_swig import *
+	from iridium_swig import *
 except ImportError:
 	pass
 

@@ -21,10 +21,10 @@
 #ifndef INCLUDED_IRIDIUM_TOOLKIT_IUCHAR_TO_COMPLEX_IMPL_H
 #define INCLUDED_IRIDIUM_TOOLKIT_IUCHAR_TO_COMPLEX_IMPL_H
 
-#include <iridium_toolkit/iuchar_to_complex.h>
+#include <iridium/iuchar_to_complex.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     class iuchar_to_complex_impl : public iuchar_to_complex
     {
@@ -41,7 +41,7 @@ namespace gr {
          gr_vector_void_star &output_items);
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_TOOLKIT_IUCHAR_TO_COMPLEX_IMPL_H */

@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <block>
   <name>tagged_burst_to_pdu</name>
-  <key>iridium_toolkit_tagged_burst_to_pdu</key>
-  <category>iridium_toolkit</category>
-  <import>import iridium_toolkit</import>
-  <make>iridium_toolkit.tagged_burst_to_pdu($max_burst_size, $relative_center_frequency, $relative_span, $relative_sample_rate, $max_outstanding, $drop_overflow)</make>
+  <key>iridium_tagged_burst_to_pdu</key>
+  <category>iridium</category>
+  <import>import iridium</import>
+  <make>iridium.tagged_burst_to_pdu($max_burst_size, $relative_center_frequency, $relative_span, $relative_sample_rate, $max_outstanding, $drop_overflow)</make>
 
   <param>
     <name>Max Burst Size</name>

@@ -21,10 +21,10 @@
 #ifndef INCLUDED_IRIDIUM_TOOLKIT_CPDU_NULL_SINK_IMPL_H
 #define INCLUDED_IRIDIUM_TOOLKIT_CPDU_NULL_SINK_IMPL_H
 
-#include <iridium_toolkit/pdu_null_sink.h>
+#include <iridium/pdu_null_sink.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     class pdu_null_sink_impl : public pdu_null_sink
     {
@@ -42,7 +42,7 @@ namespace gr {
          gr_vector_void_star &output_items);
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_TOOLKIT_CPDU_NULL_SINK_IMPL_H */

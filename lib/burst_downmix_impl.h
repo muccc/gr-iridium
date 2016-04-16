@@ -24,10 +24,10 @@
 #include <gnuradio/blocks/rotator.h>
 #include <gnuradio/filter/fir_filter.h>
 
-#include <iridium_toolkit/burst_downmix.h>
+#include <iridium/burst_downmix.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     class burst_downmix_impl : public burst_downmix
     {
@@ -72,7 +72,7 @@ namespace gr {
       void update_buffer_sizes(size_t burst_size);
       void initialize_cfo_est_fft(void);
       void initialize_correlation_filter(void);
-      std::vector<gr_complex> generate_sync_word(iridium::direction direction);
+      std::vector<gr_complex> generate_sync_word(::iridium::direction direction);
 
      public:
       burst_downmix_impl(int sample_rate, int search_depth, size_t hard_max_queue_len,
@@ -86,7 +86,7 @@ namespace gr {
          gr_vector_void_star &output_items);
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_TOOLKIT_BURST_DOWNMIX_IMPL_H */

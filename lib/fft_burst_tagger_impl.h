@@ -21,11 +21,11 @@
 #ifndef INCLUDED_IRIDIUM_TOOLKIT_FFT_BURST_TAGGER_IMPL_H
 #define INCLUDED_IRIDIUM_TOOLKIT_FFT_BURST_TAGGER_IMPL_H
 
-#include <iridium_toolkit/fft_burst_tagger.h>
+#include <iridium/fft_burst_tagger.h>
 #include <gnuradio/fft/fft.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     struct burst {
         uint64_t start;
@@ -104,7 +104,7 @@ namespace gr {
          gr_vector_void_star &output_items);
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_TOOLKIT_FFT_BURST_TAGGER_IMPL_H */

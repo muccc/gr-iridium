@@ -20,29 +20,19 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#ifndef _QA_IRIDIUM_TOOLKIT_H_
+#define _QA_IRIDIUM_TOOLKIT_H_
 
-#include <cppunit/TextTestRunner.h>
-#include <cppunit/XmlOutputter.h>
+#include <gnuradio/attributes.h>
+#include <cppunit/TestSuite.h>
 
-#include <gnuradio/unittests.h>
-#include "qa_iridium_toolkit.h"
-#include <iostream>
-#include <fstream>
+//! collect all the tests for the gr-filter directory
 
-int
-main (int argc, char **argv)
+class __GR_ATTR_EXPORT qa_iridium
 {
-  CppUnit::TextTestRunner runner;
-  std::ofstream xmlfile(get_unittest_path("iridium_toolkit.xml").c_str());
-  CppUnit::XmlOutputter *xmlout = new CppUnit::XmlOutputter(&runner.result(), xmlfile);
+ public:
+  //! return suite of tests for all of gr-filter directory
+  static CppUnit::TestSuite *suite();
+};
 
-  runner.addTest(qa_iridium_toolkit::suite());
-  runner.setOutputter(xmlout);
-
-  bool was_successful = runner.run("", false);
-
-  return was_successful ? 0 : 1;
-}
+#endif /* _QA_IRIDIUM_TOOLKIT_H_ */

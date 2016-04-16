@@ -21,10 +21,10 @@
 #ifndef INCLUDED_IRIDIUM_TOOLKIT_IRIDIUM_QPSK_DEMOD_CPP_IMPL_H
 #define INCLUDED_IRIDIUM_TOOLKIT_IRIDIUM_QPSK_DEMOD_CPP_IMPL_H
 
-#include <iridium_toolkit/iridium_qpsk_demod_cpp.h>
+#include <iridium/iridium_qpsk_demod_cpp.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     class iridium_qpsk_demod_cpp_impl : public iridium_qpsk_demod_cpp
     {
@@ -48,7 +48,7 @@ namespace gr {
       int decimate(const gr_complex * in, int size, int sps, gr_complex * out);
       void qpskFirstOrderPLL(const gr_complex* x, int size, float alpha, gr_complex* y);
       size_t demod_qpsk(const gr_complex *burst, size_t n_symbols, int * out, float * level, int * confidence);
-      bool check_sync_word(int * d_demodulated_burst, size_t n_symbols, iridium::direction direction);
+      bool check_sync_word(int * d_demodulated_burst, size_t n_symbols, ::iridium::direction direction);
       void decode_deqpsk(int * demodulated_burst, size_t n_symbols);
       void map_symbols_to_bits(const int * demodulated_burst, size_t n_symbols, std::vector<bool> &bits);
      public:
@@ -63,7 +63,7 @@ namespace gr {
          gr_vector_void_star &output_items);
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_TOOLKIT_IRIDIUM_QPSK_DEMOD_CPP_IMPL_H */

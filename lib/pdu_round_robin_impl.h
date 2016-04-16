@@ -21,10 +21,10 @@
 #ifndef INCLUDED_IRIDIUM_TOOLKIT_PDU_ROUND_ROBIN_IMPL_H
 #define INCLUDED_IRIDIUM_TOOLKIT_PDU_ROUND_ROBIN_IMPL_H
 
-#include <iridium_toolkit/pdu_round_robin.h>
+#include <iridium/pdu_round_robin.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     class pdu_round_robin_impl : public pdu_round_robin
     {
@@ -42,7 +42,7 @@ namespace gr {
          gr_vector_void_star &output_items);
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_TOOLKIT_PDU_ROUND_ROBIN_IMPL_H */

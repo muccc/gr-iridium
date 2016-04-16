@@ -20,10 +20,10 @@
 ########################################################################
 # Check if there is C++ code at all
 ########################################################################
-if(NOT iridium_toolkit_sources)
+if(NOT iridium_sources)
 	MESSAGE(STATUS "No C++ sources... skipping swig/")
 	return()
-endif(NOT iridium_toolkit_sources)
+endif(NOT iridium_sources)
 
 ########################################################################
 # Include swig generation macros
@@ -43,23 +43,23 @@ foreach(incdir ${GNURADIO_RUNTIME_INCLUDE_DIRS})
     list(APPEND GR_SWIG_INCLUDE_DIRS ${incdir}/gnuradio/swig)
 endforeach(incdir)
 
-set(GR_SWIG_LIBRARIES gnuradio-iridium_toolkit)
-set(GR_SWIG_DOC_FILE ${CMAKE_CURRENT_BINARY_DIR}/iridium_toolkit_swig_doc.i)
+set(GR_SWIG_LIBRARIES gnuradio-iridium)
+set(GR_SWIG_DOC_FILE ${CMAKE_CURRENT_BINARY_DIR}/iridium_swig_doc.i)
 set(GR_SWIG_DOC_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
-GR_SWIG_MAKE(iridium_toolkit_swig iridium_toolkit_swig.i)
+GR_SWIG_MAKE(iridium_swig iridium_swig.i)
 
 ########################################################################
 # Install the build swig module
 ########################################################################
-GR_SWIG_INSTALL(TARGETS iridium_toolkit_swig DESTINATION ${GR_PYTHON_DIR}/iridium_toolkit)
+GR_SWIG_INSTALL(TARGETS iridium_swig DESTINATION ${GR_PYTHON_DIR}/iridium)
 
 ########################################################################
 # Install swig .i files for development
 ########################################################################
 install(
     FILES
-    iridium_toolkit_swig.i
-    ${CMAKE_CURRENT_BINARY_DIR}/iridium_toolkit_swig_doc.i
-    DESTINATION ${GR_INCLUDE_DIR}/iridium_toolkit/swig
+    iridium_swig.i
+    ${CMAKE_CURRENT_BINARY_DIR}/iridium_swig_doc.i
+    DESTINATION ${GR_INCLUDE_DIR}/iridium/swig
 )

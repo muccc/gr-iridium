@@ -26,7 +26,7 @@
 #include "iuchar_to_complex_impl.h"
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     iuchar_to_complex::sptr
     iuchar_to_complex::make()
@@ -80,6 +80,6 @@ namespace gr {
       return noutput_items;
     }
 
-  } /* namespace iridium_toolkit */
+  } /* namespace iridium */
 } /* namespace gr */
 

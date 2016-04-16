@@ -35,7 +35,7 @@
 #include <volk/volk.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
 
     void write_data_c(const gr_complex * data, size_t len, char *name, int num)
@@ -73,17 +73,17 @@ namespace gr {
               gr::io_signature::make(0, 0, 0),
               gr::io_signature::make(0, 0, 0)),
               d_output_sample_rate(250000),
-              d_output_samples_per_symbol(d_output_sample_rate / iridium::SYMBOLS_PER_SECOND),
+              d_output_samples_per_symbol(d_output_sample_rate / ::iridium::SYMBOLS_PER_SECOND),
               d_max_burst_size(0),
               d_search_depth(search_depth),
               d_pre_start_samples(int(0.1e-3 * d_output_sample_rate)),
 
               // Take the FFT over the (short) preamble + 10 symbols from the unique word (UW)
               // (Frames with a 64 symbol preamble will use 26 symbols of the preamble)
-              d_cfo_est_fft_size(pow(2, int(log(d_output_samples_per_symbol * (iridium::PREAMBLE_LENGTH_SHORT + 10)) / log(2)))),
+              d_cfo_est_fft_size(pow(2, int(log(d_output_samples_per_symbol * (::iridium::PREAMBLE_LENGTH_SHORT + 10)) / log(2)))),
 
               d_fft_over_size_facor(16),
-              d_sync_search_len((iridium::PREAMBLE_LENGTH_LONG + iridium::UW_LENGTH + 2) * d_output_samples_per_symbol),
+              d_sync_search_len((::iridium::PREAMBLE_LENGTH_LONG + ::iridium::UW_LENGTH + 2) * d_output_samples_per_symbol),
               d_hard_max_queue_len(hard_max_queue_len),
               d_debug(false),
 
@@ -103,10 +103,10 @@ namespace gr {
 
               d_input_fir(0, input_taps),
               d_start_finder_fir(0, start_finder_taps),
-              d_rrc_fir(0, gr::filter::firdes::root_raised_cosine(1.0, d_output_sample_rate, iridium::SYMBOLS_PER_SECOND, .4, 51)),
+              d_rrc_fir(0, gr::filter::firdes::root_raised_cosine(1.0, d_output_sample_rate, ::iridium::SYMBOLS_PER_SECOND, .4, 51)),
 
-              d_dl_preamble_reversed_conj(generate_sync_word(iridium::direction::DOWNLINK)),
-              d_ul_preamble_reversed_conj(generate_sync_word(iridium::direction::UPLINK)),
+              d_dl_preamble_reversed_conj(generate_sync_word(::iridium::direction::DOWNLINK)),
+              d_ul_preamble_reversed_conj(generate_sync_word(::iridium::direction::UPLINK)),
 
               d_cfo_est_fft(fft::fft_complex(d_cfo_est_fft_size * d_fft_over_size_facor, true, 1))
     {
@@ -165,7 +165,7 @@ namespace gr {
         }
     }
 
-    std::vector<gr_complex> burst_downmix_impl::generate_sync_word(iridium::direction direction)
+    std::vector<gr_complex> burst_downmix_impl::generate_sync_word(::iridium::direction direction)
     {
       gr_complex s1 = gr_complex(-1, -1);
       gr_complex s0 = -s1;
@@ -174,13 +174,13 @@ namespace gr {
       std::vector<gr_complex> uw_ul = {s1, s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1};
       int i;
 
-      if(direction == iridium::direction::DOWNLINK) {
-        for(i = 0; i < iridium::PREAMBLE_LENGTH_SHORT; i++) {
+      if(direction == ::iridium::direction::DOWNLINK) {
+        for(i = 0; i < ::iridium::PREAMBLE_LENGTH_SHORT; i++) {
           sync_word.push_back(s0);
         }
         sync_word.insert(std::end(sync_word), std::begin(uw_dl), std::end(uw_dl));
-      } else if(direction == iridium::direction::UPLINK) {
-        for(i = 0; i < iridium::PREAMBLE_LENGTH_SHORT / 2; i+=2) {
+      } else if(direction == ::iridium::direction::UPLINK) {
+        for(i = 0; i < ::iridium::PREAMBLE_LENGTH_SHORT / 2; i+=2) {
           sync_word.push_back(s1);
           sync_word.push_back(s0);
         }
@@ -244,7 +244,7 @@ namespace gr {
       memcpy(d_cfo_est_window_f, &window[0], sizeof(float) * d_cfo_est_fft_size);
 
       if(d_debug) {
-        printf("fft_length=%d (%d)\n", d_cfo_est_fft_size, d_output_samples_per_symbol * (iridium::PREAMBLE_LENGTH_SHORT + 10));
+        printf("fft_length=%d (%d)\n", d_cfo_est_fft_size, d_output_samples_per_symbol * (::iridium::PREAMBLE_LENGTH_SHORT + 10));
       }
     }
 
@@ -412,13 +412,13 @@ namespace gr {
 
       // Simplex transmissions and broadcast frames might have a 64 symbol preamble.
       // We ignore that and cut away the extra 48 symbols.
-      if(center_frequency > iridium::SIMPLEX_FREQUENCY_MIN) {
+      if(center_frequency > ::iridium::SIMPLEX_FREQUENCY_MIN) {
         // Frames above this frequency must be downlink and simplex frames.
         // XXX: If the SDR is not configured well, there might be aliasing from low
         // frequencies in this region.
-        max_frame_length = (iridium::PREAMBLE_LENGTH_SHORT + iridium::MAX_FRAME_LENGTH_SIMPLEX) * d_output_samples_per_symbol;
+        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_SIMPLEX) * d_output_samples_per_symbol;
       } else {
-        max_frame_length = (iridium::PREAMBLE_LENGTH_SHORT + iridium::MAX_FRAME_LENGTH_NORMAL) * d_output_samples_per_symbol;
+        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_NORMAL) * d_output_samples_per_symbol;
       }
 
 
@@ -583,14 +583,14 @@ namespace gr {
 
       gr_complex corr_result;
       int corr_offset;
-      iridium::direction direction;
+      ::iridium::direction direction;
 
       if(max_dl > max_ul) {
-        direction = iridium::direction::DOWNLINK;
+        direction = ::iridium::direction::DOWNLINK;
         corr_offset = max_dl_p - d_magnitude_f;
         corr_result = d_corr_dl_ifft->get_outbuf()[corr_offset];
       } else {
-        direction = iridium::direction::UPLINK;
+        direction = ::iridium::direction::UPLINK;
         corr_offset = max_ul_p - d_magnitude_f;
         corr_result = d_corr_ul_ifft->get_outbuf()[corr_offset];
       }
@@ -603,7 +603,7 @@ namespace gr {
       // Careful: The correlation might have found the start of the sync word
       // before the first sample => preamble_offset might be negative
       int preamble_offset = corr_offset - d_dl_preamble_reversed_conj.size() + 1;
-      int uw_start = preamble_offset + iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
+      int uw_start = preamble_offset + ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
 
       // If ther UW starts at an offset < 0, we will not be able to demodulate the signal
       if(uw_start < 0) {
@@ -685,6 +685,6 @@ namespace gr {
     {
     }
 
-  } /* namespace iridium_toolkit */
+  } /* namespace iridium */
 } /* namespace gr */
 

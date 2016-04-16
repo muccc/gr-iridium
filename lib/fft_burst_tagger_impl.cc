@@ -33,7 +33,7 @@
 #include <stdio.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     
     fft_burst_tagger::sptr
@@ -393,6 +393,6 @@ namespace gr {
       return noutput_items;
     }
 
-  } /* namespace iridium_toolkit */
+  } /* namespace iridium */
 } /* namespace gr */
 

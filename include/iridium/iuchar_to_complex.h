@@ -22,15 +22,15 @@
 #ifndef INCLUDED_IRIDIUM_TOOLKIT_IUCHAR_TO_COMPLEX_H
 #define INCLUDED_IRIDIUM_TOOLKIT_IUCHAR_TO_COMPLEX_H
 
-#include <iridium_toolkit/api.h>
+#include <iridium/api.h>
 #include <gnuradio/sync_decimator.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     /*!
      * \brief <+description of block+>
-     * \ingroup iridium_toolkit
+     * \ingroup iridium
      *
      */
     class IRIDIUM_TOOLKIT_API iuchar_to_complex : virtual public gr::sync_decimator
@@ -39,17 +39,17 @@ namespace gr {
       typedef boost::shared_ptr<iuchar_to_complex> sptr;
 
       /*!
-       * \brief Return a shared_ptr to a new instance of iridium_toolkit::iuchar_to_complex.
+       * \brief Return a shared_ptr to a new instance of iridium::iuchar_to_complex.
        *
-       * To avoid accidental use of raw pointers, iridium_toolkit::iuchar_to_complex's
+       * To avoid accidental use of raw pointers, iridium::iuchar_to_complex's
        * constructor is in a private implementation
-       * class. iridium_toolkit::iuchar_to_complex::make is the public interface for
+       * class. iridium::iuchar_to_complex::make is the public interface for
        * creating new instances.
        */
       static sptr make();
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_TOOLKIT_IUCHAR_TO_COMPLEX_H */

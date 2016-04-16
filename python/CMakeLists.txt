@@ -34,7 +34,7 @@ GR_PYTHON_INSTALL(
     iridium_extractor_flowgraph.py
     iridium_qpsk_demod.py
     gr_iridium.py
-    gr_iridium_demod.py DESTINATION ${GR_PYTHON_DIR}/iridium_toolkit
+    gr_iridium_demod.py DESTINATION ${GR_PYTHON_DIR}/iridium
 )
 
 ########################################################################
@@ -42,7 +42,7 @@ GR_PYTHON_INSTALL(
 ########################################################################
 include(GrTest)
 
-set(GR_TEST_TARGET_DEPS gnuradio-iridium_toolkit)
+set(GR_TEST_TARGET_DEPS gnuradio-iridium)
 set(GR_TEST_PYTHON_DIRS ${CMAKE_BINARY_DIR}/swig)
 GR_ADD_TEST(qa_fft_burst_tagger ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_fft_burst_tagger.py)
 GR_ADD_TEST(qa_iuchar_to_complex ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_iuchar_to_complex.py)

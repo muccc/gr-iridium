@@ -26,7 +26,7 @@
 #include <cppunit/TestCase.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     class qa_fft_burst_tagger : public CppUnit::TestCase
     {
@@ -39,7 +39,7 @@ namespace gr {
       void t1();
     };
 
-  } /* namespace iridium_toolkit */
+  } /* namespace iridium */
 } /* namespace gr */
 
 #endif /* _QA_FFT_BURST_TAGGER_H_ */

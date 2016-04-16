@@ -17,12 +17,12 @@
 # the Free Software Foundation, Inc., 51 Franklin Street,
 # Boston, MA 02110-1301, USA.
 install(FILES
-    iridium_toolkit_fft_burst_tagger.xml
-    iridium_toolkit_iuchar_to_complex.xml
-    iridium_toolkit_tagged_burst_to_pdu.xml
-    iridium_toolkit_burst_downmix.xml
-    iridium_toolkit_iridium-qpsk-demod.xml
-    iridium_toolkit_pdu_null_sink.xml
-    iridium_toolkit_iridium_qpsk_demod_cpp.xml
-    iridium_toolkit_pdu_round_robin.xml DESTINATION share/gnuradio/grc/blocks
+    iridium_fft_burst_tagger.xml
+    iridium_iuchar_to_complex.xml
+    iridium_tagged_burst_to_pdu.xml
+    iridium_burst_downmix.xml
+    iridium_iridium-qpsk-demod.xml
+    iridium_pdu_null_sink.xml
+    iridium_iridium_qpsk_demod_cpp.xml
+    iridium_pdu_round_robin.xml DESTINATION share/gnuradio/grc/blocks
 )

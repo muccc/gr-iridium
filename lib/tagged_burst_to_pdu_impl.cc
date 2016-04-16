@@ -27,7 +27,7 @@
 #include <unistd.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     tagged_burst_to_pdu::sptr
     tagged_burst_to_pdu::make(int max_burst_size, float relative_center_frequency, float relative_span,
@@ -258,6 +258,6 @@ namespace gr {
       return noutput_items;
     }
 
-  } /* namespace iridium_toolkit */
+  } /* namespace iridium */
 } /* namespace gr */
 

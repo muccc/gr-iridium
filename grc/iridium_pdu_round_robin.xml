@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <block>
   <name>pdu_round_robin</name>
-  <key>iridium_toolkit_pdu_round_robin</key>
-  <category>iridium_toolkit</category>
-  <import>import iridium_toolkit</import>
-  <make>iridium_toolkit.pdu_round_robin($output_count)</make>
+  <key>iridium_pdu_round_robin</key>
+  <category>iridium</category>
+  <import>import iridium</import>
+  <make>iridium.pdu_round_robin($output_count)</make>
 
   <param>
     <name>Output Count</name>

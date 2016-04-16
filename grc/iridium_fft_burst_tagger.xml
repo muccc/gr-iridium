@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <block>
   <name>fft_burst_tagger</name>
-  <key>iridium_toolkit_fft_burst_tagger</key>
-  <category>iridium_toolkit</category>
-  <import>import iridium_toolkit</import>
-  <make>iridium_toolkit.fft_burst_tagger($center_frequency, $fft_size, $sample_rate, $burst_pre_len, $burst_post_len,
+  <key>iridium_fft_burst_tagger</key>
+  <category>iridium</category>
+  <import>import iridium</import>
+  <make>iridium.fft_burst_tagger($center_frequency, $fft_size, $sample_rate, $burst_pre_len, $burst_post_len,
                             $burst_width, $max_bursts, $threshold, $history_size, $debug)
   </make>
 

@@ -26,7 +26,7 @@
 #include "pdu_round_robin_impl.h"
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     pdu_round_robin::sptr
     pdu_round_robin::make(int output_count)
@@ -77,6 +77,6 @@ namespace gr {
       return noutput_items;
     }
 
-  } /* namespace iridium_toolkit */
+  } /* namespace iridium */
 } /* namespace gr */
 

@@ -25,13 +25,13 @@
  * add them here.
  */
 
-#include "qa_iridium_toolkit.h"
+#include "qa_iridium.h"
 #include "qa_fft_burst_tagger.h"
 
 CppUnit::TestSuite *
-qa_iridium_toolkit::suite()
+qa_iridium::suite()
 {
-  CppUnit::TestSuite *s = new CppUnit::TestSuite("iridium_toolkit");
-  s->addTest(gr::iridium_toolkit::qa_fft_burst_tagger::suite());
+  CppUnit::TestSuite *s = new CppUnit::TestSuite("iridium");
+  s->addTest(gr::iridium::qa_fft_burst_tagger::suite());
   return s;
 }

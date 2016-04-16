@@ -19,41 +19,44 @@
  */
 
 
-#ifndef INCLUDED_IRIDIUM_TOOLKIT_IRIDIUM_QPSK_DEMOD_CPP_H
-#define INCLUDED_IRIDIUM_TOOLKIT_IRIDIUM_QPSK_DEMOD_CPP_H
+#ifndef INCLUDED_IRIDIUM_TOOLKIT_TAGGED_BURST_TO_PDU_H
+#define INCLUDED_IRIDIUM_TOOLKIT_TAGGED_BURST_TO_PDU_H
 
-#include <iridium_toolkit/api.h>
+#include <iridium/api.h>
 #include <gnuradio/sync_block.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     /*!
      * \brief <+description of block+>
-     * \ingroup iridium_toolkit
+     * \ingroup iridium
      *
      */
-    class IRIDIUM_TOOLKIT_API iridium_qpsk_demod_cpp : virtual public gr::sync_block
+    class IRIDIUM_TOOLKIT_API tagged_burst_to_pdu : virtual public gr::sync_block
     {
      public:
-      typedef boost::shared_ptr<iridium_qpsk_demod_cpp> sptr;
+      typedef boost::shared_ptr<tagged_burst_to_pdu> sptr;
 
       /*!
-       * \brief Return a shared_ptr to a new instance of iridium_toolkit::iridium_qpsk_demod_cpp.
+       * \brief Return a shared_ptr to a new instance of iridium::tagged_burst_to_pdu.
        *
-       * To avoid accidental use of raw pointers, iridium_toolkit::iridium_qpsk_demod_cpp's
+       * To avoid accidental use of raw pointers, iridium::tagged_burst_to_pdu's
        * constructor is in a private implementation
-       * class. iridium_toolkit::iridium_qpsk_demod_cpp::make is the public interface for
+       * class. iridium::tagged_burst_to_pdu::make is the public interface for
        * creating new instances.
        */
-      static sptr make();
+      static sptr make(int max_burst_size, float relative_center_frequency, float relative_span,
+                        float d_relative_sample_rate, int outstanding_limit, bool drop_overflow);
 
-      virtual uint64_t get_n_handled_bursts() = 0;
-      virtual uint64_t get_n_access_ok_bursts() = 0;
+      virtual uint64_t get_n_dropped_bursts() = 0;
+      virtual int get_output_queue_size() = 0;
+      virtual int get_output_max_queue_size() = 0;
+
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
-#endif /* INCLUDED_IRIDIUM_TOOLKIT_IRIDIUM_QPSK_DEMOD_CPP_H */
+#endif /* INCLUDED_IRIDIUM_TOOLKIT_TAGGED_BURST_TO_PDU_H */
 

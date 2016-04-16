@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <block>
   <name>iridium_qpsk_demod</name>
-  <key>iridium_toolkit_iridium_qpsk_demod</key>
-  <category>iridium_toolkit</category>
-  <import>import iridium_toolkit</import>
-  <make>iridium_toolkit.iridium_qpsk_demod($sample_rate)</make>
+  <key>iridium_iridium_qpsk_demod</key>
+  <category>iridium</category>
+  <import>import iridium</import>
+  <make>iridium.iridium_qpsk_demod($sample_rate)</make>
 
   <param>
     <name>Sample Rate</name>

@@ -31,7 +31,7 @@
 #include <stdio.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     iridium_qpsk_demod_cpp::sptr
     iridium_qpsk_demod_cpp::make()
@@ -255,20 +255,20 @@ namespace gr {
     }
 
     bool
-    iridium_qpsk_demod_cpp_impl::check_sync_word(int * demodulated_burst, size_t n_symbols, iridium::direction direction)
+    iridium_qpsk_demod_cpp_impl::check_sync_word(int * demodulated_burst, size_t n_symbols, ::iridium::direction direction)
     {
-      if(n_symbols < iridium::UW_LENGTH) {
+      if(n_symbols < ::iridium::UW_LENGTH) {
         return false;
       }
 
-      if(direction == iridium::direction::DOWNLINK) {
-        if(memcmp(demodulated_burst, iridium::UW_DL, sizeof(iridium::UW_DL)) == 0) {
+      if(direction == ::iridium::direction::DOWNLINK) {
+        if(memcmp(demodulated_burst, ::iridium::UW_DL, sizeof(::iridium::UW_DL)) == 0) {
           return true;
         }
       }
 
-      if(direction == iridium::direction::UPLINK) {
-        if(memcmp(demodulated_burst, iridium::UW_UL, sizeof(iridium::UW_UL)) == 0) {
+      if(direction == ::iridium::direction::UPLINK) {
+        if(memcmp(demodulated_burst, ::iridium::UW_UL, sizeof(::iridium::UW_UL)) == 0) {
           return true;
         }
       }
@@ -323,8 +323,8 @@ namespace gr {
       float level;
       n_symbols = demod_qpsk(d_burst_after_pll, n_symbols, d_demodulated_burst, &level, &confidence);
 
-      bool dl_uw_ok = check_sync_word(d_demodulated_burst, n_symbols, iridium::direction::DOWNLINK);
-      bool ul_uw_ok = check_sync_word(d_demodulated_burst, n_symbols, iridium::direction::UPLINK);
+      bool dl_uw_ok = check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::DOWNLINK);
+      bool ul_uw_ok = check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::UPLINK);
 
       decode_deqpsk(d_demodulated_burst, n_symbols);
 
@@ -342,7 +342,7 @@ namespace gr {
 
       printf("L:no ");
 
-      printf("%3d%% %.3f %3d ", confidence, level, (int)n_symbols - iridium::UW_LENGTH);
+      printf("%3d%% %.3f %3d ", confidence, level, (int)n_symbols - ::iridium::UW_LENGTH);
 
       for(bool b : d_bits) {
         if(b) {
@@ -362,6 +362,6 @@ namespace gr {
       return noutput_items;
     }
 
-  } /* namespace iridium_toolkit */
+  } /* namespace iridium */
 } /* namespace gr */
 

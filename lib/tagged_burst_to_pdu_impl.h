@@ -21,10 +21,10 @@
 #ifndef INCLUDED_IRIDIUM_TOOLKIT_TAGGED_BURST_TO_PDU_IMPL_H
 #define INCLUDED_IRIDIUM_TOOLKIT_TAGGED_BURST_TO_PDU_IMPL_H
 
-#include <iridium_toolkit/tagged_burst_to_pdu.h>
+#include <iridium/tagged_burst_to_pdu.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     struct burst_data {
         uint64_t id;
@@ -81,7 +81,7 @@ namespace gr {
          gr_vector_void_star &output_items);
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_TOOLKIT_TAGGED_BURST_TO_PDU_IMPL_H */

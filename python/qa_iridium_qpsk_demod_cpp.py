@@ -21,7 +21,7 @@
 
 from gnuradio import gr, gr_unittest
 from gnuradio import blocks
-import iridium_toolkit_swig as iridium_toolkit
+import iridium_swig as iridium
 
 class qa_iridium_qpsk_demod_cpp (gr_unittest.TestCase):
 

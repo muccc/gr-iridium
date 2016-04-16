@@ -19,38 +19,38 @@
  */
 
 
-#ifndef INCLUDED_IRIDIUM_TOOLKIT_PDU_ROUND_ROBIN_H
-#define INCLUDED_IRIDIUM_TOOLKIT_PDU_ROUND_ROBIN_H
+#ifndef INCLUDED_IRIDIUM_TOOLKIT_CPDU_NULL_SINK_H
+#define INCLUDED_IRIDIUM_TOOLKIT_CPDU_NULL_SINK_H
 
-#include <iridium_toolkit/api.h>
+#include <iridium/api.h>
 #include <gnuradio/sync_block.h>
 
 namespace gr {
-  namespace iridium_toolkit {
+  namespace iridium {
 
     /*!
      * \brief <+description of block+>
-     * \ingroup iridium_toolkit
+     * \ingroup iridium
      *
      */
-    class IRIDIUM_TOOLKIT_API pdu_round_robin : virtual public gr::sync_block
+    class IRIDIUM_TOOLKIT_API pdu_null_sink : virtual public gr::sync_block
     {
      public:
-      typedef boost::shared_ptr<pdu_round_robin> sptr;
+      typedef boost::shared_ptr<pdu_null_sink> sptr;
 
       /*!
-       * \brief Return a shared_ptr to a new instance of iridium_toolkit::pdu_round_robin.
+       * \brief Return a shared_ptr to a new instance of iridium::pdu_null_sink.
        *
-       * To avoid accidental use of raw pointers, iridium_toolkit::pdu_round_robin's
+       * To avoid accidental use of raw pointers, iridium::pdu_null_sink's
        * constructor is in a private implementation
-       * class. iridium_toolkit::pdu_round_robin::make is the public interface for
+       * class. iridium::pdu_null_sink::make is the public interface for
        * creating new instances.
        */
-      static sptr make(int output_count);
+      static sptr make();
     };
 
-  } // namespace iridium_toolkit
+  } // namespace iridium
 } // namespace gr
 
-#endif /* INCLUDED_IRIDIUM_TOOLKIT_PDU_ROUND_ROBIN_H */
+#endif /* INCLUDED_IRIDIUM_TOOLKIT_CPDU_NULL_SINK_H */
 
