@@ -360,7 +360,7 @@ namespace gr {
         printf("sample_rate=%f\n", sample_rate);
       }
 
-      if(get_input_queue_size() >= d_hard_max_queue_len) {
+      if(d_hard_max_queue_len && get_input_queue_size() >= d_hard_max_queue_len) {
         std::cerr << "Warning: Dropping burst as hard queue length is reached!" << std::endl;
         d_n_dropped_bursts++;
         message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
