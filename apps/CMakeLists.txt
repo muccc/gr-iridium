@@ -21,6 +21,6 @@ include(GrPython)
 
 GR_PYTHON_INSTALL(
     PROGRAMS
-    iridium-extractor.py
+    iridium-extractor
     DESTINATION bin
 )
