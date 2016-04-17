@@ -270,3 +270,11 @@ class FlowGraph(gr.top_block):
         for converter in self._burst_to_pdu_converters:
             size += converter.get_output_max_queue_size()
         return size
+
+    def get_n_dropped_bursts(self):
+        dropped = 0
+        for converter in self._burst_to_pdu_converters:
+            dropped += converter.get_n_dropped_bursts()
+        for downmix in self._burst_downmixers:
+            dropped += downmix.get_n_dropped_bursts()
+        return dropped

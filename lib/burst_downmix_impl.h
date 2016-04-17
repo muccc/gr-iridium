@@ -42,6 +42,7 @@ namespace gr {
       int d_corr_fft_size;
       int d_sync_search_len;
       int d_hard_max_queue_len;
+      uint64_t d_n_dropped_bursts;
       bool d_debug;
 
       gr_complex * d_input;
@@ -80,6 +81,7 @@ namespace gr {
       ~burst_downmix_impl();
 
       size_t get_input_queue_size();
+      uint64_t get_n_dropped_bursts();
 
       int work(int noutput_items,
          gr_vector_const_void_star &input_items,

@@ -77,6 +77,7 @@ namespace gr {
               d_max_burst_size(0),
               d_search_depth(search_depth),
               d_pre_start_samples(int(0.1e-3 * d_output_sample_rate)),
+              d_n_dropped_bursts(0),
 
               // Take the FFT over the (short) preamble + 10 symbols from the unique word (UW)
               // (Frames with a 64 symbol preamble will use 26 symbols of the preamble)
@@ -329,6 +330,12 @@ namespace gr {
       return nmsgs(pmt::mp("cpdus"));
     }
 
+    uint64_t
+    burst_downmix_impl::get_n_dropped_bursts()
+    {
+      return d_n_dropped_bursts;
+    }
+
     void burst_downmix_impl::handler(pmt::pmt_t msg)
 	{
       /*
@@ -355,6 +362,7 @@ namespace gr {
 
       if(get_input_queue_size() >= d_hard_max_queue_len) {
         std::cerr << "Warning: Dropping burst as hard queue length is reached!" << std::endl;
+        d_n_dropped_bursts++;
         message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
         return;
       }

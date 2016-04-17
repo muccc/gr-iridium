@@ -36,7 +36,7 @@ def print_stats(tb):
         in_count = tb.get_n_detected_bursts() - in_count_total
         out_count = tb.get_n_handled_bursts() - out_count_total
         ok_count = tb.get_n_access_ok_bursts() - ok_count_total
-        drop_count = 0
+        drop_count = tb.get_n_dropped_bursts() - drop_count_total
 
         dt = time.time() - last_print
         in_rate = in_count / dt
