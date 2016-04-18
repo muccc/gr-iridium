@@ -67,9 +67,18 @@ If this section is present an `osmosdr-source` is instantiated
 Command line options can be used instead of a configuration file. If a configuration file is also specified, command line options take precedence.
 
 #### `-o`, `--offline`: Offline Processing
-By default, the extractor will drop samples or burst if the computing power available is not enough to keep up.
+By default, the extractor will drop samples or bursts if the computing power available is not enough to keep up.
 
-If you have an already recorded file, use the `-o`,`--offline` option to not drop samples. In this case the extractor will pause reading the file (or input stream) until it can process more samples again.
+If you have an already recorded file, use the `-o`,`--offline` option to not drop bursts. In this case the extractor will pause reading the file (or input stream) until it can process more samples again.
+
+### `-d`, `--decimation`: Decimation
+This option enables decimation and channelization of the input stream before it gets handled by the burst based components. This helps to reduce the needed memory bandwidth when many bursts appear at the same time. Use this option if you get dropped bursts during online operation.
+
+The decimation has to be even. Internally a poly phase filter bank will be used to channelize the input spectrum. Each channel will be decimated by the chosen decimation. To account for Doppler shift, the channels overlap each other. To provide the needed additional sample rate, one more channel than needed is created and oversampling activated. This results in a total output bandwidth of input bandwidth * (1 + 1/decimation).
+
+It is not recommended to use a decimation smaller than 4, as there is only little benefit otherwise.
+
+Decimating the input signal can improve real time performance but is not recommended for offline processing. During offline processing it tends to become a major bottleneck. 
 
 #### `-c`: Center Frequency
 The center frequency for the source or the file in Hz.
