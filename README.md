@@ -2,7 +2,9 @@
 
 This module provides blocks to build an Iridium burst detector and demodulator.
 
-It also provides a sample application which can be used to detect and demodulate data from the Iridium satellite network.
+It provides a sample application which can be used to detect and demodulate data from the Iridium satellite network.
+
+You should also have a look at the [iridium-toolkit](https://github.com/muccc/iridium-toolkit).
 
 ## Prerequisites
 A working [GNURadio](https://gnuradio.com) installation with the following components is necessary:
@@ -24,7 +26,7 @@ sudo make install
 sudo ldconfig
 ```
 ## Sample Usage
-The following commands are examples how to use the `iridium-extractor` tool. To further parse the demodulated frames have a look at the (iridium-toolkit)[https://github.com/muccc/iridium-toolkit]. It provides scripts to extract meaningful information.
+The following commands are examples how to use the `iridium-extractor` tool. To further parse the demodulated frames have a look at the [iridium-toolkit](https://github.com/muccc/iridium-toolkit). It provides scripts to extract meaningful information.
 
 ### Online (with an SDR)
 
