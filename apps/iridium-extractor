@@ -4,6 +4,7 @@ import time
 import getopt
 import sys
 import threading
+import os.path
 
 import multiprocessing
 import iridium.iridium_extractor_flowgraph
@@ -122,6 +123,9 @@ if __name__ == "__main__":
         filename = "/dev/stdin"
     else:
         filename = remainder[0]
+        if not os.path.isfile(filename):
+            print >> sys.stderr, "Specified input file `%s` does not exist" % filename
+            exit(1)
 
     if filename.endswith(".conf"):
         import ConfigParser
