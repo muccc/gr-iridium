@@ -123,6 +123,11 @@ class FlowGraph(gr.top_block):
                 source.set_if_gain(if_gain, 0)
                 print >> sys.stderr, "IF Gain:", source.get_gain("IF", 0), '(Requested %d)' % if_gain
 
+            if 'mix_gain' in d:
+                mix_gain = int(d['mix_gain'])
+                source.set_mix_gain(mix_gain, 0)
+                print >> sys.stderr, "MIX Gain:", source.get_gain("MIX", 0), '(Requested %d)' % mix_gain
+
             if 'bb_gain' in d:
                 bb_gain = int(d['bb_gain'])
                 source.set_bb_gain(bb_gain, 0)
