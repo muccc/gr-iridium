@@ -106,11 +106,11 @@ namespace gr {
               d_start_finder_fir(0, start_finder_taps),
               d_rrc_fir(0, gr::filter::firdes::root_raised_cosine(1.0, d_output_sample_rate, ::iridium::SYMBOLS_PER_SECOND, .4, 51)),
 
-              d_dl_preamble_reversed_conj(generate_sync_word(::iridium::direction::DOWNLINK)),
-              d_ul_preamble_reversed_conj(generate_sync_word(::iridium::direction::UPLINK)),
-
               d_cfo_est_fft(fft::fft_complex(d_cfo_est_fft_size * d_fft_over_size_facor, true, 1))
     {
+      d_dl_preamble_reversed_conj = generate_sync_word(::iridium::direction::DOWNLINK);
+      d_ul_preamble_reversed_conj = generate_sync_word(::iridium::direction::UPLINK);
+
       initialize_cfo_est_fft();
 
       initialize_correlation_filter();
