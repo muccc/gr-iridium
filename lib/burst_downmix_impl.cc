@@ -181,7 +181,7 @@ namespace gr {
         }
         sync_word.insert(std::end(sync_word), std::begin(uw_dl), std::end(uw_dl));
       } else if(direction == ::iridium::direction::UPLINK) {
-        for(i = 0; i < ::iridium::PREAMBLE_LENGTH_SHORT / 2; i+=2) {
+        for(i = 0; i < ::iridium::PREAMBLE_LENGTH_SHORT; i+=2) {
           sync_word.push_back(s1);
           sync_word.push_back(s0);
         }
