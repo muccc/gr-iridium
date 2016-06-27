@@ -341,6 +341,29 @@ namespace gr {
             uint64_t offset, uint64_t id, size_t burst_size, int start)
     {
       /*
+       * Use the center frequency to make some assumptions about the burst.
+       */
+      int max_frame_length = 0;
+      int min_frame_length = 0;
+
+      // Simplex transmissions and broadcast frames might have a 64 symbol preamble.
+      // We ignore that and cut away the extra 48 symbols.
+      if(center_frequency > ::iridium::SIMPLEX_FREQUENCY_MIN) {
+        // Frames above this frequency must be downlink and simplex frames.
+        // XXX: If the SDR is not configured well, there might be aliasing from low
+        // frequencies in this region.
+        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_SIMPLEX) * d_output_samples_per_symbol;
+        min_frame_length = (::iridium::MIN_FRAME_LENGTH_SIMPLEX) * d_output_samples_per_symbol;
+      } else {
+        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_NORMAL) * d_output_samples_per_symbol;
+        min_frame_length = (::iridium::MIN_FRAME_LENGTH_NORMAL) * d_output_samples_per_symbol;
+      }
+
+      if(burst_size - start < min_frame_length) {
+        return 0;
+      }
+
+      /*
        * Find the fine CFO estimate using an FFT over the preamble and the first symbols
        * of the unique word.
        * The signal gets squared to remove the BPSK modulation from the unique word.
@@ -461,22 +484,6 @@ namespace gr {
 
       // Clamp preamble_offset to >= 0
       preamble_offset = std::max(0, preamble_offset);
-
-      /*
-       * Use the center frequency to make some assumptions about the burst.
-       */
-      int max_frame_length = 0;
-
-      // Simplex transmissions and broadcast frames might have a 64 symbol preamble.
-      // We ignore that and cut away the extra 48 symbols.
-      if(center_frequency > ::iridium::SIMPLEX_FREQUENCY_MIN) {
-        // Frames above this frequency must be downlink and simplex frames.
-        // XXX: If the SDR is not configured well, there might be aliasing from low
-        // frequencies in this region.
-        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_SIMPLEX) * d_output_samples_per_symbol;
-      } else {
-        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_NORMAL) * d_output_samples_per_symbol;
-      }
 
       size_t frame_size = std::min((int)burst_size - start, max_frame_length + preamble_offset);
       int consumed_samples = frame_size;
