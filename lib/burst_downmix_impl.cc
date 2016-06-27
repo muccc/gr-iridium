@@ -88,7 +88,7 @@ namespace gr {
               d_hard_max_queue_len(hard_max_queue_len),
               d_debug(false),
 
-              d_input(NULL),
+              d_frame(NULL),
               d_tmp_a(NULL),
               d_tmp_b(NULL),
               d_dl_preamble_reversed_conj_fft(NULL),
@@ -131,8 +131,8 @@ namespace gr {
      */
     burst_downmix_impl::~burst_downmix_impl()
     {
-        if(d_input) {
-          volk_free(d_input);
+        if(d_frame) {
+          volk_free(d_frame);
         }
         if(d_tmp_a) {
           volk_free(d_tmp_a);
@@ -297,10 +297,10 @@ namespace gr {
     {
       if(burst_size > d_max_burst_size) {
         d_max_burst_size = burst_size;
-        if(d_input) {
-          volk_free(d_input);
+        if(d_frame) {
+          volk_free(d_frame);
         }
-        d_input = (gr_complex *)volk_malloc(d_max_burst_size * sizeof(gr_complex), volk_get_alignment());
+        d_frame = (gr_complex *)volk_malloc(d_max_burst_size * sizeof(gr_complex), volk_get_alignment());
 
         if(d_tmp_a) {
           volk_free(d_tmp_a);
@@ -334,6 +334,213 @@ namespace gr {
     burst_downmix_impl::get_n_dropped_bursts()
     {
       return d_n_dropped_bursts;
+    }
+
+    int
+    burst_downmix_impl::process_next_frame(float sample_rate, float center_frequency,
+            uint64_t offset, uint64_t id, size_t burst_size, int start)
+    {
+      /*
+       * Find the fine CFO estimate using an FFT over the preamble and the first symbols
+       * of the unique word.
+       * The signal gets squared to remove the BPSK modulation from the unique word.
+       */
+
+      if(burst_size - start < d_cfo_est_fft_size) {
+        // There are not enough samples available to run the FFT.
+        return 0;
+      }
+
+      // TODO: Not sure which way to square is faster.
+      //volk_32fc_x2_multiply_32fc(d_tmp_a, d_frame + start, d_frame + start, d_cfo_est_fft_size);
+      volk_32fc_s32f_power_32fc(d_tmp_a, d_frame + start, 2, d_cfo_est_fft_size);
+      volk_32fc_32f_multiply_32fc(d_cfo_est_fft.get_inbuf(), d_tmp_a, d_cfo_est_window_f, d_cfo_est_fft_size);
+      d_cfo_est_fft.execute();
+      volk_32fc_magnitude_32f(d_magnitude_f, d_cfo_est_fft.get_outbuf(), d_cfo_est_fft_size * d_fft_over_size_facor);
+      float * x = std::max_element(d_magnitude_f, d_magnitude_f + d_cfo_est_fft_size * d_fft_over_size_facor);
+      int max_index = x - d_magnitude_f;
+      if(d_debug) {
+        printf("max_index=%d\n", max_index);
+      }
+
+      // Interpolate the result of the FFT to get a finer resolution.
+      // see http://www.dsprelated.com/dspbooks/sasp/Quadratic_Interpolation_Spectral_Peaks.html
+      // TODO: The window should be Gaussian and the output should be put on a log scale
+      float alpha = d_magnitude_f[(max_index - 1) % (d_cfo_est_fft_size * d_fft_over_size_facor)];
+      float beta = d_magnitude_f[max_index];
+      float gamma = d_magnitude_f[(max_index + 1) % (d_cfo_est_fft_size * d_fft_over_size_facor)];
+      float correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma);
+      float interpolated_index = max_index + correction;
+
+      // Prevent underflows.
+      if(interpolated_index < 0) {
+        interpolated_index += d_cfo_est_fft_size * d_fft_over_size_facor;
+      }
+
+      // Remove FFT shift.
+      // interpolated_index will now be between -(d_cfo_est_fft_size * d_fft_over_size_facor) / 2
+      //                                     and (d_cfo_est_fft_size * d_fft_over_size_facor) / 2
+      if(interpolated_index > d_cfo_est_fft_size * d_fft_over_size_facor / 2) {
+        interpolated_index -= d_cfo_est_fft_size * d_fft_over_size_facor;
+      }
+
+      // Normalize the result.
+      // Divide by two to remove the effect of the squaring operation before.
+      float center_offset = interpolated_index / (d_cfo_est_fft_size * d_fft_over_size_facor) / 2;
+
+      if(d_debug) {
+        printf("interpolated_index=%f center_offset=%f (%f)\n", interpolated_index, center_offset, center_offset * d_output_sample_rate);
+      }
+
+
+      /*
+       * Shift the burst again using the result of the FFT.
+       */
+      float phase_inc = 2 * M_PI * -center_offset;
+      d_r.set_phase_incr(exp(gr_complex(0, phase_inc)));
+      d_r.set_phase(gr_complex(1, 0));
+      d_r.rotateN(d_tmp_a, d_frame + start, burst_size - start);
+      center_frequency += center_offset * sample_rate;
+
+      if(d_debug) {
+        write_data_c(d_tmp_a, burst_size - start, (char *)"signal-filtered-deci-cut-start-shift", id);
+      }
+
+
+      /*
+       * Use a correlation to find the start of the sync word.
+       * Uses an FFT to perform the correlation.
+       */
+
+      memcpy(d_corr_fft->get_inbuf(), d_tmp_a, sizeof(gr_complex) * d_sync_search_len);
+      d_corr_fft->execute();
+
+      // We use the initial FFT for both correlations (DL and UL)
+      volk_32fc_x2_multiply_32fc(d_corr_dl_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_dl_preamble_reversed_conj_fft[0], d_corr_fft_size);
+      volk_32fc_x2_multiply_32fc(d_corr_ul_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_ul_preamble_reversed_conj_fft[0], d_corr_fft_size);
+      d_corr_dl_ifft->execute();
+      d_corr_ul_ifft->execute();
+
+      // Find the peaks of the correlations
+      volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_dl_ifft->get_outbuf(), d_corr_fft_size);
+      float * max_dl_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      float max_dl = *max_dl_p;
+      volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_ul_ifft->get_outbuf(), d_corr_fft_size);
+      float * max_ul_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      float max_ul = *max_ul_p;
+
+      gr_complex corr_result;
+      int corr_offset;
+      ::iridium::direction direction;
+
+      if(max_dl > max_ul) {
+        direction = ::iridium::direction::DOWNLINK;
+        corr_offset = max_dl_p - d_magnitude_f;
+        corr_result = d_corr_dl_ifft->get_outbuf()[corr_offset];
+      } else {
+        direction = ::iridium::direction::UPLINK;
+        corr_offset = max_ul_p - d_magnitude_f;
+        corr_result = d_corr_ul_ifft->get_outbuf()[corr_offset];
+      }
+
+
+      if(d_debug) {
+        printf("Conv max index = %d\n", corr_offset);
+      }
+
+      // Careful: The correlation might have found the start of the sync word
+      // before the first sample => preamble_offset might be negative
+      int preamble_offset = corr_offset - d_dl_preamble_reversed_conj.size() + 1;
+      int uw_start = preamble_offset + ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
+
+      // If the UW starts at an offset < 0, we will not be able to demodulate the signal
+      if(uw_start < 0) {
+        // TODO: Log a warning.
+        return 0;
+      }
+
+      // Clamp preamble_offset to >= 0
+      preamble_offset = std::max(0, preamble_offset);
+
+      /*
+       * Use the center frequency to make some assumptions about the burst.
+       */
+      int max_frame_length = 0;
+
+      // Simplex transmissions and broadcast frames might have a 64 symbol preamble.
+      // We ignore that and cut away the extra 48 symbols.
+      if(center_frequency > ::iridium::SIMPLEX_FREQUENCY_MIN) {
+        // Frames above this frequency must be downlink and simplex frames.
+        // XXX: If the SDR is not configured well, there might be aliasing from low
+        // frequencies in this region.
+        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_SIMPLEX) * d_output_samples_per_symbol;
+      } else {
+        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_NORMAL) * d_output_samples_per_symbol;
+      }
+
+      size_t frame_size = std::min((int)burst_size - start, max_frame_length + preamble_offset);
+      int consumed_samples = frame_size;
+
+      /*
+       * Rotate the phase so the demodulation has a starting point.
+       */
+      d_r.set_phase_incr(exp(gr_complex(0, 0)));
+      d_r.set_phase(std::conj(corr_result / abs(corr_result)));
+      d_r.rotateN(d_tmp_b, d_tmp_a, frame_size);
+
+      if(d_debug) {
+        write_data_c(d_tmp_b, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rotate", id);
+      }
+
+      /*
+       * Align the burst so the first sample of the burst is the first symbol
+       * of the 16 symbol preamble after the RRC filter.
+       *
+       */
+
+      // Make some room at the start and the end, so the RRC can run
+      int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
+      memmove(d_tmp_b + half_rrc_size, d_tmp_b + preamble_offset, frame_size * sizeof(gr_complex));
+      memset(d_tmp_b, 0, half_rrc_size * sizeof(gr_complex));
+      memset(d_tmp_b + half_rrc_size + frame_size, 0, half_rrc_size * sizeof(gr_complex));
+
+
+      // Update the amount of available samples after filtering
+      uw_start -= preamble_offset;
+      frame_size = std::max((int)frame_size - preamble_offset, 0);
+      preamble_offset = 0;
+
+      /*
+       * Apply the RRC filter.
+       */
+      d_rrc_fir.filterN(d_tmp_a, d_tmp_b, frame_size);
+
+      if(d_debug) {
+        write_data_c(d_tmp_a, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rotate-filter", id);
+      }
+
+      /*
+       * Done :)
+       */
+      pmt::pmt_t pdu_meta = pmt::make_dict();
+      pmt::pmt_t pdu_vector = pmt::init_c32vector(frame_size, d_tmp_a);
+
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("sample_rate"), pmt::mp(sample_rate));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("center_frequency"), pmt::mp(center_frequency));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)direction));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("uw_start"), pmt::mp(uw_start));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("offset"), pmt::mp(offset + start));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(id));
+
+      if(d_debug) {
+        printf("center_frequency=%f, uw_start=%u\n", center_frequency, uw_start);
+      }
+
+      pmt::pmt_t out_msg = pmt::cons(pdu_meta,
+          pdu_vector);
+      message_port_pub(pmt::mp("cpdus"), out_msg);
+
+      return consumed_samples;
     }
 
     void burst_downmix_impl::handler(pmt::pmt_t msg)
@@ -399,36 +606,20 @@ namespace gr {
       memset(d_tmp_a, 0, sizeof(gr_complex) * input_fir_pad_size);
       memset(d_tmp_a + input_fir_pad_size + burst_size, 0, sizeof(gr_complex) * input_fir_pad_size);
 
-      int output_samples = burst_size / decimation;
+      burst_size = burst_size / decimation;
 #else
-      int output_samples = (burst_size - d_input_fir.ntaps() + 1) / decimation;
+      burst_size = (burst_size - d_input_fir.ntaps() + 1) / decimation;
 #endif
 
-      d_input_fir.filterNdec(d_tmp_b, d_tmp_a, output_samples, decimation);
+      d_input_fir.filterNdec(d_frame, d_tmp_a, burst_size, decimation);
 
       sample_rate /= decimation;
       offset /= decimation;
 
       if(d_debug) {
-        write_data_c(d_tmp_b, output_samples, (char *)"signal-filtered-deci", id);
+        printf("---------------> id:%lu len:%f\n", id, burst_size/d_output_sample_rate);
+        write_data_c(d_frame, burst_size, (char *)"signal-filtered-deci", id);
       }
-
-      /*
-       * Use the center frequency to make some assumptions about the burst.
-       */
-      int max_frame_length = 0;
-
-      // Simplex transmissions and broadcast frames might have a 64 symbol preamble.
-      // We ignore that and cut away the extra 48 symbols.
-      if(center_frequency > ::iridium::SIMPLEX_FREQUENCY_MIN) {
-        // Frames above this frequency must be downlink and simplex frames.
-        // XXX: If the SDR is not configured well, there might be aliasing from low
-        // frequencies in this region.
-        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_SIMPLEX) * d_output_samples_per_symbol;
-      } else {
-        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_NORMAL) * d_output_samples_per_symbol;
-      }
-
 
       /*
        * Search for the start of the burst by looking at the magnitude.
@@ -438,11 +629,11 @@ namespace gr {
       int half_fir_size = (d_start_finder_fir.ntaps() - 1) / 2;
 #if 1
       // The burst might be shorter than d_search_depth.
-      int N = std::min(d_search_depth, output_samples);
+      int N = std::min(d_search_depth, (int)burst_size);
 
       // TODO: Maybe it safe and more efficient to add the offset
       // to the call to volk.
-      volk_32fc_magnitude_32f(d_magnitude_f, d_tmp_b, N);
+      volk_32fc_magnitude_32f(d_magnitude_f, d_frame, N);
       memmove(d_magnitude_f + half_fir_size, d_magnitude_f, sizeof(float) * N);
 
       if(d_debug) {
@@ -452,9 +643,9 @@ namespace gr {
       memset(d_magnitude_f, 0, sizeof(float) * half_fir_size);
       memset(d_magnitude_f + half_fir_size + N, 0, sizeof(float) * half_fir_size);
 #else
-      volk_32fc_magnitude_32f(d_magnitude_f, d_tmp_b, std::min(d_search_depth, output_samples));
-      if(output_samples < d_search_depth) {
-        memset(d_magnitude_f + output_samples, 0, sizeof(float) * (d_search_depth - output_samples));
+      volk_32fc_magnitude_32f(d_magnitude_f, d_frame, std::min(d_search_depth, burst_size));
+      if(burst_size < d_search_depth) {
+        memset(d_magnitude_f + burst_size, 0, sizeof(float) * (d_search_depth - burst_size));
       }
       int N = d_search_depth - d_start_finder_fir.ntaps() + 1;
       if(d_debug) {
@@ -490,199 +681,15 @@ namespace gr {
 
       if(d_debug) {
         std::cout << "Start:" << start << "\n";
+        write_data_c(d_frame + start, burst_size - start, (char *)"signal-filtered-deci-cut-start", id);
       }
 
+      int handled_samples;
+      do {
+        handled_samples = process_next_frame(sample_rate, center_frequency, offset, id, burst_size, start);
+        start += handled_samples;
+      } while(handled_samples > 0);
 
-      /*
-       * Find the fine CFO estimate using an FFT over the preamble and the first symbols
-       * of the unique word.
-       * The signal gets squared to remove the BPSK modulation from the unique word.
-       */
-      output_samples -= start;
-
-      if(output_samples < d_cfo_est_fft_size) {
-        // There are not enough samples available to run the FFT.
-        // TODO: Log a warning.
-        message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
-        return;
-      }
-
-      if(d_debug) {
-        write_data_c(d_tmp_b + start, output_samples, (char *)"signal-filtered-deci-cut-start", id);
-      }
-
-      // TODO: Not sure which way to square is faster.
-      //volk_32fc_x2_multiply_32fc(d_tmp_a, d_tmp_b + start, d_tmp_b + start, d_cfo_est_fft_size);
-      volk_32fc_s32f_power_32fc(d_tmp_a, d_tmp_b + start, 2, d_cfo_est_fft_size);
-      volk_32fc_32f_multiply_32fc(d_cfo_est_fft.get_inbuf(), d_tmp_a, d_cfo_est_window_f, d_cfo_est_fft_size);
-      d_cfo_est_fft.execute();
-      volk_32fc_magnitude_32f(d_magnitude_f, d_cfo_est_fft.get_outbuf(), d_cfo_est_fft_size * d_fft_over_size_facor);
-      float * x = std::max_element(d_magnitude_f, d_magnitude_f + d_cfo_est_fft_size * d_fft_over_size_facor);
-      int max_index = x - d_magnitude_f;
-      if(d_debug) {
-        printf("max_index=%d\n", max_index);
-      }
-
-      // Interpolate the result of the FFT to get a finer resolution.
-      // see http://www.dsprelated.com/dspbooks/sasp/Quadratic_Interpolation_Spectral_Peaks.html
-      // TODO: The window should be Gaussian and the output should be put on a log scale
-      float alpha = d_magnitude_f[(max_index - 1) % (d_cfo_est_fft_size * d_fft_over_size_facor)];
-      float beta = d_magnitude_f[max_index];
-      float gamma = d_magnitude_f[(max_index + 1) % (d_cfo_est_fft_size * d_fft_over_size_facor)];
-      float correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma);
-      float interpolated_index = max_index + correction;
-
-      // Prevent underflows.
-      if(interpolated_index < 0) {
-        interpolated_index += d_cfo_est_fft_size * d_fft_over_size_facor;
-      }
-
-      // Remove FFT shift.
-      // interpolated_index will now be between -(d_cfo_est_fft_size * d_fft_over_size_facor) / 2
-      //                                     and (d_cfo_est_fft_size * d_fft_over_size_facor) / 2
-      if(interpolated_index > d_cfo_est_fft_size * d_fft_over_size_facor / 2) {
-        interpolated_index -= d_cfo_est_fft_size * d_fft_over_size_facor;
-      }
-
-      // Normalize the result.
-      // Divide by two to remove the effect of the squaring operation before.
-      float center_offset = interpolated_index / (d_cfo_est_fft_size * d_fft_over_size_facor) / 2;
-
-      if(d_debug) {
-        printf("interpolated_index=%f center_offset=%f (%f)\n", interpolated_index, center_offset, center_offset * d_output_sample_rate);
-      }
-
-
-      /*
-       * Shift the burst again using the result of the FFT.
-       */
-      phase_inc = 2 * M_PI * -center_offset;
-      d_r.set_phase_incr(exp(gr_complex(0, phase_inc)));
-      d_r.set_phase(gr_complex(1, 0));
-      d_r.rotateN(d_tmp_a, d_tmp_b + start, output_samples);
-      center_frequency += center_offset * sample_rate;
-
-      if(d_debug) {
-        write_data_c(d_tmp_a, output_samples, (char *)"signal-filtered-deci-cut-start-shift", id);
-      }
-
-
-      /*
-       * Use a correlation to find the start of the sync word.
-       * Uses an FFT to perform the correlation.
-       */
-
-      memcpy(d_corr_fft->get_inbuf(), d_tmp_a, sizeof(gr_complex) * d_sync_search_len);
-      d_corr_fft->execute();
-
-      // We use the initial FFT for both correlations (DL and UL)
-      volk_32fc_x2_multiply_32fc(d_corr_dl_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_dl_preamble_reversed_conj_fft[0], d_corr_fft_size);
-      volk_32fc_x2_multiply_32fc(d_corr_ul_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_ul_preamble_reversed_conj_fft[0], d_corr_fft_size);
-      d_corr_dl_ifft->execute();
-      d_corr_ul_ifft->execute();
-
-      // Find the peaks of the correlations
-      volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_dl_ifft->get_outbuf(), d_corr_fft_size);
-      float * max_dl_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
-      float max_dl = *max_dl_p;
-      volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_ul_ifft->get_outbuf(), d_corr_fft_size);
-      float * max_ul_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
-      float max_ul = *max_ul_p;
-
-      gr_complex corr_result;
-      int corr_offset;
-      ::iridium::direction direction;
-
-      if(max_dl > max_ul) {
-        direction = ::iridium::direction::DOWNLINK;
-        corr_offset = max_dl_p - d_magnitude_f;
-        corr_result = d_corr_dl_ifft->get_outbuf()[corr_offset];
-      } else {
-        direction = ::iridium::direction::UPLINK;
-        corr_offset = max_ul_p - d_magnitude_f;
-        corr_result = d_corr_ul_ifft->get_outbuf()[corr_offset];
-      }
-
-
-      if(d_debug) {
-        printf("Conv max index = %d\n", corr_offset);
-      }
-
-      // Careful: The correlation might have found the start of the sync word
-      // before the first sample => preamble_offset might be negative
-      int preamble_offset = corr_offset - d_dl_preamble_reversed_conj.size() + 1;
-      int uw_start = preamble_offset + ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
-
-      // If ther UW starts at an offset < 0, we will not be able to demodulate the signal
-      if(uw_start < 0) {
-        // TODO: Log a warning.
-        message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
-        return;
-      }
-
-      // Clamp preamble_offset to >= 0
-      preamble_offset = std::max(0, preamble_offset);
-
-      output_samples = std::min(output_samples, max_frame_length + preamble_offset);
-
-      /*
-       * Rotate the phase so the demodulation has a starting point.
-       */
-      d_r.set_phase_incr(exp(gr_complex(0, 0)));
-      d_r.set_phase(std::conj(corr_result / abs(corr_result)));
-      d_r.rotateN(d_tmp_b, d_tmp_a, output_samples);
-
-      if(d_debug) {
-        write_data_c(d_tmp_b, output_samples, (char *)"signal-filtered-deci-cut-start-shift-rotate", id);
-      }
-
-      /*
-       * Align the burst so the first sample of the burst is the first symbol
-       * of the 16 symbol preamble after the RRC filter.
-       *
-       */
-
-      // Make some room at the start and the end, so the RRC can run
-      int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
-      memmove(d_tmp_b + half_rrc_size, d_tmp_b + preamble_offset, output_samples * sizeof(gr_complex));
-      memset(d_tmp_b, 0, half_rrc_size * sizeof(gr_complex));
-      memset(d_tmp_b + half_rrc_size + output_samples, 0, half_rrc_size * sizeof(gr_complex));
-
-
-      // Update the amount of available samples after filtering
-      uw_start -= preamble_offset;
-      output_samples = std::max(output_samples - preamble_offset, 0);
-      preamble_offset = 0;
-
-      /*
-       * Apply the RRC filter.
-       */
-      d_rrc_fir.filterN(d_tmp_a, d_tmp_b, output_samples);
-
-      if(d_debug) {
-        write_data_c(d_tmp_a, output_samples, (char *)"signal-filtered-deci-cut-start-shift-rotate-filter", id);
-      }
-
-      /*
-       * Done :)
-       */
-      pmt::pmt_t pdu_meta = pmt::make_dict();
-      pmt::pmt_t pdu_vector = pmt::init_c32vector(output_samples, d_tmp_a);
-
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("sample_rate"), pmt::mp(sample_rate));
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("center_frequency"), pmt::mp(center_frequency));
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)direction));
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("uw_start"), pmt::mp(uw_start));
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("offset"), pmt::mp(offset));
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(id));
-
-      if(d_debug) {
-        printf("center_frequency=%f, uw_start=%u\n", center_frequency, uw_start);
-      }
-
-      pmt::pmt_t out_msg = pmt::cons(pdu_meta,
-          pdu_vector);
-      message_port_pub(pmt::mp("cpdus"), out_msg);
       message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
     }
 

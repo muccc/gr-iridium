@@ -45,7 +45,7 @@ namespace gr {
       uint64_t d_n_dropped_bursts;
       bool d_debug;
 
-      gr_complex * d_input;
+      gr_complex * d_frame;
       gr_complex * d_tmp_a;
       gr_complex * d_tmp_b;
       gr_complex * d_dl_preamble_reversed_conj_fft;
@@ -70,6 +70,9 @@ namespace gr {
       gr::fft::fft_complex d_cfo_est_fft;
 
       void handler(pmt::pmt_t msg);
+      int process_next_frame(float sample_rate, float center_frequency,
+            uint64_t offset, uint64_t id, size_t burst_size, int start);
+ 
       void update_buffer_sizes(size_t burst_size);
       void initialize_cfo_est_fft(void);
       void initialize_correlation_filter(void);
