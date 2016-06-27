@@ -47,7 +47,7 @@ def print_stats(tb):
         drop_rate = drop_count / dt
 
         if out_count != 0:
-            ok_ratio = ok_count / float(out_count)
+            ok_ratio = ok_count / float(in_count)
         else:
             ok_ratio = 0
 
@@ -57,7 +57,7 @@ def print_stats(tb):
         out_count_total += out_count
 
         if out_count_total != 0:
-            ok_ratio_total = ok_count_total / float(out_count_total)
+            ok_ratio_total = ok_count_total / float(in_count_total)
         else:
             ok_ratio_total = 0
 
