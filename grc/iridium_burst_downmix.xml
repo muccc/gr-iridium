@@ -4,7 +4,7 @@
   <key>iridium_burst_downmix</key>
   <category>iridium</category>
   <import>import iridium</import>
-  <make>iridium.burst_downmix($sample_rate, $search_depth, $hard_max_queue_len, $input_taps, $start_finder_taps)</make>
+  <make>iridium.burst_downmix($sample_rate, $search_depth, $hard_max_queue_len, $input_taps, $start_finder_taps, $handle_multiple_frames_per_burst)</make>
 
   <param>
     <name>Sample Rate</name>
@@ -34,6 +34,12 @@
     <name>Start Finder Taps</name>
     <key>start_finder_taps</key>
     <type>real_vector</type>
+  </param>
+
+  <param>
+    <name>Handle Multiple Frames Per Burst</name>
+    <key>handle_multiple_frames_per_burst</key>
+    <type>bool</type>
   </param>
 
 

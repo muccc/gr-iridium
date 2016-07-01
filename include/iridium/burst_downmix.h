@@ -47,7 +47,8 @@ namespace gr {
        * creating new instances.
        */
       static sptr make(int sample_rate, int search_depth, size_t hard_max_queue_len,
-            const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps);
+            const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps,
+            bool handle_multiple_frames_per_burst);
 
       virtual uint64_t get_n_dropped_bursts() = 0;
       virtual size_t get_input_queue_size() = 0;

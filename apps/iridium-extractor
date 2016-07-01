@@ -102,7 +102,8 @@ if __name__ == "__main__":
                                                             'burstsize=',
                                                             'uplink',
                                                             'downlink',
-                                                            'decimation'
+                                                            'decimation',
+                                                            'multi-frame'
                                                             ])
 
     center = None
@@ -118,6 +119,7 @@ if __name__ == "__main__":
     burst_size = 20
     direction = None
     decimation = 1
+    handle_multiple_frames_per_burst = False
 
     if len(remainder) == 0 or remainder[0] == '-':
         filename = "/dev/stdin"
@@ -168,6 +170,8 @@ if __name__ == "__main__":
         #    direction = iridium.DOWNLINK
         elif opt in ('-D', '--decimation'):
             decimation = int(arg)
+        elif opt == '--multi-frame':
+            handle_multiple_frames_per_burst = True
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
@@ -190,6 +194,7 @@ if __name__ == "__main__":
             filename=filename, sample_format=fmt,
             threshold=threshold, signal_width=search_window,
             offline=offline, max_queue_len = max_queue_len,
+            handle_multiple_frames_per_burst=handle_multiple_frames_per_burst,
             verbose=verbose)
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))

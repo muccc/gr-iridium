@@ -16,7 +16,7 @@ import math
 
 
 class FlowGraph(gr.top_block):
-    def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, signal_width=40e3, offline=False, max_queue_len=500, verbose=False):
+    def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, signal_width=40e3, offline=False, max_queue_len=500, handle_multiple_frames_per_burst=False, verbose=False):
         gr.top_block.__init__(self, "Top Block")
         self._center_frequency = center_frequency
         self._signal_width = 40e3
@@ -26,6 +26,7 @@ class FlowGraph(gr.top_block):
         self._filename = filename
         self._offline = offline
         self._max_queue_len = max_queue_len
+        self._handle_multiple_frames_per_burst = handle_multiple_frames_per_burst
 
         self._fft_size = int(math.pow(2, 1 + int(math.log(self._input_sample_rate / 1000, 2)))) # fft is approx 1ms long
         self._burst_pre_len = 2 * self._fft_size
@@ -211,7 +212,7 @@ class FlowGraph(gr.top_block):
                 burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len, relative_center,
                                             relative_span, relative_sample_rate, self._max_queue_len, not self._offline)
                 burst_downmixer = iridium.burst_downmix(self._burst_sample_rate,
-                                    int(0.007 * 250000), 0, (input_filter), (start_finder_filter))
+                                    int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
 
                 self._burst_downmixers.append(burst_downmixer)
                 self._burst_to_pdu_converters.append(burst_to_pdu_converter)
@@ -236,7 +237,7 @@ class FlowGraph(gr.top_block):
 
                 tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus'))
         else:
-            burst_downmix = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 0, (input_filter), (start_finder_filter))
+            burst_downmix = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
             burst_to_pdu = iridium.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 1.0, self._max_queue_len, not self._offline)
 
             if converter:

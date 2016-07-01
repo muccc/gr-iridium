@@ -43,6 +43,7 @@ namespace gr {
       int d_sync_search_len;
       int d_hard_max_queue_len;
       uint64_t d_n_dropped_bursts;
+      bool d_handle_multiple_frames_per_burst;
       bool d_debug;
 
       gr_complex * d_frame;
@@ -80,7 +81,8 @@ namespace gr {
 
      public:
       burst_downmix_impl(int sample_rate, int search_depth, size_t hard_max_queue_len,
-            const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps);
+            const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps,
+            bool handle_multiple_frames_per_burst);
       ~burst_downmix_impl();
 
       size_t get_input_queue_size();

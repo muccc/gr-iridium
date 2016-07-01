@@ -58,17 +58,20 @@ namespace gr {
 
     burst_downmix::sptr
     burst_downmix::make(int sample_rate, int search_depth, size_t hard_max_queue_len,
-            const std::vector<float> &input_taps,  const std::vector<float> &start_finder_taps)
+            const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps,
+            bool handle_multiple_frames_per_burst)
     {
       return gnuradio::get_initial_sptr
-        (new burst_downmix_impl(sample_rate, search_depth, hard_max_queue_len, input_taps, start_finder_taps));
+        (new burst_downmix_impl(sample_rate, search_depth, hard_max_queue_len, input_taps, start_finder_taps,
+            handle_multiple_frames_per_burst));
     }
 
     /*
      * The private constructor
      */
     burst_downmix_impl::burst_downmix_impl(int sample_rate, int search_depth, size_t hard_max_queue_len,
-            const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps)
+            const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps,
+            bool handle_multiple_frames_per_burst)
       : gr::sync_block("burst_downmix",
               gr::io_signature::make(0, 0, 0),
               gr::io_signature::make(0, 0, 0)),
@@ -86,6 +89,7 @@ namespace gr {
               d_fft_over_size_facor(16),
               d_sync_search_len((::iridium::PREAMBLE_LENGTH_LONG + ::iridium::UW_LENGTH + 2) * d_output_samples_per_symbol),
               d_hard_max_queue_len(hard_max_queue_len),
+              d_handle_multiple_frames_per_burst(handle_multiple_frames_per_burst),
               d_debug(false),
 
               d_frame(NULL),
@@ -551,7 +555,7 @@ namespace gr {
     }
 
     void burst_downmix_impl::handler(pmt::pmt_t msg)
-	{
+    {
       /*
        * Extract the burst and meta data from the cpdu
        */
@@ -691,11 +695,17 @@ namespace gr {
         write_data_c(d_frame + start, burst_size - start, (char *)"signal-filtered-deci-cut-start", id);
       }
 
-      int handled_samples;
-      do {
-        handled_samples = process_next_frame(sample_rate, center_frequency, offset, id, burst_size, start);
-        start += handled_samples;
-      } while(handled_samples > 0);
+      if(d_handle_multiple_frames_per_burst) {
+        // Make some room in the id space
+        uint64_t new_id = id * 10;
+        int handled_samples;
+        do {
+            handled_samples = process_next_frame(sample_rate, center_frequency, offset, new_id++, burst_size, start);
+            start += handled_samples;
+        } while(d_handle_multiple_frames_per_burst && handled_samples > 0);
+      } else {
+        process_next_frame(sample_rate, center_frequency, offset, id, burst_size, start);
+      }
 
       message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
     }
