@@ -340,7 +340,7 @@ namespace gr {
         printf("A:no ");
       }
 
-      printf("L:no ");
+      printf("I:%011ld ", id);
 
       printf("%3d%% %.3f %3d ", confidence, level, (int)n_symbols - ::iridium::UW_LENGTH);
 
