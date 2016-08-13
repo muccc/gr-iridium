@@ -134,6 +134,16 @@ class FlowGraph(gr.top_block):
                 source.set_bb_gain(bb_gain, 0)
                 print >> sys.stderr, "BB Gain:", source.get_gain("BB", 0), '(Requested %d)' % bb_gain
 
+            if 'vga1_gain' in d:
+                vga1_gain = int(d['vga1_gain'])
+                source.set_gain(vga1_gain , "VGA1", 0)
+                print >> sys.stderr, "VGA1 Gain:", source.get_gain("VGA1", 0), '(Requested %d)' % vga1_gain
+
+            if 'vga2_gain' in d:
+                vga2_gain = int(d['vga2_gain'])
+                source.set_gain(vga2_gain , "VGA2", 0)
+                print >> sys.stderr, "VGA2 Gain:", source.get_gain("VGA2", 0), '(Requested %d)' % vga2_gain
+
             if 'bandwidth' in d:
                 bandwidth = int(d['bandwidth'])
                 source.set_bandwidth(bandwidth, 0)
