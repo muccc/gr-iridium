@@ -83,7 +83,7 @@ def print_stats(tb):
         ok_count = 0
         last_print = time.time()
 
-        time.sleep(60)
+        time.sleep(1)
 
 
 
