@@ -129,6 +129,7 @@ class FlowGraph(gr.top_block):
                         print >> sys.stderr, gain_name, "Gain:", source.get_gain(gain_name, 0), '(Requested %d)' % gain_value
                     else:
                         print >> sys.stderr, "WARNING: Gain", gain_name, "not supported by source!"
+                        print >> sys.stderr, "Supported gains:", source.get_gain_names()
 
             if 'bandwidth' in d:
                 bandwidth = int(d['bandwidth'])
