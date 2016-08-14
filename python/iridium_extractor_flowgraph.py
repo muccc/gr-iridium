@@ -119,30 +119,16 @@ class FlowGraph(gr.top_block):
                 source.set_gain(gain, 0)
                 print >> sys.stderr, "(RF) Gain:", source.get_gain(0), '(Requested %d)' % gain
 
-            if 'if_gain' in d:
-                if_gain = int(d['if_gain'])
-                source.set_if_gain(if_gain, 0)
-                print >> sys.stderr, "IF Gain:", source.get_gain("IF", 0), '(Requested %d)' % if_gain
+            for key, value in d.iteritems():
+                if key.endswith("_gain"):
+                    gain_name = key.split('_')[0].upper() 
+                    gain_value = int(value)
 
-            if 'mix_gain' in d:
-                mix_gain = int(d['mix_gain'])
-                source.set_mix_gain(mix_gain, 0)
-                print >> sys.stderr, "MIX Gain:", source.get_gain("MIX", 0), '(Requested %d)' % mix_gain
-
-            if 'bb_gain' in d:
-                bb_gain = int(d['bb_gain'])
-                source.set_bb_gain(bb_gain, 0)
-                print >> sys.stderr, "BB Gain:", source.get_gain("BB", 0), '(Requested %d)' % bb_gain
-
-            if 'vga1_gain' in d:
-                vga1_gain = int(d['vga1_gain'])
-                source.set_gain(vga1_gain , "VGA1", 0)
-                print >> sys.stderr, "VGA1 Gain:", source.get_gain("VGA1", 0), '(Requested %d)' % vga1_gain
-
-            if 'vga2_gain' in d:
-                vga2_gain = int(d['vga2_gain'])
-                source.set_gain(vga2_gain , "VGA2", 0)
-                print >> sys.stderr, "VGA2 Gain:", source.get_gain("VGA2", 0), '(Requested %d)' % vga2_gain
+                    if gain_name in source.get_gain_names():
+                        source.set_gain(gain_value, gain_name, 0)
+                        print >> sys.stderr, gain_name, "Gain:", source.get_gain(gain_name, 0), '(Requested %d)' % gain_value
+                    else:
+                        print >> sys.stderr, "WARNING: Gain", gain_name, "not supported by source!"
 
             if 'bandwidth' in d:
                 bandwidth = int(d['bandwidth'])
