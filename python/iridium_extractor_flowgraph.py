@@ -16,10 +16,10 @@ import math
 
 
 class FlowGraph(gr.top_block):
-    def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, signal_width=40e3, offline=False, max_queue_len=500, handle_multiple_frames_per_burst=False, verbose=False):
+    def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, signal_width=40e3, offline=False, max_queue_len=500, handle_multiple_frames_per_burst=False, max_bursts=0, verbose=False):
         gr.top_block.__init__(self, "Top Block")
         self._center_frequency = center_frequency
-        self._signal_width = 40e3
+        self._burst_width = 40e3
         self._input_sample_rate = sample_rate
         self._verbose = verbose
         self._threshold = threshold
@@ -31,7 +31,7 @@ class FlowGraph(gr.top_block):
         self._fft_size = int(math.pow(2, 1 + int(math.log(self._input_sample_rate / 1000, 2)))) # fft is approx 1ms long
         self._burst_pre_len = 2 * self._fft_size
         self._burst_post_len = 8 * self._fft_size
-        self._burst_width= int(self._signal_width / (self._input_sample_rate / self._fft_size)) # Area to ignore around an already found signal in FFT bins
+
         if decimation > 1:
             self._use_pfb = True
 
@@ -56,7 +56,7 @@ class FlowGraph(gr.top_block):
             # The bandwidth is simply increased by the signal width.
             # A signal which has its center frequency directly on the border of
             # two channels will reconstruct correclty on both channels.
-            self._fir_bw = (self._input_sample_rate / self._channels + self._signal_width) / 2
+            self._fir_bw = (self._input_sample_rate / self._channels + self._burst_width) / 2
 
             # The remaining bandwidth inside the over samples region is used to
             # contain the transistion region of the filter.
@@ -96,7 +96,7 @@ class FlowGraph(gr.top_block):
 
         if self._verbose:
             print >> sys.stderr, "require %.1f dB" % self._threshold
-            print >> sys.stderr, "burst_width: %d (= %.1f Hz)" % (self._burst_width, self._burst_width*self._input_sample_rate/self._fft_size)
+            print >> sys.stderr, "burst_width: %d Hz" % self._burst_width
 
 
         if self._filename.endswith(".conf"):
@@ -187,14 +187,14 @@ class FlowGraph(gr.top_block):
                                 fft_size=self._fft_size,
                                 sample_rate=self._input_sample_rate,
                                 burst_pre_len=self._burst_pre_len, burst_post_len=self._burst_post_len,
-                                burst_width=self._burst_width,
-                                max_bursts=100,
+                                burst_width=int(self._burst_width),
+                                max_bursts=max_bursts,
                                 threshold=self._threshold,
                                 history_size=512,
                                 debug=self._verbose)
 
         # Initial filter to filter the detected bursts. Runs at burst_sample_rate. Used to decimate the signal.
-        # TODO: Should probably be set to self._signal_width
+        # TODO: Should probably be set to self._burst_width
         input_filter = gnuradio.filter.firdes.low_pass_2(1, self._burst_sample_rate, 40e3/2, 40e3, 40)
         #input_filter = gnuradio.filter.firdes.low_pass_2(1, self._burst_sample_rate, 42e3/2, 24e3, 40)
         #print len(input_filter)

@@ -62,7 +62,7 @@ namespace gr {
         d_n_tagged_bursts(0),
         d_fft(NULL), d_history_size(history_size), d_peaks(std::vector<peak>()),
         d_bursts(std::vector<burst>()), d_history_primed(false), d_history_index(0),
-        d_burst_post_len(burst_post_len), d_burst_width(burst_width), d_debug(debug), d_burst_debug_file(NULL)
+        d_burst_post_len(burst_post_len), d_debug(debug), d_burst_debug_file(NULL)
 
     {
         
@@ -106,8 +106,15 @@ namespace gr {
         if(max_bursts){
           d_max_bursts = max_bursts;
         } else {
-          d_max_bursts = (sample_rate / d_burst_width) / 2;
+          // Consider the signal to be invalid if more than 80%
+          // of all channels are in use.
+          d_max_bursts = (sample_rate / burst_width) * 0.8;
         }
+
+        // Area to ignore around an already found signal in FFT bins
+        // Internal representation is in FFT bins
+        d_burst_width = burst_width / (sample_rate / fft_size);
+
         if(d_debug) {
           fprintf(stderr, "d_max_bursts=%d\n", d_max_bursts);
         }

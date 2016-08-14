@@ -116,7 +116,7 @@ if __name__ == "__main__":
     jobs = 4
     offline = False
     max_queue_len = 500
-    burst_size = 20
+    max_bursts = 0
     direction = None
     decimation = 1
     handle_multiple_frames_per_burst = False
@@ -163,7 +163,7 @@ if __name__ == "__main__":
         elif opt in ('-q', '--queuelen'):
             max_queue_len = int(arg)
         elif opt in ('-b', '--burstsize'):
-            burst_size = int(arg)
+            max_bursts = int(arg)
         #elif opt == '--uplink':
         #    direction = iridium.UPLINK
         #elif opt == '--downlink':
@@ -195,6 +195,7 @@ if __name__ == "__main__":
             threshold=threshold, signal_width=search_window,
             offline=offline, max_queue_len = max_queue_len,
             handle_multiple_frames_per_burst=handle_multiple_frames_per_burst,
+            max_bursts=max_bursts,
             verbose=verbose)
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))
