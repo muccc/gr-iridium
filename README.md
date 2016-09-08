@@ -75,7 +75,7 @@ By default, the extractor will drop samples or bursts if the computing power ava
 
 If you have an already recorded file, use the `-o`,`--offline` option to not drop bursts. In this case the extractor will pause reading the file (or input stream) until it can process more samples again.
 
-### `-d`, `--decimation`: Decimation
+### `-D`, `--decimation`: Decimation
 This option enables decimation and channelization of the input stream before it gets handled by the burst based components. This helps to reduce the needed memory bandwidth when many bursts appear at the same time. Use this option if you get dropped bursts during online operation.
 
 The decimation has to be even. Internally a poly phase filter bank will be used to channelize the input spectrum. Each channel will be decimated by the chosen decimation. To account for Doppler shift, the channels overlap each other. To provide the needed additional sample rate, one more channel than needed is created and oversampling activated. This results in a total output bandwidth of input bandwidth * (1 + 1/decimation).
