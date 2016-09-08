@@ -30,7 +30,7 @@ The following commands are examples how to use the `iridium-extractor` tool. To 
 
 ### Online (with an SDR)
 
-`iridium-extractor -D 4 examples/hackrf.conf | grep "A:OK" > output.bits`
+`iridium-extractor -d 4 examples/hackrf.conf | grep "A:OK" > output.bits`
 
 This will capture the complete Iridium band using a connected HackRF and demodulate detected bursts into frames. It uses decimation to keep up if there are many bursts at the same time.
 
