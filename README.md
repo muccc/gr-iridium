@@ -7,7 +7,7 @@ It provides a sample application which can be used to detect and demodulate data
 You should also have a look at the [iridium-toolkit](https://github.com/muccc/iridium-toolkit).
 
 ## Prerequisites
-A working [GNURadio](https://gnuradio.com) installation with the following components is necessary:
+A working [GNURadio](https://gnuradio.org) installation with the following components is necessary:
 
  - VOLK
  - FFT
