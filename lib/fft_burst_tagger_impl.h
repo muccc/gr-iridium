@@ -23,6 +23,7 @@
 
 #include <iridium/fft_burst_tagger.h>
 #include <gnuradio/fft/fft.h>
+#include <pmt/pmt.h>
 
 namespace gr {
   namespace iridium {

@@ -564,9 +564,9 @@ namespace gr {
       const gr_complex * burst = (const gr_complex*)pmt::c32vector_elements(samples, burst_size);
 
       pmt::pmt_t meta = pmt::car(msg);
-      float relative_frequency = pmt::to_float(pmt::dict_ref(meta, pmt::mp("relative_frequency"), pmt::PMT_NIL));
-      float center_frequency = pmt::to_float(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
-      float sample_rate = pmt::to_float(pmt::dict_ref(meta, pmt::mp("sample_rate"), pmt::PMT_NIL));
+      float relative_frequency = pmt::to_double(pmt::dict_ref(meta, pmt::mp("relative_frequency"), pmt::PMT_NIL));
+      float center_frequency = pmt::to_double(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
+      float sample_rate = pmt::to_double(pmt::dict_ref(meta, pmt::mp("sample_rate"), pmt::PMT_NIL));
       uint64_t id = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("id"), pmt::PMT_NIL));
       uint64_t offset = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("offset"), pmt::PMT_NIL));
 
