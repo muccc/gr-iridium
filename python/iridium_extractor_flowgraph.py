@@ -102,6 +102,7 @@ class FlowGraph(gr.top_block):
         if self._filename.endswith(".conf"):
             import ConfigParser
             config = ConfigParser.ConfigParser()
+	    config.optionxform = str
             config.read(self._filename)
             items = config.items("osmosdr-source")
             d = {key: value for key, value in items}
@@ -121,7 +122,8 @@ class FlowGraph(gr.top_block):
 
             for key, value in d.iteritems():
                 if key.endswith("_gain"):
-                    gain_name = key.split('_')[0].upper() 
+                    gain_name = key.split('_')[0] 
+                  #  gain_name = key.split('_')[0].upper() 
                     gain_value = int(value)
 
                     if gain_name in source.get_gain_names():
