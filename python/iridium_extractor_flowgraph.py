@@ -192,6 +192,8 @@ class FlowGraph(gr.top_block):
         #print len(start_finder_filter)
 
         self._iridium_qpsk_demod = iridium.iridium_qpsk_demod_cpp()
+        self._iridium_frame_printer = iridium.iridium_frame_printer()
+
         #self._iridium_qpsk_demod = iridium.iridium_qpsk_demod(250000)
 
         if self._use_pfb:
@@ -253,6 +255,10 @@ class FlowGraph(gr.top_block):
 
             self._burst_downmixers = [burst_downmix]
             self._burst_to_pdu_converters = [burst_to_pdu]
+        
+
+        tb.msg_connect((self._iridium_qpsk_demod, 'pdus'), (self._iridium_frame_printer, 'pdus'))
+
 
     def get_n_detected_bursts(self):
         return self._fft_burst_tagger.get_n_tagged_bursts()

@@ -34,7 +34,8 @@ GR_PYTHON_INSTALL(
     iridium_extractor_flowgraph.py
     iridium_qpsk_demod.py
     gr_iridium.py
-    gr_iridium_demod.py DESTINATION ${GR_PYTHON_DIR}/iridium
+    gr_iridium_demod.py
+    iridium_frame_printer.py DESTINATION ${GR_PYTHON_DIR}/iridium
 )
 
 ########################################################################
@@ -52,3 +53,4 @@ GR_ADD_TEST(qa_iridium_qpsk_demod ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DI
 GR_ADD_TEST(qa_pdu_null_sink ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_pdu_null_sink.py)
 GR_ADD_TEST(qa_iridium_qpsk_demod_cpp ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_iridium_qpsk_demod_cpp.py)
 GR_ADD_TEST(qa_pdu_round_robin ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_pdu_round_robin.py)
+GR_ADD_TEST(qa_iridium_frame_printer ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_iridium_frame_printer.py)
