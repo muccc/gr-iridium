@@ -57,9 +57,10 @@ namespace gr {
         d_n_access_ok_bursts(0),
         d_symbol_mapping{0, 1, 2, 3}
     {
-      std::time_t t = std::time(0); 
-      snprintf(d_file_info, sizeof(d_file_info), "i-%lu-t1", t);
       message_port_register_in(pmt::mp("cpdus"));
+
+      message_port_register_out(pmt::mp("pdus"));
+
       set_msg_handler(pmt::mp("cpdus"), boost::bind(&iridium_qpsk_demod_cpp_impl::handler, this, _1));
     }
 
@@ -233,7 +234,7 @@ namespace gr {
     }
 
     void
-    iridium_qpsk_demod_cpp_impl::map_symbols_to_bits(const int * demodulated_burst, size_t n_symbols, std::vector<bool> &bits)
+    iridium_qpsk_demod_cpp_impl::map_symbols_to_bits(const int * demodulated_burst, size_t n_symbols, std::vector<uint8_t> &bits)
     {
       int i;
 
@@ -241,15 +242,15 @@ namespace gr {
 
       for(i = 0; i < n_symbols; i++) {
         if(demodulated_burst[i] & 2) {
-          bits.push_back(true);
+          bits.push_back(1);
         } else {
-          bits.push_back(false);
+          bits.push_back(0);
         }
 
         if(demodulated_burst[i] & 1) {
-          bits.push_back(true);
+          bits.push_back(1);
         } else {
-          bits.push_back(false);
+          bits.push_back(0);
         }
       }
     }
@@ -326,32 +327,32 @@ namespace gr {
       bool dl_uw_ok = check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::DOWNLINK);
       bool ul_uw_ok = check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::UPLINK);
 
+      d_n_handled_bursts++;
+
+      if(!dl_uw_ok && !ul_uw_ok) {
+        // Drop frames which have no valid sync word
+        return;
+      }
+
+      d_n_access_ok_bursts++;
+
       decode_deqpsk(d_demodulated_burst, n_symbols);
 
       map_symbols_to_bits(d_demodulated_burst, n_symbols, d_bits);
 
-      printf("RAW: %s %07d %010d ", d_file_info, timestamp, (int)center_frequency);
-      d_n_handled_bursts++;
+      pmt::pmt_t pdu_meta = pmt::make_dict();
+      pmt::pmt_t pdu_vector = pmt::init_u8vector(d_bits.size(), d_bits);
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("timestamp"), pmt::mp(timestamp));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("center_frequency"), pmt::mp(center_frequency));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(id));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("confidence"), pmt::mp(confidence));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("level"), pmt::mp(level));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("n_symbols"), pmt::mp(n_symbols));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)(ul_uw_ok?1:0)));
 
-      if(dl_uw_ok || ul_uw_ok) {
-        printf("A:OK ");
-        d_n_access_ok_bursts++;
-      } else {
-        printf("A:no ");
-      }
-
-      printf("I:%011ld ", id);
-
-      printf("%3d%% %.3f %3d ", confidence, level, (int)n_symbols - ::iridium::UW_LENGTH);
-
-      for(bool b : d_bits) {
-        if(b) {
-          printf("1");
-        } else {
-          printf("0");
-        }
-      }
-      printf("\n");
+      pmt::pmt_t out_msg = pmt::cons(pdu_meta,
+          pdu_vector);
+      message_port_pub(pmt::mp("pdus"), out_msg);
     }
 
     int

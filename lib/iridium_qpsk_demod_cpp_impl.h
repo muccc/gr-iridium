@@ -37,11 +37,10 @@ namespace gr {
       gr_complex * d_decimated_burst;
       int * d_demodulated_burst;
       int d_symbol_mapping[4];
-      char d_file_info[128];
       uint64_t d_n_handled_bursts;
       uint64_t d_n_access_ok_bursts;
 
-      std::vector<bool> d_bits;
+      std::vector<uint8_t> d_bits;
 
       void handler(pmt::pmt_t msg);
       void update_buffer_sizes(size_t burst_size);
@@ -50,7 +49,7 @@ namespace gr {
       size_t demod_qpsk(const gr_complex *burst, size_t n_symbols, int * out, float * level, int * confidence);
       bool check_sync_word(int * d_demodulated_burst, size_t n_symbols, ::iridium::direction direction);
       void decode_deqpsk(int * demodulated_burst, size_t n_symbols);
-      void map_symbols_to_bits(const int * demodulated_burst, size_t n_symbols, std::vector<bool> &bits);
+      void map_symbols_to_bits(const int * demodulated_burst, size_t n_symbols, std::vector<uint8_t> &bits);
      public:
       iridium_qpsk_demod_cpp_impl();
       ~iridium_qpsk_demod_cpp_impl();

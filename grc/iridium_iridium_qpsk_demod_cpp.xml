@@ -11,4 +11,8 @@
     <type>message</type>
   </sink>
 
+  <source>
+    <name>pdus</name>
+    <type>message</type>
+  </source>
 </block>
