@@ -25,5 +25,6 @@ install(FILES
     iridium_pdu_null_sink.xml
     iridium_iridium_qpsk_demod_cpp.xml
     iridium_pdu_round_robin.xml
-    iridium_iridium_frame_printer.xml DESTINATION share/gnuradio/grc/blocks
+    iridium_iridium_frame_printer.xml
+    iridium_frame_sorter.xml DESTINATION share/gnuradio/grc/blocks
 )

@@ -33,4 +33,5 @@ except ImportError:
 # import any pure python here
 from iridium_qpsk_demod import iridium_qpsk_demod
 from iridium_frame_printer import iridium_frame_printer
+from frame_sorter import frame_sorter
 #
