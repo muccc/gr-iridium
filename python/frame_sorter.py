@@ -41,6 +41,7 @@ class frame_sorter(gr.sync_block):
         meta = gr.pmt.to_python(gr.pmt.car(msg_pmt))
         timestamp = meta['timestamp']
         freq = meta['center_frequency']
+        confidence = meta['confidence']
 
         remove_count = 0
         for message in self._messages:
@@ -59,8 +60,53 @@ class frame_sorter(gr.sync_block):
                 break
             insert_index += 1
 
+        def dup(a, b):
+            if (abs(a['meta']['timestamp'] - b['meta']['timestamp']) <= 1 and
+                abs(a['meta']['center_frequency'] - b['meta']['center_frequency']) < 10000):
+                return True
+            return False
+
+        def offset_ok(offset):
+            return insert_index + offset >= 0 and insert_index + offset < len(self._messages)
+
         message = {'meta': meta, 'data': gr.pmt.to_python(gr.pmt.cdr(msg_pmt))}
-        self._messages.insert(insert_index, message)
+
+        replace_index = None
+
+        if offset_ok(0):
+            if dup(self._messages[insert_index], message):
+                if self._messages[insert_index]['meta']['confidence'] < confidence:
+                    replace_index = insert_index
+                else:
+                    return
+
+        offset = 1
+        while replace_index is None:
+            if offset_ok(+offset):
+                if dup(self._messages[insert_index + offset], message):
+                    if self._messages[insert_index + offset]['meta']['confidence'] < confidence:
+                        replace_index = insert_index + offset
+                        break
+                    else:
+                        return
+
+            if offset_ok(-offset):
+                if dup(self._messages[insert_index - offset], message):
+                    if self._messages[insert_index - offset]['meta']['confidence'] < confidence:
+                        replace_index = insert_index - offset
+                        break
+                    else:
+                        return
+
+            if ((not offset_ok(-offset) or abs(self._messages[insert_index - offset]['meta']['timestamp'] - timestamp) > 1) and
+                    (not offset_ok(+offset)  or abs(self._messages[insert_index + offset]['meta']['timestamp'] - timestamp) > 1)):
+                break
+            offset += 1
+
+        if replace_index is not None:
+            self._messages[replace_index] = message
+        else:
+            self._messages.insert(insert_index, message)
 
     def work(self, input_items, output_items):
         return len(input_items[0])
