@@ -13,6 +13,7 @@ A working [GNURadio](https://gnuradio.org) installation with the following compo
  - FFT
  - Filter
  - Python
+ - SWIG
 
 No other OOT module is needed.
 
