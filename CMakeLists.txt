@@ -105,6 +105,7 @@ endif(APPLE)
 ########################################################################
 find_package(CppUnit)
 find_package(Doxygen)
+find_package(SWIG)
 
 # Search for GNU Radio and its components and versions. Add any
 # components required to the list of GR_REQUIRED_COMPONENTS (in all
@@ -115,6 +116,10 @@ find_package(Gnuradio "3.7.2" REQUIRED)
 
 if(NOT CPPUNIT_FOUND)
     message(FATAL_ERROR "CppUnit required to compile iridium")
+endif()
+
+if(NOT SWIG_FOUND)
+    message(FATAL_ERROR "SWIG required to compile iridium")
 endif()
 
 ########################################################################
