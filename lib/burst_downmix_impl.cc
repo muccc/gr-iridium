@@ -33,6 +33,7 @@
 
 #include <gnuradio/filter/firdes.h>
 #include <volk/volk.h>
+#include <inttypes.h>
 
 namespace gr {
   namespace iridium {
@@ -571,10 +572,10 @@ namespace gr {
       uint64_t offset = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("offset"), pmt::PMT_NIL));
 
       if(d_debug) {
-        printf("---------------> id:%lu len:%ld\n", id, burst_size);
+        printf("---------------> id:%" PRIu64 " len:%zu\n", id, burst_size);
         float absolute_frequency = center_frequency + relative_frequency * sample_rate;
         printf("relative_frequency=%f, absolute_frequency=%f\n", relative_frequency, absolute_frequency);
-        printf("offset=%lu\n", offset);
+        printf("offset=%" PRIu64 "\n", offset);
         printf("sample_rate=%f\n", sample_rate);
       }
 
@@ -628,7 +629,7 @@ namespace gr {
       offset /= decimation;
 
       if(d_debug) {
-        printf("---------------> id:%lu len:%f\n", id, burst_size/d_output_sample_rate);
+        printf("---------------> id:%" PRIu64 " len:%f\n", id, burst_size/d_output_sample_rate);
         write_data_c(d_frame, burst_size, (char *)"signal-filtered-deci", id);
       }
 

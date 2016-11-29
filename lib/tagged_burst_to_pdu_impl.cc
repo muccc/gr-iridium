@@ -24,7 +24,9 @@
 
 #include <gnuradio/io_signature.h>
 #include "tagged_burst_to_pdu_impl.h"
+
 #include <unistd.h>
+#include <inttypes.h>
 
 namespace gr {
   namespace iridium {
@@ -150,7 +152,7 @@ namespace gr {
             int to_copy = noutput_items - relative_offset;
             append_to_burst(d_bursts[id], &in[relative_offset], to_copy);
             if(d_debug) {
-              printf("New burst: offset=%lu, id=%lu, relative_frequency=%f, magnitude=%f\n", tag.offset, id, relative_frequency, magnitude);
+              printf("New burst: offset=%" PRIu64 ", id=%" PRIu64 ", relative_frequency=%f, magnitude=%f\n", tag.offset, id, relative_frequency, magnitude);
             }
           } else {
             printf("Error, malloc failed\n");
@@ -173,7 +175,7 @@ namespace gr {
           int relative_offset = tag.offset - nitems_read(0);
           append_to_burst(burst, in, relative_offset);  
           if(d_debug) {
-            printf("gone burst: %lu %ld\n", id, burst.len);
+            printf("gone burst: %" PRIu64 " %zu\n", id, burst.len);
           }
           publish_burst(burst);
           free(d_bursts[id].data);
@@ -233,9 +235,9 @@ namespace gr {
           get_tags_in_window(new_bursts, 0, 0, noutput_items, pmt::mp("new_burst"));
           n_dropped_bursts += new_bursts.size();
 
-          //fprintf(stderr, "tagged_burst_to_pdu: Queue full. Dropped %d samples. Dropped %lu bursts.\n", noutput_items, n_dropped_bursts);
+          //fprintf(stderr, "tagged_burst_to_pdu: Queue full. Dropped %d samples. Dropped %" PRIu64 " bursts.\n", noutput_items, n_dropped_bursts);
           if(n_dropped_bursts) {
-            fprintf(stderr, "tagged_burst_to_pdu: Queue full. Dropped %lu bursts.\n", n_dropped_bursts);
+            fprintf(stderr, "tagged_burst_to_pdu: Queue full. Dropped %" PRIu64 " bursts.\n", n_dropped_bursts);
           }
           d_n_dropped_bursts += n_dropped_bursts;
           return noutput_items;
