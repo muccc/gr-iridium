@@ -347,7 +347,7 @@ namespace gr {
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(id));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("confidence"), pmt::mp(confidence));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("level"), pmt::mp(level));
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("n_symbols"), pmt::mp(n_symbols));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("n_symbols"), pmt::mp((int)n_symbols));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)(ul_uw_ok?1:0)));
 
       pmt::pmt_t out_msg = pmt::cons(pdu_meta,
