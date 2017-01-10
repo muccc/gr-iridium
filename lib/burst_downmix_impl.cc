@@ -394,16 +394,20 @@ namespace gr {
       // Interpolate the result of the FFT to get a finer resolution.
       // see http://www.dsprelated.com/dspbooks/sasp/Quadratic_Interpolation_Spectral_Peaks.html
       // TODO: The window should be Gaussian and the output should be put on a log scale
-      float alpha = d_magnitude_f[(max_index - 1) % (d_cfo_est_fft_size * d_fft_over_size_facor)];
+      int alpha_index = max_index - 1;
+      // Prevent underflows.
+      if(alpha_index < 0) {
+        // Wrap around if the peak is right in the middle of the spectrum.
+        // (The FFT result has 0 Hz at index 0).
+        alpha_index += d_cfo_est_fft_size * d_fft_over_size_facor;
+      }
+      // Prevent overflows.
+      int gamma_index = (max_index + 1) % (d_cfo_est_fft_size * d_fft_over_size_facor);
+      float alpha = d_magnitude_f[alpha_index];
       float beta = d_magnitude_f[max_index];
-      float gamma = d_magnitude_f[(max_index + 1) % (d_cfo_est_fft_size * d_fft_over_size_facor)];
+      float gamma = d_magnitude_f[gamma_index];
       float correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma);
       float interpolated_index = max_index + correction;
-
-      // Prevent underflows.
-      if(interpolated_index < 0) {
-        interpolated_index += d_cfo_est_fft_size * d_fft_over_size_facor;
-      }
 
       // Remove FFT shift.
       // interpolated_index will now be between -(d_cfo_est_fft_size * d_fft_over_size_facor) / 2
