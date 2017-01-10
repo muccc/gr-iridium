@@ -78,6 +78,8 @@ namespace gr {
       void initialize_cfo_est_fft(void);
       void initialize_correlation_filter(void);
       std::vector<gr_complex> generate_sync_word(::iridium::direction direction);
+      int fft_shift_index(int index, int fft_size);
+      int fft_unshift_index(int index, int fft_size);
 
      public:
       burst_downmix_impl(int sample_rate, int search_depth, size_t hard_max_queue_len,

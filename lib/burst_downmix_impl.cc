@@ -341,6 +341,32 @@ namespace gr {
       return d_n_dropped_bursts;
     }
 
+    // Maps an index in [-N/2 .. (N/2)-1] notation to [0 .. N-1] notation
+    int burst_downmix_impl::fft_shift_index(int index, int fft_size)
+    {
+      // Clamp the input to [-N/2 .. (N/2)-1]
+      index = std::max(index, -fft_size / 2);
+      index = std::min(index, fft_size / 2 - 1);
+
+      if(index < 0) {
+        index += fft_size;
+      }
+      return index;
+    }
+
+    // Maps an index in [0 .. N-1] notation to [-N/2 .. (N/2)-1] notation
+    int burst_downmix_impl::fft_unshift_index(int index, int fft_size)
+    {
+      // Clamp the input to [0 .. N-1]
+      index = std::max(index, 0);
+      index = std::min(index, fft_size - 1);
+
+      if(index >= fft_size / 2) {
+        index -= fft_size;
+      }
+      return index;
+    }
+
     int
     burst_downmix_impl::process_next_frame(float sample_rate, float center_frequency,
             uint64_t offset, uint64_t id, size_t burst_size, int start)
@@ -386,7 +412,9 @@ namespace gr {
       d_cfo_est_fft.execute();
       volk_32fc_magnitude_32f(d_magnitude_f, d_cfo_est_fft.get_outbuf(), d_cfo_est_fft_size * d_fft_over_size_facor);
       float * x = std::max_element(d_magnitude_f, d_magnitude_f + d_cfo_est_fft_size * d_fft_over_size_facor);
-      int max_index = x - d_magnitude_f;
+      const int max_index_shifted = x - d_magnitude_f;
+
+      const int max_index = fft_unshift_index(max_index_shifted, d_cfo_est_fft_size * d_fft_over_size_facor);
       if(d_debug) {
         printf("max_index=%d\n", max_index);
       }
@@ -394,27 +422,16 @@ namespace gr {
       // Interpolate the result of the FFT to get a finer resolution.
       // see http://www.dsprelated.com/dspbooks/sasp/Quadratic_Interpolation_Spectral_Peaks.html
       // TODO: The window should be Gaussian and the output should be put on a log scale
-      int alpha_index = max_index - 1;
-      // Prevent underflows.
-      if(alpha_index < 0) {
-        // Wrap around if the peak is right in the middle of the spectrum.
-        // (The FFT result has 0 Hz at index 0).
-        alpha_index += d_cfo_est_fft_size * d_fft_over_size_facor;
-      }
-      // Prevent overflows.
-      int gamma_index = (max_index + 1) % (d_cfo_est_fft_size * d_fft_over_size_facor);
-      float alpha = d_magnitude_f[alpha_index];
-      float beta = d_magnitude_f[max_index];
-      float gamma = d_magnitude_f[gamma_index];
-      float correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma);
-      float interpolated_index = max_index + correction;
 
-      // Remove FFT shift.
-      // interpolated_index will now be between -(d_cfo_est_fft_size * d_fft_over_size_facor) / 2
-      //                                     and (d_cfo_est_fft_size * d_fft_over_size_facor) / 2
-      if(interpolated_index > d_cfo_est_fft_size * d_fft_over_size_facor / 2) {
-        interpolated_index -= d_cfo_est_fft_size * d_fft_over_size_facor;
-      }
+      // To access d_magnitude_f we have to shift the index back to how the FFT output works
+      const int alpha_index = fft_shift_index(max_index - 1, d_cfo_est_fft_size * d_fft_over_size_facor);
+      const int beta_index = fft_shift_index(max_index, d_cfo_est_fft_size * d_fft_over_size_facor);
+      const int gamma_index = fft_shift_index(max_index + 1, d_cfo_est_fft_size * d_fft_over_size_facor);
+      const float alpha = d_magnitude_f[alpha_index];
+      const float beta = d_magnitude_f[beta_index];
+      const float gamma = d_magnitude_f[gamma_index];
+      const float correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma);
+      const float interpolated_index = max_index + correction;
 
       // Normalize the result.
       // Divide by two to remove the effect of the squaring operation before.
