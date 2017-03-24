@@ -10,6 +10,7 @@ import gnuradio.filter
 
 from gnuradio import gr
 from gnuradio import blocks
+from gnuradio import uhd
 
 import sys
 import math
@@ -103,41 +104,64 @@ class FlowGraph(gr.top_block):
             import ConfigParser
             config = ConfigParser.ConfigParser()
             config.read(self._filename)
-            items = config.items("osmosdr-source")
+
+            if config.has_section("osmosdr-source"):
+                items = config.items("osmosdr-source")
+                is_uhd = False
+            elif config.has_section("uhd-source"):
+                items = config.items("uhd-source")
+                is_uhd = True
+            else:
+                raise ConfigParser.NoSectionError("osmosdr-source or uhd-source")
+
+
             d = {key: value for key, value in items}
 
             if 'device_args' in d:
-                source = osmosdr.source(args=d['device_args'])
+                if is_uhd:
+                    source = uhd.usrp_source(d['device-args'], uhd.io_type.COMPLEX_FLOAT32,1)
+                else:
+                    source = osmosdr.source(args=d['device_args'])
             else:
-                source = osmosdr.source()
+                if is_uhd:
+                    source = uhd.usrp_source('', uhd.io_type.COMPLEX_FLOAT32,1)
+                else:
+                    source = osmosdr.source()
 
-            source.set_sample_rate(self._input_sample_rate)
-            source.set_center_freq(self._center_frequency, 0)
+
+            if is_uhd:
+                source.set_samp_rate(self._input_sample_rate)
+                source.set_center_freq(self._center_frequency)
+                if 'antenna' in d:
+                    source.set_antenna(d['antenna'])
+            else:
+                source.set_sample_rate(self._input_sample_rate)
+                source.set_center_freq(self._center_frequency, 0)
 
             if 'gain' in d:
                 gain = int(d['gain'])
                 source.set_gain(gain, 0)
                 print >> sys.stderr, "(RF) Gain:", source.get_gain(0), '(Requested %d)' % gain
 
-            for key, value in d.iteritems():
-                if key.endswith("_gain"):
-                    gain_name = key.split('_')[0].upper() 
-                    gain_value = int(value)
+            if not is_uhd:
+                for key, value in d.iteritems():
+                    if key.endswith("_gain"):
+                        gain_name = key.split('_')[0].upper()
+                        gain_value = int(value)
+                        if gain_name in source.get_gain_names():
+                            source.set_gain(gain_value, gain_name, 0)
+                            print >> sys.stderr, gain_name, "Gain:", source.get_gain(gain_name, 0), '(Requested %d)' % gain_value
+                        else:
+                            print >> sys.stderr, "WARNING: Gain", gain_name, "not supported by source!"
+                            print >> sys.stderr, "Supported gains:", source.get_gain_names()
 
-                    if gain_name in source.get_gain_names():
-                        source.set_gain(gain_value, gain_name, 0)
-                        print >> sys.stderr, gain_name, "Gain:", source.get_gain(gain_name, 0), '(Requested %d)' % gain_value
-                    else:
-                        print >> sys.stderr, "WARNING: Gain", gain_name, "not supported by source!"
-                        print >> sys.stderr, "Supported gains:", source.get_gain_names()
-
-            if 'bandwidth' in d:
-                bandwidth = int(d['bandwidth'])
-                source.set_bandwidth(bandwidth, 0)
-                print >> sys.stderr, "Bandwidth:", source.get_bandwidth(0), '(Requested %d)' % bandwidth
-            else:
-                source.set_bandwidth(0, 0)
-                print >> sys.stderr, "Warning: Setting bandwidth to", source.get_bandwidth(0)
+                if 'bandwidth' in d:
+                    bandwidth = int(d['bandwidth'])
+                    source.set_bandwidth(bandwidth, 0)
+                    print >> sys.stderr, "Bandwidth:", source.get_bandwidth(0), '(Requested %d)' % bandwidth
+                else:
+                    source.set_bandwidth(0, 0)
+                    print >> sys.stderr, "Warning: Setting bandwidth to", source.get_bandwidth(0)
 
             #source.set_freq_corr($corr0, 0)
             #source.set_dc_offset_mode($dc_offset_mode0, 0)

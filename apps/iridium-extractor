@@ -133,7 +133,14 @@ if __name__ == "__main__":
         import ConfigParser
         config = ConfigParser.ConfigParser()
         config.read(filename)
-        items = config.items("osmosdr-source")
+        if config.has_section("osmosdr-source"):
+            items = config.items("osmosdr-source")
+            is_uhd = False
+        elif config.has_section("uhd-source"):
+            items = config.items("uhd-source")
+            is_uhd = True
+        else:
+            raise ConfigParser.NoSectionError("osmosdr-source or uhd-source")
         d = {key: value for key, value in items}
 
         sample_rate = int(d['sample_rate'])
