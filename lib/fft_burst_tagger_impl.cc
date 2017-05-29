@@ -31,6 +31,7 @@
 #include <volk/volk.h>
 
 #include <stdio.h>
+#include <inttypes.h>
 
 namespace gr {
   namespace iridium {
@@ -129,7 +130,7 @@ namespace gr {
      */
     fft_burst_tagger_impl::~fft_burst_tagger_impl()
     {
-      fprintf(stderr, "Tagged %ld bursts\n", d_n_tagged_bursts);
+      fprintf(stderr, "Tagged %" PRIu64 " bursts\n", d_n_tagged_bursts);
       delete d_fft;
       volk_free(d_window_f);
       volk_free(d_baseline_history_f);
@@ -190,7 +191,7 @@ namespace gr {
 
       while (b != std::end(d_bursts)) {
         if((b->last_active + d_burst_post_len) < d_index) {
-          //printf("Deleting gone burst %lu (start=%lu, d_index=%lu)\n", b->id, b->start, d_index); 
+          //printf("Deleting gone burst %" PRIu64 " (start=%" PRIu64 ", d_index=%" PRIu64 ")\n", b->id, b->start, d_index); 
           b->stop = d_index;
           d_gone_bursts.push_back(*b);
           b = d_bursts.erase(b);
@@ -220,7 +221,7 @@ namespace gr {
           mask_burst(b);
 
           if(d_burst_debug_file) {
-            fprintf(d_burst_debug_file, "%lu,%d,x\n", b.start, b.center_bin);
+            fprintf(d_burst_debug_file, "%" PRIu64 ",%d,x\n", b.start, b.center_bin);
             //float f_rel = (b.center_bin - d_fft_size / 2) / float(d_fft_size);
             //fprintf(d_burst_debug_file, "%f,%f,x\n", b.start/4e6, f_rel * 4e6 + 1624800000);
           }
@@ -273,7 +274,7 @@ namespace gr {
           p.bin = bin;
           p.relative_magnitude = d_relative_magnitude_f[bin];
           d_peaks.push_back(p);
-          //printf("ts %lu bin %d val %f\n", d_index, p.bin, p.relative_magnitude);
+          //printf("ts %" PRIu64 " bin %d val %f\n", d_index, p.bin, p.relative_magnitude);
         }
       }
 
@@ -292,7 +293,7 @@ namespace gr {
     {
       FILE * file = fopen(filename, "a");
       for(peak p : d_peaks) {
-        fprintf(file, "%lu,%d,x\n", d_index, p.bin);
+        fprintf(file, "%" PRIu64 ",%d,x\n", d_index, p.bin);
         //float f_rel = (p.bin - d_fft_size / 2) / float(d_fft_size);
         //fprintf(file, "%f,%f,x\n", d_index/4e6, f_rel * 4e6 + 1624800000);
       }
@@ -303,7 +304,7 @@ namespace gr {
     fft_burst_tagger_impl::tag_new_bursts(void)
     {
       for(burst b : d_new_bursts) {
-        //printf("new burst %lu %lu %lu\n", nitems_read(0), b.start, nitems_read(0) - b.start);
+        //printf("new burst %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", nitems_read(0), b.start, nitems_read(0) - b.start);
         pmt::pmt_t key = pmt::string_to_symbol("new_burst");
         float relative_frequency = (b.center_bin - d_fft_size / 2) / float(d_fft_size);
 
@@ -316,7 +317,7 @@ namespace gr {
 
         // Our output is lagging by d_burst_pre_len samples.
         // Compensate by moving the tag into the past
-        //printf("Tagging new burst %lu on sample %lu (nitems_read(0)=%lu)\n", b.id, b.start + d_burst_pre_len, nitems_read(0));
+        //printf("Tagging new burst %" PRIu64 " on sample %" PRIu64 " (nitems_read(0)=%" PRIu64 ")\n", b.id, b.start + d_burst_pre_len, nitems_read(0));
         add_item_tag(0, b.start + d_burst_pre_len, key, value);
       }
       d_new_bursts.clear();
@@ -334,7 +335,7 @@ namespace gr {
           pmt::pmt_t key = pmt::string_to_symbol("gone_burst");
           pmt::pmt_t value = pmt::make_dict();
           value = pmt::dict_add(value, pmt::mp("id"), pmt::from_uint64(b->id));
-          //printf("Tagging gone burst %lu on sample %lu (nitems_read(0)=%lu, noutput_items=%u)\n", b->id, output_index, nitems_read(0), noutput_items);
+          //printf("Tagging gone burst %" PRIu64 " on sample %" PRIu64 " (nitems_read(0)=%" PRIu64 ", noutput_items=%u)\n", b->id, output_index, nitems_read(0), noutput_items);
           add_item_tag(0, output_index, key, value);
           d_n_tagged_bursts++;
 
