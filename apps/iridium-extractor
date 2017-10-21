@@ -88,7 +88,7 @@ def print_stats(tb):
 
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:j:oq:b:D:', ['offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:j:oq:b:D:h', ['offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
@@ -104,6 +104,7 @@ if __name__ == "__main__":
                                                             'downlink',
                                                             'decimation',
                                                             'multi-frame'
+                                                            'help'
                                                             ])
 
     center = None
@@ -172,6 +173,17 @@ if __name__ == "__main__":
             decimation = int(arg)
         elif opt == '--multi-frame':
             handle_multiple_frames_per_burst = True
+        elif opt in ('-h', '--help'):
+            print >> sys.stderr, "Usage: iridium-extractor [options] <filename>"
+            print >> sys.stderr, "\t-c frequency\tset center frequency"
+            print >> sys.stderr, "\t-r rate \tset sample rate"
+            print >> sys.stderr, "\t-f format\tset input format [rtl, hackrf, sc16, float]"
+            print >> sys.stderr, "\t--offline\tturn on offline mode (don't skip samples)"
+            print >> sys.stderr, "\t-D num   \tturn on decimation (multi-channel decoding) "
+            print >> sys.stderr, "\t<filename>\traw sample file"
+            print >> sys.stderr, ""
+            print >> sys.stderr, "For more documentation check: https://github.com/muccc/gr-iridium/"
+            exit(-1)
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
