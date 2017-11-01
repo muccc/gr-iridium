@@ -139,6 +139,13 @@ class FlowGraph(gr.top_block):
                 source.set_bandwidth(0, 0)
                 print >> sys.stderr, "Warning: Setting bandwidth to", source.get_bandwidth(0)
 
+            if 'antenna' in d:
+                antenna = d['antenna']
+                source.set_antenna(antenna, 0)
+                print >> sys.stderr, "Antenna:", source.get_antenna(0), '(Requested %s)' % antenna
+            else:
+                print >> sys.stderr, "Warning: Setting antenna to", source.get_antenna(0)
+
             #source.set_freq_corr($corr0, 0)
             #source.set_dc_offset_mode($dc_offset_mode0, 0)
             #source.set_iq_balance_mode($iq_balance_mode0, 0)
