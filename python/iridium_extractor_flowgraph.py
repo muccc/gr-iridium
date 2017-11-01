@@ -102,7 +102,6 @@ class FlowGraph(gr.top_block):
         if self._filename.endswith(".conf"):
             import ConfigParser
             config = ConfigParser.ConfigParser()
-	    config.optionxform = str
             config.read(self._filename)
             items = config.items("osmosdr-source")
             d = {key: value for key, value in items}
@@ -122,15 +121,22 @@ class FlowGraph(gr.top_block):
 
             for key, value in d.iteritems():
                 if key.endswith("_gain"):
-                    gain_name = key.split('_')[0] 
-                  #  gain_name = key.split('_')[0].upper() 
+                    gain_option_name = key.split('_')[0]
                     gain_value = int(value)
 
-                    if gain_name in source.get_gain_names():
+                    def match_gain(gain, gain_names):
+                        for gain_name in gain_names:
+                            if gain.lower() == gain_name.lower():
+                                return gain_name
+                        return None
+
+                    gain_name = match_gain(gain_option_name, source.get_gain_names())
+
+                    if gain_name is not None:
                         source.set_gain(gain_value, gain_name, 0)
                         print >> sys.stderr, gain_name, "Gain:", source.get_gain(gain_name, 0), '(Requested %d)' % gain_value
                     else:
-                        print >> sys.stderr, "WARNING: Gain", gain_name, "not supported by source!"
+                        print >> sys.stderr, "WARNING: Gain", gain_option_name, "not supported by source!"
                         print >> sys.stderr, "Supported gains:", source.get_gain_names()
 
             if 'bandwidth' in d:
