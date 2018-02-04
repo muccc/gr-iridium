@@ -103,7 +103,7 @@ if __name__ == "__main__":
                                                             'uplink',
                                                             'downlink',
                                                             'decimation',
-                                                            'multi-frame'
+                                                            'multi-frame',
                                                             'help'
                                                             ])
 
@@ -180,6 +180,7 @@ if __name__ == "__main__":
             print >> sys.stderr, "\t-f format\tset input format [rtl, hackrf, sc16, float]"
             print >> sys.stderr, "\t--offline\tturn on offline mode (don't skip samples)"
             print >> sys.stderr, "\t-D num   \tturn on decimation (multi-channel decoding) "
+            print >> sys.stderr, "\t--multi-frame  \tturn on multiple frame per burst support "
             print >> sys.stderr, "\t<filename>\traw sample file"
             print >> sys.stderr, ""
             print >> sys.stderr, "For more documentation check: https://github.com/muccc/gr-iridium/"
