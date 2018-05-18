@@ -30,7 +30,17 @@ namespace gr {
     void
     qa_fft_burst_tagger::t1()
     {
-      fft_burst_tagger::make(1024, 1000000, 1000, 1000, 100, 0, 7.0, 512, false);
+      //
+      fft_burst_tagger::make(1626000000, /* center_frequency */
+                             4096, /* fft_size */
+                             1000000, /* sample_rate */
+                             4096,  /* burst_pre_len */
+                             8*4096,  /* burst_post_len */
+                             40,  /* burst_width */
+                             0,  /* max_bursts */
+                             7.0,  /* threshold */
+                             512, /* history_size */
+                             false  /*  debug*/);
     }
 
   } /* namespace iridium */
