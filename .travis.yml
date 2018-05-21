@@ -1,0 +1,17 @@
+dist: trusty
+sudo: required
+services:
+  - docker
+language: cpp
+branches:
+  - travis
+install:
+  - .travis/build-docker-image.sh "builder-v1"
+script:
+  - docker run -it -d -v "$(pwd):/code" --name builder "builder-v1"
+  - docker exec builder cmake /code
+  - docker exec builder make
+  - docker exec builder make test
+cache:
+  directories:
+    - docker
