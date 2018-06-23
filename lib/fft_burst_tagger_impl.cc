@@ -91,6 +91,12 @@ namespace gr {
         d_burst_mask_f = (float *)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
         d_ones_f = (float *)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
 
+        memset(d_baseline_history_f, 0, sizeof(float) * d_fft_size * d_history_size);
+        memset(d_baseline_sum_f, 0, sizeof(float) * d_fft_size);
+        memset(d_magnitude_f, 0, sizeof(float) * d_fft_size);
+        memset(d_magnitude_shifted_f, 0, sizeof(float) * d_fft_size);
+        memset(d_relative_magnitude_f, 0, sizeof(float) * d_fft_size);
+
         for(int i = 0; i < d_fft_size; i++) {
             d_ones_f[i] = 1.0;
             d_burst_mask_f[i] = 1.0;
