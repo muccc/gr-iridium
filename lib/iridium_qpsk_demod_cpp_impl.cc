@@ -317,7 +317,7 @@ namespace gr {
       // frequency or phase offset
       qpskFirstOrderPLL(d_decimated_burst, n_symbols, d_alpha, d_burst_after_pll);
 #else
-      memcpy(d_burst_after_pll, d_decimated_burst, n_sybmols * sizeof(gr_complex));
+      memcpy(d_burst_after_pll, d_decimated_burst, n_symbols * sizeof(gr_complex));
 #endif
 
       int confidence;
