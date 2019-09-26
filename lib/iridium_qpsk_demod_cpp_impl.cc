@@ -262,19 +262,28 @@ namespace gr {
         return false;
       }
 
+      const int *uw;
+      int uw_len;
       if(direction == ::iridium::direction::DOWNLINK) {
-        if(memcmp(demodulated_burst, ::iridium::UW_DL, sizeof(::iridium::UW_DL)) == 0) {
-          return true;
-        }
+        uw = ::iridium::UW_DL;
+        uw_len = sizeof(::iridium::UW_DL) / sizeof(*::iridium::UW_DL);
       }
 
       if(direction == ::iridium::direction::UPLINK) {
-        if(memcmp(demodulated_burst, ::iridium::UW_UL, sizeof(::iridium::UW_UL)) == 0) {
-          return true;
-        }
+        uw = ::iridium::UW_UL;
+        uw_len = sizeof(::iridium::UW_DL) / sizeof(*::iridium::UW_DL);
       }
 
-      return false;
+      int diffs = 0;
+      for(int i=0; i < uw_len; i++) {
+        int diff = abs(demodulated_burst[i] - uw[i]);
+        if(diff == 3) { // A 90 deg diff, counts as "1"
+          diff = 1;
+        }
+        diffs += diff;
+      }
+
+      return diffs <= 2;
     }
 
     uint64_t
