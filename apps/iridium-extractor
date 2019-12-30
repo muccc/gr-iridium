@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # vim: set ts=4 sw=4 tw=0 et pm=:
 import time
 import getopt
@@ -74,7 +74,7 @@ def print_stats(tb):
         stats += " | ok: %10d" % ok_count_total
         stats += " | ok_avg: %3d/s" % ok_rate_avg
         stats += " | d: %d" % drop_count_total
-        print >> sys.stderr, stats
+        print(stats, file=sys.stderr)
 
         queue_len_max = 0
         in_count = 0
@@ -127,12 +127,12 @@ if __name__ == "__main__":
     else:
         filename = remainder[0]
         if not os.path.isfile(filename):
-            print >> sys.stderr, "Specified input file `%s` does not exist" % filename
+            print("Specified input file `%s` does not exist" % filename, file=sys.stderr)
             exit(1)
 
     if filename.endswith(".conf"):
-        import ConfigParser
-        config = ConfigParser.ConfigParser()
+        import configparser
+        config = configparser.ConfigParser()
         config.read(filename)
         items = config.items("osmosdr-source")
         d = {key: value for key, value in items}
@@ -174,32 +174,32 @@ if __name__ == "__main__":
         elif opt == '--multi-frame':
             handle_multiple_frames_per_burst = True
         elif opt in ('-h', '--help'):
-            print >> sys.stderr, "Usage: iridium-extractor [options] <filename>"
-            print >> sys.stderr, "\t-c frequency\tset center frequency"
-            print >> sys.stderr, "\t-r rate \tset sample rate"
-            print >> sys.stderr, "\t-f format\tset input format [rtl, hackrf, sc16, float]"
-            print >> sys.stderr, "\t--offline\tturn on offline mode (don't skip samples)"
-            print >> sys.stderr, "\t-D num   \tturn on decimation (multi-channel decoding) "
-            print >> sys.stderr, "\t--multi-frame  \tturn on multiple frame per burst support "
-            print >> sys.stderr, "\t<filename>\traw sample file"
-            print >> sys.stderr, ""
-            print >> sys.stderr, "For more documentation check: https://github.com/muccc/gr-iridium/"
+            print("Usage: iridium-extractor [options] <filename>", file=sys.stderr)
+            print("\t-c frequency\tset center frequency", file=sys.stderr)
+            print("\t-r rate \tset sample rate", file=sys.stderr)
+            print("\t-f format\tset input format [rtl, hackrf, sc16, float]", file=sys.stderr)
+            print("\t--offline\tturn on offline mode (don't skip samples)", file=sys.stderr)
+            print("\t-D num   \tturn on decimation (multi-channel decoding) ", file=sys.stderr)
+            print("\t--multi-frame  \tturn on multiple frame per burst support ", file=sys.stderr)
+            print("\t<filename>\traw sample file", file=sys.stderr)
+            print("", file=sys.stderr)
+            print("For more documentation check: https://github.com/muccc/gr-iridium/", file=sys.stderr)
             exit(-1)
 
     if sample_rate == None:
-        print >> sys.stderr, "Sample rate missing!"
+        print("Sample rate missing!", file=sys.stderr)
         exit(1)
     if center == None:
-        print >> sys.stderr, "Need to specify center frequency!"
+        print("Need to specify center frequency!", file=sys.stderr)
         exit(1)
     if fmt == None:
-        print >> sys.stderr, "Need to specify sample format (one of rtl, hackrf, sc16, float)!"
+        print("Need to specify sample format (one of rtl, hackrf, sc16, float)!", file=sys.stderr)
         exit(1)
     if decimation < 1:
-        print >> sys.stderr, "Decimation must be > 0"
+        print("Decimation must be > 0", file=sys.stderr)
         exit(1)
     if decimation > 1 and decimation % 2:
-        print >> sys.stderr, "Decimations > 1 must be even"
+        print("Decimations > 1 must be even", file=sys.stderr)
         exit(1)
 
 
@@ -217,4 +217,4 @@ if __name__ == "__main__":
 
     tb.run()
 
-    print >> sys.stderr, "Done."
+    print("Done.", file=sys.stderr)

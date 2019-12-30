@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 # vim: set ts=4 sw=4 tw=0 et fenc=utf8 pm=:
 import struct
@@ -9,7 +9,7 @@ import os.path
 import cmath
 import re
 import getopt
-import gr_iridium as iridium
+from . import gr_iridium as iridium
 
 
 UW_DOWNLINK = "022220002002"
@@ -23,7 +23,7 @@ def mynormalize(v):
     reals = normalize([x.real for x in v])
     imags = normalize([x.imag for x in v])
     zip=[]
-    for i in xrange(len(reals)):
+    for i in range(len(reals)):
         zip.append(complex(reals[i],imags[i]))
     return zip
 
@@ -34,7 +34,7 @@ class Demod(object):
         self._debug = debug
         
         if self._verbose:
-            print "sample rate:",self._sample_rate
+            print("sample rate:",self._sample_rate)
 
         if self._sample_rate % iridium.SYMBOLS_PER_SECOND != 0:
             raise Exception("Non-int samples per symbol")
@@ -42,7 +42,7 @@ class Demod(object):
         self._samples_per_symbol= self._sample_rate / iridium.SYMBOLS_PER_SECOND
 
         if self._verbose:
-            print "samples per symbol:",self._samples_per_symbol
+            print("samples per symbol:",self._samples_per_symbol)
 
     def qpsk(self, phase):
         self._nsymbols+=1
@@ -55,7 +55,7 @@ class Demod(object):
         off=(45-(phase % 90))
         if (abs(off)>22):
             if self._verbose:
-                print "Symbol offset >22"
+                print("Symbol offset >22")
             self._errors+='1'
         else:
             self._errors+='0'
@@ -70,8 +70,8 @@ class Demod(object):
         lmax=abs(numpy.max(signal[:16*self._samples_per_symbol]))
 
         if self._verbose:
-            print "level:",level
-            print 'lmax:', lmax
+            print("level:",level)
+            print('lmax:', lmax)
 
         i = start_sample
 
@@ -90,7 +90,7 @@ class Demod(object):
             mapping= [2,1,-2,-1] # mapping: symbols->*.peaks output
 
         if self._verbose:
-            print "len:",len(signal)
+            print("len:",len(signal))
 
         phase=0 # Current phase offset
         alpha=2 # How many degrees is still fine.
@@ -202,7 +202,7 @@ class Demod(object):
                 self.samples=self.samples+[signal[i]]
 
             if self._verbose:
-                print "Symbol @%06d (%3d°,%3.0f%%)=%d delay=%d phase=%d"%(i,ang%360,lvl*100,symbol,delay,phase)
+                print("Symbol @%06d (%3d°,%3.0f%%)=%d delay=%d phase=%d"%(i,ang%360,lvl*100,symbol,delay,phase))
             if self._debug:
                 self.peaks[i]=complex(+lmax,mapping[symbol]*lmax/5.)
                 self.turned_signal[i:i+self._samples_per_symbol] = signal[i:i+self._samples_per_symbol] * cmath.rect(1,numpy.radians(phase))
@@ -216,7 +216,7 @@ class Demod(object):
                     break
 
         if self._verbose:
-            print "Done."
+            print("Done.")
 
         access=""
         for s in symbols[:iridium.UW_LENGTH]:
@@ -260,14 +260,14 @@ class Demod(object):
         self._real_freq_offset=phase/360.*iridium.SYMBOLS_PER_SECOND/self._nsymbols
 
         if self._verbose:
-            print "access:",access_ok,"(%s)"%access
-            print "leadout:",lead_out_ok
-            print "len:",self._nsymbols
-            print "confidence:",confidence
-            print "data:",data
-            print "final delay",delay
-            print "final phase",phase
-            print "frequency offset:", self._real_freq_offset
+            print("access:",access_ok,"(%s)"%access)
+            print("leadout:",lead_out_ok)
+            print("len:",self._nsymbols)
+            print("confidence:",confidence)
+            print("data:",data)
+            print("final delay",delay)
+            print("final phase",phase)
+            print("frequency offset:", self._real_freq_offset)
 
         if access_ok:
             data="<"+data[:iridium.UW_LENGTH*2]+"> "+data[iridium.UW_LENGTH*2:]

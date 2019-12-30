@@ -1,8 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
 import iridium
-
+from iridium import iridium_swig
 import scipy.signal
 
 import osmosdr
@@ -74,18 +74,18 @@ class FlowGraph(gr.top_block):
 
             # If the transition width approaches 0, the filter size goes up significantly.
             if len(self._pfb_fir_filter) > 200:
-                print >> sys.stderr, "Warning: The PFB FIR filter has an abnormal large number of taps:", len(self._pfb_fir_filter)
-                print >> sys.stderr, "Consider reducing the decimation factor or increase the over sampling ratio"
+                print("Warning: The PFB FIR filter has an abnormal large number of taps:", len(self._pfb_fir_filter), file=sys.stderr)
+                print("Consider reducing the decimation factor or increase the over sampling ratio", file=sys.stderr)
 
 
             self._burst_sample_rate = pfb_output_sample_rate
             if self._verbose:
-                print >> sys.stderr, "self._channels", self._channels
-                print >> sys.stderr, "len(self._pfb_fir_filter)", len(self._pfb_fir_filter)
-                print >> sys.stderr, "self._pfb_over_sample_ratio", self._pfb_over_sample_ratio
-                print >> sys.stderr, "self._fir_bw", self._fir_bw
-                print >> sys.stderr, "self._fir_tw", self._fir_tw
-                print >> sys.stderr, "self._burst_sample_rate", self._burst_sample_rate
+                print("self._channels", self._channels, file=sys.stderr)
+                print("len(self._pfb_fir_filter)", len(self._pfb_fir_filter), file=sys.stderr)
+                print("self._pfb_over_sample_ratio", self._pfb_over_sample_ratio, file=sys.stderr)
+                print("self._fir_bw", self._fir_bw, file=sys.stderr)
+                print("self._fir_tw", self._fir_tw, file=sys.stderr)
+                print("self._burst_sample_rate", self._burst_sample_rate, file=sys.stderr)
         else:
             self._use_pfb = False
             self._burst_sample_rate = self._input_sample_rate
@@ -95,13 +95,13 @@ class FlowGraph(gr.top_block):
         self._max_burst_len = int(self._burst_sample_rate * 0.09)
 
         if self._verbose:
-            print >> sys.stderr, "require %.1f dB" % self._threshold
-            print >> sys.stderr, "burst_width: %d Hz" % self._burst_width
+            print("require %.1f dB" % self._threshold, file=sys.stderr)
+            print("burst_width: %d Hz" % self._burst_width, file=sys.stderr)
 
 
         if self._filename.endswith(".conf"):
-            import ConfigParser
-            config = ConfigParser.ConfigParser()
+            import configparser
+            config = configparser.ConfigParser()
             config.read(self._filename)
             items = config.items("osmosdr-source")
             d = {key: value for key, value in items}
@@ -117,9 +117,9 @@ class FlowGraph(gr.top_block):
             if 'gain' in d:
                 gain = int(d['gain'])
                 source.set_gain(gain, 0)
-                print >> sys.stderr, "(RF) Gain:", source.get_gain(0), '(Requested %d)' % gain
+                print("(RF) Gain:", source.get_gain(0), '(Requested %d)' % gain, file=sys.stderr)
 
-            for key, value in d.iteritems():
+            for key, value in d.items():
                 if key.endswith("_gain"):
                     gain_option_name = key.split('_')[0]
                     gain_value = int(value)
@@ -134,25 +134,25 @@ class FlowGraph(gr.top_block):
 
                     if gain_name is not None:
                         source.set_gain(gain_value, gain_name, 0)
-                        print >> sys.stderr, gain_name, "Gain:", source.get_gain(gain_name, 0), '(Requested %d)' % gain_value
+                        print(gain_name, "Gain:", source.get_gain(gain_name, 0), '(Requested %d)' % gain_value, file=sys.stderr)
                     else:
-                        print >> sys.stderr, "WARNING: Gain", gain_option_name, "not supported by source!"
-                        print >> sys.stderr, "Supported gains:", source.get_gain_names()
+                        print("WARNING: Gain", gain_option_name, "not supported by source!", file=sys.stderr)
+                        print("Supported gains:", source.get_gain_names(), file=sys.stderr)
 
             if 'bandwidth' in d:
                 bandwidth = int(d['bandwidth'])
                 source.set_bandwidth(bandwidth, 0)
-                print >> sys.stderr, "Bandwidth:", source.get_bandwidth(0), '(Requested %d)' % bandwidth
+                print("Bandwidth:", source.get_bandwidth(0), '(Requested %d)' % bandwidth, file=sys.stderr)
             else:
                 source.set_bandwidth(0, 0)
-                print >> sys.stderr, "Warning: Setting bandwidth to", source.get_bandwidth(0)
+                print("Warning: Setting bandwidth to", source.get_bandwidth(0), file=sys.stderr)
 
             if 'antenna' in d:
                 antenna = d['antenna']
                 source.set_antenna(antenna, 0)
-                print >> sys.stderr, "Antenna:", source.get_antenna(0), '(Requested %s)' % antenna
+                print("Antenna:", source.get_antenna(0), '(Requested %s)' % antenna, file=sys.stderr)
             else:
-                print >> sys.stderr, "Warning: Setting antenna to", source.get_antenna(0)
+                print("Warning: Setting antenna to", source.get_antenna(0), file=sys.stderr)
 
             #source.set_freq_corr($corr0, 0)
             #source.set_dc_offset_mode($dc_offset_mode0, 0)
@@ -185,7 +185,7 @@ class FlowGraph(gr.top_block):
         #                    int burst_pre_len, int burst_post_len, int burst_width,
         #                    int max_bursts, float threshold, int history_size, bool debug)
 
-        self._fft_burst_tagger = iridium.fft_burst_tagger(center_frequency=self._center_frequency,
+        self._fft_burst_tagger = iridium_swig.fft_burst_tagger(center_frequency=self._center_frequency,
                                 fft_size=self._fft_size,
                                 sample_rate=self._input_sample_rate,
                                 burst_pre_len=self._burst_pre_len, burst_post_len=self._burst_post_len,
@@ -206,7 +206,7 @@ class FlowGraph(gr.top_block):
         start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, 250000, 5e3/2, 10e3/2, 60)
         #print len(start_finder_filter)
 
-        self._iridium_qpsk_demod = iridium.iridium_qpsk_demod_cpp()
+        self._iridium_qpsk_demod = iridium_swig.iridium_qpsk_demod_cpp()
         self._frame_sorter = iridium.frame_sorter()
         self._iridium_frame_printer = iridium.iridium_frame_printer()
 
@@ -224,9 +224,9 @@ class FlowGraph(gr.top_block):
                 relative_center = center / float(self._channels)
                 relative_span = 1. / self._channels
                 relative_sample_rate = relative_span * self._pfb_over_sample_ratio
-                burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len, relative_center,
+                burst_to_pdu_converter = iridium_swig.tagged_burst_to_pdu(self._max_burst_len, relative_center,
                                             relative_span, relative_sample_rate, self._max_queue_len, not self._offline)
-                burst_downmixer = iridium.burst_downmix(self._burst_sample_rate,
+                burst_downmixer = iridium_swig.burst_downmix(self._burst_sample_rate,
                                     int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
 
                 self._burst_downmixers.append(burst_downmixer)
@@ -252,8 +252,8 @@ class FlowGraph(gr.top_block):
 
                 tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus'))
         else:
-            burst_downmix = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
-            burst_to_pdu = iridium.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 1.0, self._max_queue_len, not self._offline)
+            burst_downmix = iridium_swig.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
+            burst_to_pdu = iridium_swig.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 1.0, self._max_queue_len, not self._offline)
 
             if converter:
                 #multi = blocks.multiply_const_cc(1/128.)

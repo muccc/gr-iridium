@@ -24,6 +24,7 @@ include(GrPlatform) #define LIB_SUFFIX
 
 include_directories(${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIRS})
+
 list(APPEND iridium_sources
     fft_burst_tagger_impl.cc
     iuchar_to_complex_impl.cc
@@ -40,7 +41,14 @@ if(NOT iridium_sources)
 endif(NOT iridium_sources)
 
 add_library(gnuradio-iridium SHARED ${iridium_sources})
-target_link_libraries(gnuradio-iridium ${Boost_LIBRARIES} ${GNURADIO_ALL_LIBRARIES})
+target_link_libraries(gnuradio-iridium ${Boost_LIBRARIES} gnuradio::gnuradio-runtime gnuradio::gnuradio-filter gnuradio::gnuradio-blocks gnuradio::gnuradio-fft volk)
+
+target_include_directories(gnuradio-iridium
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+    PUBLIC $<BUILD_INTERFACE:${Boost_INCLUDE_DIR}>
+    PUBLIC $<INSTALL_INTERFACE:include>
+  )
+
 set_target_properties(gnuradio-iridium PROPERTIES DEFINE_SYMBOL "gnuradio_iridium_EXPORTS")
 
 if(APPLE)
@@ -55,33 +63,37 @@ set(CMAKE_CXX_FLAGS "-std=c++11")
 ########################################################################
 # Install built library files
 ########################################################################
-install(TARGETS gnuradio-iridium
-    LIBRARY DESTINATION lib${LIB_SUFFIX} # .so/.dylib file
-    ARCHIVE DESTINATION lib${LIB_SUFFIX} # .lib file
-    RUNTIME DESTINATION bin              # .dll file
-)
+include(GrMiscUtils)
+GR_LIBRARY_FOO(gnuradio-iridium)
+
+########################################################################
+# Print summary
+########################################################################
+message(STATUS "Using install prefix: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "Building for version: ${VERSION} / ${LIBVER}")
 
 ########################################################################
 # Build and register unit test
 ########################################################################
 include(GrTest)
-
-include_directories(${CPPUNIT_INCLUDE_DIRS})
-
 list(APPEND test_iridium_sources
+)
+
+list(APPEND GR_TEST_TARGET_DEPS gnuradio-iridium
     ${CMAKE_CURRENT_SOURCE_DIR}/test_iridium.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/qa_iridium.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/qa_fft_burst_tagger.cc
 )
 
-add_executable(test-iridium ${test_iridium_sources})
+#add_executable(test-iridium ${test_iridium_sources})
 
-target_link_libraries(
-  test-iridium
-  ${GNURADIO_RUNTIME_LIBRARIES}
-  ${Boost_LIBRARIES}
-  ${CPPUNIT_LIBRARIES}
-  gnuradio-iridium
-)
+if(NOT test_iridium_sources)
+    MESSAGE(STATUS "No C++ unit tests... skipping")
+    return()
+endif(NOT test_iridium_sources)
 
-GR_ADD_TEST(test_iridium test-iridium)
+foreach(qa_file ${test_iridium_sources})
+    GR_ADD_CPP_TEST("iridium_${qa_file}"
+        ${CMAKE_CURRENT_SOURCE_DIR}/${qa_file}
+    )
+endforeach(qa_file)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # 
 # Copyright 2016 Free Software Foundation, Inc.
@@ -21,8 +21,8 @@
 
 import numpy
 from gnuradio import gr
-import gr_iridium_demod
-import gr_iridium as iridium
+from . import gr_iridium_demod
+from . import gr_iridium as iridium
 import time
 
 class iridium_qpsk_demod(gr.sync_block):
@@ -66,7 +66,7 @@ class iridium_qpsk_demod(gr.sync_block):
         rawfile = self._file_info
         timestamp = meta['offset'] / meta['sample_rate'] * 1000
         freq = meta['center_frequency']
-        print "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(rawfile,timestamp,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-iridium.UW_LENGTH),data)
+        print("RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(rawfile,timestamp,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-iridium.UW_LENGTH),data))
         if access_ok:
             self._n_access_ok_bursts += 1
 

@@ -21,7 +21,7 @@
 
 from gnuradio import gr, gr_unittest
 from gnuradio import blocks
-from frame_sorter import frame_sorter
+from .frame_sorter import frame_sorter
 
 class qa_frame_sorter (gr_unittest.TestCase):
 

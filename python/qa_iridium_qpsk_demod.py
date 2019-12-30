@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # 
 # Copyright 2016 Free Software Foundation, Inc.
@@ -21,7 +21,7 @@
 
 from gnuradio import gr, gr_unittest
 from gnuradio import blocks
-from iridium_qpsk_demod import iridium_qpsk_demod
+from .iridium_qpsk_demod import iridium_qpsk_demod
 
 class qa_iridium_qpsk_demod (gr_unittest.TestCase):
 

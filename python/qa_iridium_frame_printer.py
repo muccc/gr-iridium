@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # 
 # Copyright 2016 Free Software Foundation, Inc.
@@ -21,7 +21,7 @@
 
 from gnuradio import gr, gr_unittest
 from gnuradio import blocks
-from iridium_frame_printer import iridium_frame_printer
+from .iridium_frame_printer import iridium_frame_printer
 
 class qa_iridium_frame_printer (gr_unittest.TestCase):
 
