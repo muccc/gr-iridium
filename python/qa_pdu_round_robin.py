@@ -21,7 +21,7 @@
 
 from gnuradio import gr, gr_unittest
 from gnuradio import blocks
-import iridium_swig as iridium
+import iridium.iridium_swig as iridium
 
 class qa_pdu_round_robin (gr_unittest.TestCase):
 

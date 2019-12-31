@@ -2,7 +2,6 @@
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
 import iridium
-from iridium import iridium_swig
 import scipy.signal
 
 import osmosdr
@@ -185,7 +184,7 @@ class FlowGraph(gr.top_block):
         #                    int burst_pre_len, int burst_post_len, int burst_width,
         #                    int max_bursts, float threshold, int history_size, bool debug)
 
-        self._fft_burst_tagger = iridium_swig.fft_burst_tagger(center_frequency=self._center_frequency,
+        self._fft_burst_tagger = iridium.fft_burst_tagger(center_frequency=self._center_frequency,
                                 fft_size=self._fft_size,
                                 sample_rate=self._input_sample_rate,
                                 burst_pre_len=self._burst_pre_len, burst_post_len=self._burst_post_len,
@@ -206,7 +205,7 @@ class FlowGraph(gr.top_block):
         start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, 250000, 5e3/2, 10e3/2, 60)
         #print len(start_finder_filter)
 
-        self._iridium_qpsk_demod = iridium_swig.iridium_qpsk_demod_cpp()
+        self._iridium_qpsk_demod = iridium.iridium_qpsk_demod_cpp()
         self._frame_sorter = iridium.frame_sorter()
         self._iridium_frame_printer = iridium.iridium_frame_printer()
 
@@ -224,9 +223,9 @@ class FlowGraph(gr.top_block):
                 relative_center = center / float(self._channels)
                 relative_span = 1. / self._channels
                 relative_sample_rate = relative_span * self._pfb_over_sample_ratio
-                burst_to_pdu_converter = iridium_swig.tagged_burst_to_pdu(self._max_burst_len, relative_center,
+                burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len, relative_center,
                                             relative_span, relative_sample_rate, self._max_queue_len, not self._offline)
-                burst_downmixer = iridium_swig.burst_downmix(self._burst_sample_rate,
+                burst_downmixer = iridium.burst_downmix(self._burst_sample_rate,
                                     int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
 
                 self._burst_downmixers.append(burst_downmixer)
@@ -252,8 +251,8 @@ class FlowGraph(gr.top_block):
 
                 tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus'))
         else:
-            burst_downmix = iridium_swig.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
-            burst_to_pdu = iridium_swig.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 1.0, self._max_queue_len, not self._offline)
+            burst_downmix = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
+            burst_to_pdu = iridium.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 1.0, self._max_queue_len, not self._offline)
 
             if converter:
                 #multi = blocks.multiply_const_cc(1/128.)

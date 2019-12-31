@@ -26,7 +26,7 @@ description here (python/__init__.py).
 # import swig generated symbols into the iridium namespace
 try:
 	# this might fail if the module is python-only
-	from iridium_swig import *
+	from iridium.iridium_swig import *
 except ImportError:
 	pass
 
