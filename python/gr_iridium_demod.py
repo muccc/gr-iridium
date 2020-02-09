@@ -9,7 +9,7 @@ import os.path
 import cmath
 import re
 import getopt
-import gr_iridium as iridium
+from . import gr_iridium as iridium
 
 
 UW_DOWNLINK = "022220002002"
@@ -34,28 +34,28 @@ class Demod(object):
         self._debug = debug
         
         if self._verbose:
-            print "sample rate:",self._sample_rate
+            print("sample rate:",self._sample_rate)
 
         if self._sample_rate % iridium.SYMBOLS_PER_SECOND != 0:
             raise Exception("Non-int samples per symbol")
 
-        self._samples_per_symbol= self._sample_rate / iridium.SYMBOLS_PER_SECOND
+        self._samples_per_symbol= self._sample_rate // iridium.SYMBOLS_PER_SECOND
 
         if self._verbose:
-            print "samples per symbol:",self._samples_per_symbol
+            print("samples per symbol:",self._samples_per_symbol)
 
     def qpsk(self, phase):
         self._nsymbols+=1
         phase = phase % 360
 
         # In theory we should only see 45, 135, 225 and 315 here.
-        sym=int(phase)/90
-        #print "symbol", sym
+        sym=int(phase)//90
+        #print("symbol", sym)
 
         off=(45-(phase % 90))
         if (abs(off)>22):
             if self._verbose:
-                print "Symbol offset >22"
+                print("Symbol offset >22")
             self._errors+='1'
         else:
             self._errors+='0'
@@ -70,8 +70,8 @@ class Demod(object):
         lmax=abs(numpy.max(signal[:16*self._samples_per_symbol]))
 
         if self._verbose:
-            print "level:",level
-            print 'lmax:', lmax
+            print("level:",level)
+            print('lmax:', lmax)
 
         i = start_sample
 
@@ -90,7 +90,7 @@ class Demod(object):
             mapping= [2,1,-2,-1] # mapping: symbols->*.peaks output
 
         if self._verbose:
-            print "len:",len(signal)
+            print("len:",len(signal))
 
         phase=0 # Current phase offset
         alpha=2 # How many degrees is still fine.
@@ -119,23 +119,23 @@ class Demod(object):
                 if pre<0 and post<0 and cur>0:
                     if curpre>cur and cur>curpost:
                         if self._verbose:
-                            print "Sampled late"
+                            print("Sampled late")
                         i-=sdiff
                         delay-=sdiff
                     if curpre<cur and cur<curpost:
                         if self._verbose:
-                            print "Sampled early"
+                            print("Sampled early")
                         i+=sdiff
                         delay-=sdiff
                 elif pre>0 and post>0 and cur<0:
                     if curpre>cur and cur>curpost:
                         if self._verbose:
-                            print "Sampled early"
+                            print("Sampled early")
                         i+=sdiff
                         delay+=sdiff
                     if curpre<cur and cur<curpost:
                         if self._verbose:
-                            print "Sampled late"
+                            print("Sampled late")
                         i-=sdiff
                         delay-=sdiff
                 else:
@@ -148,28 +148,28 @@ class Demod(object):
                     if pre<0 and post<0 and cur>0:
                         if curpre>cur and cur>curpost:
                             if self._verbose:
-                                print "Sampled late"
+                                print("Sampled late")
                             i-=sdiff
                             delay-=sdiff
                         if curpre<cur and cur<curpost:
                             if self._verbose:
-                                print "Sampled early"
+                                print("Sampled early")
                             i+=sdiff
                             delay+=sdiff
                     elif pre>0 and post>0 and cur<0:
                         if curpre>cur and cur>curpost:
                             if self._verbose:
-                                print "Sampled early"
+                                print("Sampled early")
                             i+=sdiff
                             delay+=sdiff
                         if curpre<cur and cur<curpost:
                             if self._verbose:
-                                print "Sampled late"
+                                print("Sampled late")
                             i-=sdiff
                             delay-=sdiff
             except IndexError:
                 if self._verbose:
-                    print "Last sample"
+                    print("Last sample")
             """
 
             lvl= abs(signal[i])/level
@@ -185,15 +185,15 @@ class Demod(object):
                         self.peaks[i+self._samples_per_symbol/10]=complex(-lmax*0.8,0);
                     except IndexError:
                         if self._verbose:
-                            print "Last sample"
+                            print("Last sample")
                 if self._verbose:
-                    print "offset forward"
+                    print("offset forward")
                 phase+=sdiff
             if(offset<-alpha):
                 if self._debug:
                     self.peaks[i-self._samples_per_symbol/10]=complex(-lmax*0.8,0);
                 if self._verbose:
-                    print "offset backward"
+                    print("offset backward")
                 phase-=sdiff
 
             """
@@ -202,7 +202,7 @@ class Demod(object):
                 self.samples=self.samples+[signal[i]]
 
             if self._verbose:
-                print "Symbol @%06d (%3d°,%3.0f%%)=%d delay=%d phase=%d"%(i,ang%360,lvl*100,symbol,delay,phase)
+                print("Symbol @%06d (%3d°,%3.0f%%)=%d delay=%d phase=%d"%(i,ang%360,lvl*100,symbol,delay,phase))
             if self._debug:
                 self.peaks[i]=complex(+lmax,mapping[symbol]*lmax/5.)
                 self.turned_signal[i:i+self._samples_per_symbol] = signal[i:i+self._samples_per_symbol] * cmath.rect(1,numpy.radians(phase))
@@ -216,7 +216,7 @@ class Demod(object):
                     break
 
         if self._verbose:
-            print "Done."
+            print("Done.")
 
         access=""
         for s in symbols[:iridium.UW_LENGTH]:
@@ -237,8 +237,8 @@ class Demod(object):
             else:
                 bits=1
             oldsym=s
-            data+=str((bits&2)/2)+str(bits&1)
-            dataarray+=[(bits&2)/2,bits&1]
+            data+=str((bits&2)//2)+str(bits&1)
+            dataarray+=[(bits&2)//2,bits&1]
 
         if access == UW_DOWNLINK or access == UW_UPLINK:
             access_ok = True
@@ -251,7 +251,7 @@ class Demod(object):
         if lead_out_ok:
             # TODO: Check if we are above 1626 MHz
             data = data[:data.find(lead_out)]
-            self._nsymbols = (len(data) + len(lead_out)) / 2
+            self._nsymbols = (len(data) + len(lead_out)) // 2
             self._errors = self._errors[:self._nsymbols]
 
         error_count = self._errors.count('1')
@@ -260,14 +260,14 @@ class Demod(object):
         self._real_freq_offset=phase/360.*iridium.SYMBOLS_PER_SECOND/self._nsymbols
 
         if self._verbose:
-            print "access:",access_ok,"(%s)"%access
-            print "leadout:",lead_out_ok
-            print "len:",self._nsymbols
-            print "confidence:",confidence
-            print "data:",data
-            print "final delay",delay
-            print "final phase",phase
-            print "frequency offset:", self._real_freq_offset
+            print("access:",access_ok,"(%s)"%access)
+            print("leadout:",lead_out_ok)
+            print("len:",self._nsymbols)
+            print("confidence:",confidence)
+            print("data:",data)
+            print("final delay",delay)
+            print("final phase",phase)
+            print("frequency offset:", self._real_freq_offset)
 
         if access_ok:
             data="<"+data[:iridium.UW_LENGTH*2]+"> "+data[iridium.UW_LENGTH*2:]

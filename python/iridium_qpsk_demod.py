@@ -1,28 +1,29 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
-# Copyright 2016 Free Software Foundation, Inc.
-# 
+#
+# Copyright 2020 Free Software Foundation, Inc.
+#
 # This is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3, or (at your option)
 # any later version.
-# 
+#
 # This software is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this software; see the file COPYING.  If not, write to
 # the Free Software Foundation, Inc., 51 Franklin Street,
 # Boston, MA 02110-1301, USA.
-# 
+#
+
 
 import numpy
 from gnuradio import gr
-import gr_iridium_demod
-import gr_iridium as iridium
+from . import gr_iridium_demod
+from . import gr_iridium as iridium
 import time
 
 class iridium_qpsk_demod(gr.sync_block):
@@ -59,14 +60,14 @@ class iridium_qpsk_demod(gr.sync_block):
         # 'direction': 0L,
         # 'sample_rate': 250000.0,
         # 'uw_start': 160L}
-        #print meta
+        #print(meta)
 
         self._n_handled_bursts += 1
         dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = self._demod.demod(signal, start_sample=meta['uw_start'])
         rawfile = self._file_info
         timestamp = meta['offset'] / meta['sample_rate'] * 1000
         freq = meta['center_frequency']
-        print "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(rawfile,timestamp,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-iridium.UW_LENGTH),data)
+        print("RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(rawfile,timestamp,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-iridium.UW_LENGTH),data))
         if access_ok:
             self._n_access_ok_bursts += 1
 

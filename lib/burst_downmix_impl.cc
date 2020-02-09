@@ -1,6 +1,6 @@
 /* -*- c++ -*- */
 /*
- * Copyright 2016 Free Software Foundation, Inc
+ * Copyright 2020 Free Software Foundation, Inc.
  *
  * This is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -66,6 +66,7 @@ namespace gr {
         (new burst_downmix_impl(sample_rate, search_depth, hard_max_queue_len, input_taps, start_finder_taps,
             handle_multiple_frames_per_burst));
     }
+
 
     /*
      * The private constructor
