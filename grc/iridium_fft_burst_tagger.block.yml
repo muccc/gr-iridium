@@ -2,7 +2,7 @@
 
 id: iridium_fft_burst_tagger
 label: fft_burst_tagger
-category: iridium
+category: '[Iridium]'
 
 parameters:
 -   id: center_frequency

@@ -2,7 +2,7 @@
 
 id: iridium_iridium_qpsk_demod
 label: iridium_qpsk_demod
-category: iridium
+category: '[Iridium]'
 
 parameters:
 -   id: sample_rate

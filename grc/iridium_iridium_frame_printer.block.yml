@@ -2,7 +2,7 @@
 
 id: iridium_iridium_frame_printer
 label: iridium_frame_printer
-category: iridium
+category: '[Iridium]'
 
 inputs:
 -   domain: message
