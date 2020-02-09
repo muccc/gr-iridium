@@ -1,6 +1,6 @@
 /*!
- * \defgroup block GNU Radio IRIDIUM_TOOLKIT C++ Signal Processing Blocks
- * \brief All C++ blocks that can be used from the IRIDIUM_TOOLKIT GNU Radio
+ * \defgroup block GNU Radio IRIDIUM C++ Signal Processing Blocks
+ * \brief All C++ blocks that can be used from the IRIDIUM GNU Radio
  *        module are listed here or in the subcategories below.
  *
  */

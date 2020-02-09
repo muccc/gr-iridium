@@ -19,19 +19,20 @@
 # The presence of this file turns this directory into a Python package
 
 '''
-This is the GNU Radio IRIDIUM_TOOLKIT module. Place your Python package
+This is the GNU Radio IRIDIUM module. Place your Python package
 description here (python/__init__.py).
 '''
+from __future__ import unicode_literals
 
 # import swig generated symbols into the iridium namespace
 try:
-	# this might fail if the module is python-only
-	from iridium_swig import *
+    # this might fail if the module is python-only
+    from .iridium_swig import *
 except ImportError:
-	pass
+    pass
 
 # import any pure python here
-from iridium_qpsk_demod import iridium_qpsk_demod
-from iridium_frame_printer import iridium_frame_printer
-from frame_sorter import frame_sorter
+from .iridium_qpsk_demod import iridium_qpsk_demod
+from .iridium_frame_printer import iridium_frame_printer
+from .frame_sorter import frame_sorter
 #
