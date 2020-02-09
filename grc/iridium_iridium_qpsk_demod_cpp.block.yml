@@ -2,7 +2,7 @@
 
 id: iridium_iridium_qpsk_demod_cpp
 label: iridium_qpsk_demod_cpp
-category: iridium
+category: '[Iridium]'
 
 inputs:
 -   domain: message

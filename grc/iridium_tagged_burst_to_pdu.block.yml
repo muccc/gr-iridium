@@ -2,7 +2,7 @@
 
 id: iridium_tagged_burst_to_pdu
 label: tagged_burst_to_pdu
-category: iridium
+category: '[Iridium]'
 
 parameters:
 -   id: max_burst_size

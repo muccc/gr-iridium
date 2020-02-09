@@ -2,7 +2,7 @@
 
 id: iridium_iuchar_to_complex
 label: iuchar_to_complex
-category: iridium
+category: '[Iridium]'
 
 inputs:
 -   domain: stream

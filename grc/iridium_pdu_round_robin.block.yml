@@ -2,7 +2,7 @@
 
 id: iridium_pdu_round_robin
 label: pdu_round_robin
-category: iridium
+category: '[Iridium]'
 
 parameters:
 -   id: output_count

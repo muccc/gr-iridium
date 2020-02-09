@@ -2,7 +2,7 @@
 
 id: iridium_burst_downmix
 label: burst_downmix
-category: iridium
+category: '[Iridium]'
 
 parameters:
 -   id: sample_rate

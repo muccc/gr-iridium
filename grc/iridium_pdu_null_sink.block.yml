@@ -2,7 +2,7 @@
 
 id: iridium_pdu_null_sink
 label: pdu_null_sink
-category: iridium
+category: '[Iridium]'
 
 inputs:
 -   domain: message

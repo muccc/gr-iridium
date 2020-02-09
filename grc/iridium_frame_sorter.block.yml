@@ -2,7 +2,7 @@
 
 id: iridium_frame_sorter
 label: frame_sorter
-category: iridium
+category: '[Iridium]'
 
 inputs:
 -   domain: message
