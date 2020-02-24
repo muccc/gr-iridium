@@ -6,7 +6,7 @@ It provides a sample application which can be used to detect and demodulate data
 
 You should also have a look at the [iridium-toolkit](https://github.com/muccc/iridium-toolkit).
 
-> :warning: **If you want to buld for GNURadio 3.7**: Make sure to use the `main-3.7` branch of this repository (i.e. run `git checkout maint-3.7` before installation).
+> :warning: **If you want to build for GNURadio 3.7**: Make sure to use the `main-3.7` branch of this repository (i.e. run `git checkout maint-3.7` before installation).
 
 ## Prerequisites
 A working [GNURadio](https://gnuradio.org) installation with the following components is necessary:
