@@ -35,7 +35,7 @@ namespace gr {
     class IRIDIUM_API pdu_null_sink : virtual public gr::sync_block
     {
      public:
-      typedef boost::shared_ptr<pdu_null_sink> sptr;
+      typedef std::shared_ptr<pdu_null_sink> sptr;
 
       /*!
        * \brief Return a shared_ptr to a new instance of iridium::pdu_null_sink.
