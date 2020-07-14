@@ -23,6 +23,7 @@ parameters:
 -   id: handle_multiple_frames_per_burst
     label: Handle Multiple Frames Per Burst
     dtype: bool
+    default: 'False'
 
 inputs:
 -   domain: message
