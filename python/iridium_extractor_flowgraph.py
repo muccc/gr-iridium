@@ -15,7 +15,7 @@ import math
 
 
 class FlowGraph(gr.top_block):
-    def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, signal_width=40e3, offline=False, max_queue_len=500, handle_multiple_frames_per_burst=False, max_bursts=0, verbose=False):
+    def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, signal_width=40e3, offline=False, max_queue_len=500, handle_multiple_frames_per_burst=False, raw_capture_filename=None, max_bursts=0, verbose=False):
         gr.top_block.__init__(self, "Top Block")
         self._center_frequency = center_frequency
         self._burst_width = 40e3
@@ -221,6 +221,14 @@ class FlowGraph(gr.top_block):
         self._iridium_frame_printer = iridium.iridium_frame_printer()
 
         #self._iridium_qpsk_demod = iridium.iridium_qpsk_demod(250000)
+
+        if raw_capture_filename:
+            raw_sink = blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename=raw_capture_filename)
+            tb.connect(source, raw_sink)
+            # Enable the following if not fast enough
+            #self._burst_to_pdu_converters = []
+            #self._burst_downmixers = []
+            #return
 
         tb.connect(source, self._fft_burst_tagger)
 

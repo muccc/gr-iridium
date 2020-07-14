@@ -104,6 +104,7 @@ if __name__ == "__main__":
                                                             'downlink',
                                                             'decimation',
                                                             'multi-frame',
+                                                            'raw-capture=',
                                                             'help'
                                                             ])
 
@@ -120,6 +121,7 @@ if __name__ == "__main__":
     max_bursts = 0
     direction = None
     decimation = 1
+    raw_capture_filename = None
     handle_multiple_frames_per_burst = False
 
     if len(remainder) == 0 or remainder[0] == '-':
@@ -173,6 +175,8 @@ if __name__ == "__main__":
             decimation = int(arg)
         elif opt == '--multi-frame':
             handle_multiple_frames_per_burst = True
+        elif opt == '--raw-capture':
+            raw_capture_filename = arg
         elif opt in ('-h', '--help'):
             print("Usage: iridium-extractor [options] <filename>", file=sys.stderr)
             print("\t-c frequency\tset center frequency", file=sys.stderr)
@@ -181,6 +185,7 @@ if __name__ == "__main__":
             print("\t--offline\tturn on offline mode (don't skip samples)", file=sys.stderr)
             print("\t-D num   \tturn on decimation (multi-channel decoding) ", file=sys.stderr)
             print("\t--multi-frame  \tturn on multiple frame per burst support ", file=sys.stderr)
+            print("\t--raw-capture=filename  \tsave raw IQ samples (fc32) to file ", file=sys.stderr)
             print("\t<filename>\traw sample file", file=sys.stderr)
             print("", file=sys.stderr)
             print("For more documentation check: https://github.com/muccc/gr-iridium/", file=sys.stderr)
@@ -208,6 +213,7 @@ if __name__ == "__main__":
             threshold=threshold, signal_width=search_window,
             offline=offline, max_queue_len = max_queue_len,
             handle_multiple_frames_per_burst=handle_multiple_frames_per_burst,
+            raw_capture_filename=raw_capture_filename,
             max_bursts=max_bursts,
             verbose=verbose)
 
