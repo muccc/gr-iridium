@@ -31,6 +31,9 @@ class FlowGraph(gr.top_block):
         self._burst_pre_len = 2 * self._fft_size
         self._burst_post_len = 8 * self._fft_size
 
+        # Just to keep the code below a bit more portable
+        tb = self
+
         if decimation > 1:
             self._use_pfb = True
 
@@ -160,7 +163,6 @@ class FlowGraph(gr.top_block):
             #source.set_gain_mode($gain_mode0, 0)
             #source.set_antenna($ant0, 0)
 
-            converter = None
         else:
             if sample_format == "rtl":
                 converter = iridium.iuchar_to_complex()
@@ -176,10 +178,18 @@ class FlowGraph(gr.top_block):
                 itemsize = gr.sizeof_gr_complex
             else:
                 raise RuntimeError("Unknown sample format for offline mode given")
-            source = blocks.file_source(itemsize=itemsize, filename=self._filename, repeat=False)
 
-        # Just to keep the code below a bit more portable
-        tb = self
+            file_source = blocks.file_source(itemsize=itemsize, filename=self._filename, repeat=False)
+
+            if converter:
+                #multi = blocks.multiply_const_cc(1/128.)
+                #tb.connect(file_source, converter, multi)
+                #source = multi
+                tb.connect(file_source, converter)
+                source = converter
+            else:
+                source = file_source
+
 
         #fft_burst_tagger::make(float center_frequency, int fft_size, int sample_rate,
         #                    int burst_pre_len, int burst_post_len, int burst_width,
@@ -212,6 +222,8 @@ class FlowGraph(gr.top_block):
 
         #self._iridium_qpsk_demod = iridium.iridium_qpsk_demod(250000)
 
+        tb.connect(source, self._fft_burst_tagger)
+
         if self._use_pfb:
             self._burst_to_pdu_converters = []
             self._burst_downmixers = []
@@ -237,10 +249,7 @@ class FlowGraph(gr.top_block):
 
             pfb = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._pfb_over_sample_ratio)
 
-            if converter:
-                tb.connect(source, converter, self._fft_burst_tagger, pfb)
-            else:
-                tb.connect(source, self._fft_burst_tagger, pfb)
+            tb.connect(self._fft_burst_tagger, pfb)
 
             for i in range(self._channels):
                 tb.connect((pfb, i), self._burst_to_pdu_converters[i])
@@ -255,13 +264,7 @@ class FlowGraph(gr.top_block):
             burst_downmix = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
             burst_to_pdu = iridium.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 1.0, self._max_queue_len, not self._offline)
 
-            if converter:
-                #multi = blocks.multiply_const_cc(1/128.)
-                #tb.connect(source, converter, multi, self._fft_burst_tagger, burst_to_pdu)
-                tb.connect(source, converter, self._fft_burst_tagger, burst_to_pdu)
-            else:
-                tb.connect(source, self._fft_burst_tagger, burst_to_pdu)
-
+            tb.connect(self._fft_burst_tagger, burst_to_pdu)
 
             tb.msg_connect((burst_to_pdu, 'cpdus'), (burst_downmix, 'cpdus'))
             tb.msg_connect((burst_downmix, 'burst_handled'), (burst_to_pdu, 'burst_handled'))
