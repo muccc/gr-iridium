@@ -384,10 +384,10 @@ namespace gr {
         // Frames above this frequency must be downlink and simplex frames.
         // XXX: If the SDR is not configured well, there might be aliasing from low
         // frequencies in this region.
-        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_SIMPLEX) * d_output_samples_per_symbol;
+        max_frame_length = ::iridium::MAX_FRAME_LENGTH_SIMPLEX * d_output_samples_per_symbol;
         min_frame_length = (::iridium::MIN_FRAME_LENGTH_SIMPLEX) * d_output_samples_per_symbol;
       } else {
-        max_frame_length = (::iridium::PREAMBLE_LENGTH_SHORT + ::iridium::MAX_FRAME_LENGTH_NORMAL) * d_output_samples_per_symbol;
+        max_frame_length = ::iridium::MAX_FRAME_LENGTH_NORMAL * d_output_samples_per_symbol;
         min_frame_length = (::iridium::MIN_FRAME_LENGTH_NORMAL) * d_output_samples_per_symbol;
       }
 
@@ -509,10 +509,7 @@ namespace gr {
         return 0;
       }
 
-      // Clamp preamble_offset to >= 0
-      preamble_offset = std::max(0, preamble_offset);
-
-      size_t frame_size = std::min((int)burst_size - start, max_frame_length + preamble_offset);
+      size_t frame_size = std::min((int)burst_size - start, uw_start + max_frame_length);
       int consumed_samples = frame_size;
 
       /*
@@ -534,15 +531,14 @@ namespace gr {
 
       // Make some room at the start and the end, so the RRC can run
       int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
-      memmove(d_tmp_b + half_rrc_size, d_tmp_b + preamble_offset, frame_size * sizeof(gr_complex));
+      memmove(d_tmp_b + half_rrc_size, d_tmp_b + uw_start, frame_size * sizeof(gr_complex));
       memset(d_tmp_b, 0, half_rrc_size * sizeof(gr_complex));
       memset(d_tmp_b + half_rrc_size + frame_size, 0, half_rrc_size * sizeof(gr_complex));
 
 
       // Update the amount of available samples after filtering
-      uw_start -= preamble_offset;
-      frame_size = std::max((int)frame_size - preamble_offset, 0);
-      preamble_offset = 0;
+      frame_size = std::max((int)frame_size - uw_start, 0);
+      uw_start = 0;
 
       /*
        * Apply the RRC filter.
