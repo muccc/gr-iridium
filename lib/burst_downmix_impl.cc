@@ -538,6 +538,7 @@ namespace gr {
 
       // Update the amount of available samples after filtering
       frame_size = std::max((int)frame_size - uw_start, 0);
+      start += uw_start;
       uw_start = 0;
 
       /*
