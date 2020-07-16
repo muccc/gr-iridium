@@ -305,7 +305,7 @@ namespace gr {
       int uw_start = pmt::to_long(pmt::dict_ref(meta, pmt::mp("uw_start"), pmt::PMT_NIL));
 
       int sps = sample_rate / 25000;
-      int timestamp = offset / sample_rate * 1000;
+      double timestamp = offset / (double)sample_rate;
 
       update_buffer_sizes(burst_size);
 

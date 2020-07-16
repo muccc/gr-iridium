@@ -46,7 +46,7 @@ class frame_sorter(gr.sync_block):
 
         remove_count = 0
         for message in self._messages:
-            if timestamp - message['meta']['timestamp'] > 1000:
+            if timestamp - message['meta']['timestamp'] > 1:
                 self.message_port_pub(gr.pmt.intern('pdus'), gr.pmt.cons(gr.pmt.to_pmt(message['meta']), gr.pmt.to_pmt(message['data'])))
                 remove_count += 1
             else:
@@ -62,7 +62,7 @@ class frame_sorter(gr.sync_block):
             insert_index += 1
 
         def dup(a, b):
-            if (abs(a['meta']['timestamp'] - b['meta']['timestamp']) <= 1 and
+            if (abs(a['meta']['timestamp'] - b['meta']['timestamp']) <= 0.001 and
                 abs(a['meta']['center_frequency'] - b['meta']['center_frequency']) < 10000):
                 return True
             return False
@@ -99,8 +99,8 @@ class frame_sorter(gr.sync_block):
                     else:
                         return
 
-            if ((not offset_ok(-offset) or abs(self._messages[insert_index - offset]['meta']['timestamp'] - timestamp) > 1) and
-                    (not offset_ok(+offset)  or abs(self._messages[insert_index + offset]['meta']['timestamp'] - timestamp) > 1)):
+            if ((not offset_ok(-offset) or abs(self._messages[insert_index - offset]['meta']['timestamp'] - timestamp) > 0.001) and
+                    (not offset_ok(+offset)  or abs(self._messages[insert_index + offset]['meta']['timestamp'] - timestamp) > 0.001)):
                 break
             offset += 1
 
