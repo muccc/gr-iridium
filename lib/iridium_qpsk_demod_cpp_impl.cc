@@ -311,16 +311,16 @@ namespace gr {
       float sample_rate = pmt::to_float(pmt::dict_ref(meta, pmt::mp("sample_rate"), pmt::PMT_NIL));
       uint64_t id = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("id"), pmt::PMT_NIL));
       uint64_t offset = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("offset"), pmt::PMT_NIL));
-      int uw_start = pmt::to_long(pmt::dict_ref(meta, pmt::mp("uw_start"), pmt::PMT_NIL));
+      double uw_start = pmt::to_float(pmt::dict_ref(meta, pmt::mp("uw_start"), pmt::PMT_NIL));
 
       int sps = sample_rate / 25000;
-      double timestamp = offset / (double)sample_rate;
+      double timestamp = (offset + uw_start) / (double)sample_rate;
 
       update_buffer_sizes(burst_size);
 
       // Decimate the burst to one sample per symbol.
       // The first sample is assumed to be the center of the first symbol
-      size_t n_symbols = decimate(burst + uw_start, burst_size - uw_start, sps, d_decimated_burst);
+      size_t n_symbols = decimate(burst, burst_size, sps, d_decimated_burst);
 
 #if 1
       // Apply a PLL to the signal to remove any remaining

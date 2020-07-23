@@ -81,6 +81,7 @@ namespace gr {
       std::vector<gr_complex> generate_sync_word(::iridium::direction direction);
       int fft_shift_index(int index, int fft_size);
       int fft_unshift_index(int index, int fft_size);
+      float interpolate(float alpha, float beta, float gamma);
 
      public:
       burst_downmix_impl(int sample_rate, int search_depth, size_t hard_max_queue_len,

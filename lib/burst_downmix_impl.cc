@@ -375,6 +375,12 @@ namespace gr {
       return index;
     }
 
+    float burst_downmix_impl::interpolate(float alpha, float beta, float gamma)
+    {
+      const float correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma);
+      return correction;
+    }
+
     int
     burst_downmix_impl::process_next_frame(float sample_rate, float center_frequency,
             uint64_t offset, uint64_t id, size_t burst_size, int start)
@@ -438,8 +444,7 @@ namespace gr {
       const float alpha = d_magnitude_f[alpha_index];
       const float beta = d_magnitude_f[beta_index];
       const float gamma = d_magnitude_f[gamma_index];
-      const float correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma);
-      const float interpolated_index = max_index + correction;
+      const float interpolated_index = max_index + interpolate(alpha, beta, gamma);
 
       // Normalize the result.
       // Divide by two to remove the effect of the squaring operation before.
@@ -478,25 +483,43 @@ namespace gr {
       d_corr_dl_ifft->execute();
       d_corr_ul_ifft->execute();
 
+      int corr_offset_dl;
+      int corr_offset_ul;
+
+      float correction_dl;
+      float correction_ul;
+
       // Find the peaks of the correlations
       volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_dl_ifft->get_outbuf(), d_corr_fft_size);
       float * max_dl_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      corr_offset_dl = max_dl_p - d_magnitude_f;
+      if(corr_offset_dl > 0) {
+        correction_dl = interpolate(d_magnitude_f[corr_offset_dl-1], d_magnitude_f[corr_offset_dl], d_magnitude_f[corr_offset_dl+1]);
+      }
       float max_dl = *max_dl_p;
+
       volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_ul_ifft->get_outbuf(), d_corr_fft_size);
       float * max_ul_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      corr_offset_ul = max_ul_p - d_magnitude_f;
+      if(corr_offset_ul > 0) {
+        correction_ul = interpolate(d_magnitude_f[corr_offset_ul-1], d_magnitude_f[corr_offset_ul], d_magnitude_f[corr_offset_ul+1]);
+      }
       float max_ul = *max_ul_p;
 
       gr_complex corr_result;
       int corr_offset;
+      float correction;
       ::iridium::direction direction;
 
       if(max_dl > max_ul) {
         direction = ::iridium::direction::DOWNLINK;
-        corr_offset = max_dl_p - d_magnitude_f;
+        corr_offset = corr_offset_dl;
+        correction = correction_dl;
         corr_result = d_corr_dl_ifft->get_outbuf()[corr_offset];
       } else {
         direction = ::iridium::direction::UPLINK;
-        corr_offset = max_ul_p - d_magnitude_f;
+        corr_offset = corr_offset_ul;
+        correction = correction_ul;
         corr_result = d_corr_ul_ifft->get_outbuf()[corr_offset];
       }
 
@@ -566,7 +589,7 @@ namespace gr {
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("sample_rate"), pmt::mp(sample_rate));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("center_frequency"), pmt::mp(center_frequency));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)direction));
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("uw_start"), pmt::mp(uw_start));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("uw_start"), pmt::mp(correction));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("offset"), pmt::mp(offset + start));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(id));
 
