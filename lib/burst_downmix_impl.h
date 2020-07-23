@@ -64,6 +64,7 @@ namespace gr {
       filter::kernel::fir_filter_ccf d_input_fir;
       filter::kernel::fir_filter_fff d_start_finder_fir;
       filter::kernel::fir_filter_ccf d_rrc_fir;
+      filter::kernel::fir_filter_ccf d_rc_fir;
 
       std::vector<gr_complex> d_dl_preamble_reversed_conj;
       std::vector<gr_complex> d_ul_preamble_reversed_conj;

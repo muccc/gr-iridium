@@ -57,6 +57,34 @@ namespace gr {
         fclose(fp);
     }
 
+    float sinc(float x)
+    {
+        if(x == 0) {
+            return 1;
+        }
+        return sin(M_PI * x) / (M_PI * x);
+    }
+
+    float raised_cosine_h(float t, float Ts, float alpha)
+    {
+        if(fabs(t) == Ts / (2 * alpha)) {
+            return M_PI / (4 * Ts) * sinc(1 / (2 * alpha));
+        }
+
+        return 1 / Ts * sinc(t / Ts) * cos(M_PI * alpha * t / Ts) / (1 - powf((2 * alpha * t / Ts), 2));
+    }
+
+    std::vector<float> rcosfilter(int ntaps, float alpha, float Ts, float Fs)
+    {
+        std::vector<float> taps(ntaps);
+
+        for(int i= -ntaps/2 + 1; i < ntaps/2 + 1; i++) {
+            taps[i + (ntaps + 1)/2 - 1] = raised_cosine_h(i / Fs, Ts, alpha) * Ts;
+        }
+
+        return taps;
+    }
+
     burst_downmix::sptr
     burst_downmix::make(int sample_rate, int search_depth, size_t hard_max_queue_len,
             const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps,
@@ -112,7 +140,7 @@ namespace gr {
               d_input_fir(0, input_taps),
               d_start_finder_fir(0, start_finder_taps),
               d_rrc_fir(0, gr::filter::firdes::root_raised_cosine(1.0, d_output_sample_rate, ::iridium::SYMBOLS_PER_SECOND, .4, 51)),
-
+              d_rc_fir(0, rcosfilter(51, 0.4, 1. / ::iridium::SYMBOLS_PER_SECOND, d_output_sample_rate)),
               d_cfo_est_fft(fft::fft_complex(d_cfo_est_fft_size * d_fft_over_size_facor, true, 1))
     {
       d_dl_preamble_reversed_conj = generate_sync_word(::iridium::direction::DOWNLINK);
@@ -195,6 +223,7 @@ namespace gr {
         sync_word.insert(std::end(sync_word), std::begin(uw_ul), std::end(uw_ul));
       }
 
+#if 1
       std::vector<gr_complex> sync_word_padded;
       std::vector<gr_complex> padding;
       for(i = 0; i < d_output_samples_per_symbol - 1; i++) {
@@ -208,8 +237,21 @@ namespace gr {
 
       // Remove the padding after the last symbol
       sync_word_padded.erase(std::end(sync_word_padded) - d_output_samples_per_symbol + 1, std::end(sync_word_padded));
+#endif
+#if 0
+      fft::fft_complex fft_engine = fft::fft_complex(sync_word.size(), true, 1);
+      memcpy(fft_engine.get_inbuf(), &sync_word[0], sizeof(gr_complex) * sync_word.size());
+      fft_engine.execute();
 
+      fft::fft_complex ifft_engine = fft::fft_complex(sync_word.size() * d_output_samples_per_symbol, false, 1);
+      memset(ifft_engine.get_inbuf(), 0, sizeof(gr_complex) * sync_word.size() * d_output_samples_per_symbol);
+      memcpy(ifft_engine.get_inbuf(), fft_engine.get_outbuf(), sizeof(gr_complex) * sync_word.size() / 2);
+      memcpy(ifft_engine.get_inbuf() + sync_word.size() * d_output_samples_per_symbol - sync_word.size()/2 ,fft_engine.get_outbuf() + sync_word.size()/2, sizeof(gr_complex) * sync_word.size() / 2);
+      ifft_engine.execute();
+      std::vector<gr_complex> sync_word_padded(ifft_engine.get_outbuf(), ifft_engine.get_outbuf() + + sync_word.size() * d_output_samples_per_symbol);
+#endif
 
+#if 0
       int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
       std::vector<gr_complex> tmp(sync_word_padded);
 
@@ -220,6 +262,20 @@ namespace gr {
 
       // TODO: Maybe do a 'full' convolution including the borders
       d_rrc_fir.filterN(&sync_word_padded[0], &tmp[0], sync_word_padded.size());
+#endif
+
+#if 1
+      int half_rc_size = (d_rc_fir.ntaps() - 1) / 2;
+      std::vector<gr_complex> tmp(sync_word_padded);
+
+      for(i = 0; i < half_rc_size; i++) {
+        tmp.push_back(0);
+        tmp.insert(tmp.begin(), 0);
+      }
+
+      // TODO: Maybe do a 'full' convolution including the borders
+      d_rc_fir.filterN(&sync_word_padded[0], &tmp[0], sync_word_padded.size());
+#endif
 
       if(d_debug) {
         std::cout << "Sync Word Unpadded: ";
@@ -468,6 +524,19 @@ namespace gr {
         write_data_c(d_tmp_a, burst_size - start, (char *)"signal-filtered-deci-cut-start-shift", id);
       }
 
+      // Make some room at the start and the end, so the RRC can run
+      int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
+      memcpy(d_tmp_b + half_rrc_size, d_tmp_a, (burst_size - start) * sizeof(gr_complex));
+      memset(d_tmp_b, 0, half_rrc_size * sizeof(gr_complex));
+      memset(d_tmp_b + half_rrc_size + burst_size - start, 0, half_rrc_size * sizeof(gr_complex));
+      /*
+       * Apply the RRC filter.
+       */
+      d_rrc_fir.filterN(d_tmp_a, d_tmp_b, burst_size - start);
+
+      if(d_debug) {
+        write_data_c(d_tmp_a, burst_size - start, (char *)"signal-filtered-deci-cut-start-shift-rrc", id);
+      }
 
       /*
        * Use a correlation to find the start of the sync word.
@@ -550,7 +619,7 @@ namespace gr {
       d_r.rotateN(d_tmp_b, d_tmp_a, frame_size);
 
       if(d_debug) {
-        write_data_c(d_tmp_b, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rotate", id);
+        write_data_c(d_tmp_b, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rrc-rotate", id);
       }
 
       /*
@@ -559,32 +628,19 @@ namespace gr {
        *
        */
 
-      // Make some room at the start and the end, so the RRC can run
-      int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
-      memmove(d_tmp_b + half_rrc_size, d_tmp_b + uw_start, frame_size * sizeof(gr_complex));
-      memset(d_tmp_b, 0, half_rrc_size * sizeof(gr_complex));
-      memset(d_tmp_b + half_rrc_size + frame_size, 0, half_rrc_size * sizeof(gr_complex));
-
-
       // Update the amount of available samples after filtering
       frame_size = std::max((int)frame_size - uw_start, 0);
       start += uw_start;
-      uw_start = 0;
-
-      /*
-       * Apply the RRC filter.
-       */
-      d_rrc_fir.filterN(d_tmp_a, d_tmp_b, frame_size);
 
       if(d_debug) {
-        write_data_c(d_tmp_a, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rotate-filter", id);
+        write_data_c(d_tmp_b + uw_start, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rrc-rotate-cut", id);
       }
 
       /*
        * Done :)
        */
       pmt::pmt_t pdu_meta = pmt::make_dict();
-      pmt::pmt_t pdu_vector = pmt::init_c32vector(frame_size, d_tmp_a);
+      pmt::pmt_t pdu_vector = pmt::init_c32vector(frame_size, d_tmp_b + uw_start);
 
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("sample_rate"), pmt::mp(sample_rate));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("center_frequency"), pmt::mp(center_frequency));
