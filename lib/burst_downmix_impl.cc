@@ -118,7 +118,7 @@ namespace gr {
               d_cfo_est_fft_size(pow(2, int(log(d_output_samples_per_symbol * (::iridium::PREAMBLE_LENGTH_SHORT + 10)) / log(2)))),
 
               d_fft_over_size_facor(16),
-              d_sync_search_len((::iridium::PREAMBLE_LENGTH_LONG + ::iridium::UW_LENGTH + 2) * d_output_samples_per_symbol),
+              d_sync_search_len((::iridium::PREAMBLE_LENGTH_LONG + ::iridium::UW_LENGTH + 8) * d_output_samples_per_symbol),
               d_hard_max_queue_len(hard_max_queue_len),
               d_handle_multiple_frames_per_burst(handle_multiple_frames_per_burst),
               d_debug(false),
