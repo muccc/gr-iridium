@@ -167,12 +167,15 @@ class FlowGraph(gr.top_block):
             if sample_format == "rtl":
                 converter = iridium.iuchar_to_complex()
                 itemsize = gr.sizeof_char
+                scale = 1
             elif sample_format == "hackrf":
                 converter = blocks.interleaved_char_to_complex()
                 itemsize = gr.sizeof_char
+                scale = 1/128.
             elif sample_format == "sc16":
                 converter = blocks.interleaved_short_to_complex()
                 itemsize = gr.sizeof_short
+                scale = 1/32768.
             elif sample_format == "float":
                 converter = None
                 itemsize = gr.sizeof_gr_complex
@@ -182,11 +185,9 @@ class FlowGraph(gr.top_block):
             file_source = blocks.file_source(itemsize=itemsize, filename=self._filename, repeat=False)
 
             if converter:
-                #multi = blocks.multiply_const_cc(1/128.)
-                #tb.connect(file_source, converter, multi)
-                #source = multi
-                tb.connect(file_source, converter)
-                source = converter
+                multi = blocks.multiply_const_cc(scale)
+                tb.connect(file_source, converter, multi)
+                source = multi
             else:
                 source = file_source
 
