@@ -186,7 +186,7 @@ if __name__ == "__main__":
             print("\t--offline\tturn on offline mode (don't skip samples)", file=sys.stderr)
             print("\t-D num   \tturn on decimation (multi-channel decoding) ", file=sys.stderr)
             print("\t--multi-frame  \tturn on multiple frame per burst support ", file=sys.stderr)
-            print("\t--raw-capture=filename  \tsave raw IQ samples (fc32) to file ", file=sys.stderr)
+            print("\t--raw-capture=filename  \tsave raw IQ samples (sc16) to file ", file=sys.stderr)
             print("\t<filename>\traw sample file", file=sys.stderr)
             print("", file=sys.stderr)
             print("For more documentation check: https://github.com/muccc/gr-iridium/", file=sys.stderr)

@@ -223,8 +223,11 @@ class FlowGraph(gr.top_block):
         #self._iridium_qpsk_demod = iridium.iridium_qpsk_demod(250000)
 
         if raw_capture_filename:
-            raw_sink = blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename=raw_capture_filename)
-            tb.connect(source, raw_sink)
+            multi = blocks.multiply_const_cc(32768)
+            converter = blocks.complex_to_interleaved_short()
+            raw_sink = blocks.file_sink(itemsize=gr.sizeof_short, filename=raw_capture_filename)
+            tb.connect(source, multi, converter, raw_sink)
+
             # Enable the following if not fast enough
             #self._burst_to_pdu_converters = []
             #self._burst_downmixers = []
