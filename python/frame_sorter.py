@@ -53,6 +53,20 @@ class frame_sorter(gr.sync_block):
                 break
         self._messages = self._messages[remove_count:]
 
+        def dup(a, b):
+            if (abs(a['meta']['timestamp'] - b['meta']['timestamp']) <= 0.001 and
+                abs(a['meta']['center_frequency'] - b['meta']['center_frequency']) < 10000):
+                return True
+            return False
+
+        message = {'meta': meta, 'data': gr.pmt.to_python(gr.pmt.cdr(msg_pmt))}
+
+        for offset in range(len(self._messages)):
+            if dup(self._messages[offset], message):
+                if self._messages[offset]['meta']['confidence'] < confidence:
+                    del self._messages[offset]
+                break
+
         insert_index = 0
         for message in self._messages:
             if message['meta']['timestamp'] > timestamp:
@@ -61,53 +75,8 @@ class frame_sorter(gr.sync_block):
                 break
             insert_index += 1
 
-        def dup(a, b):
-            if (abs(a['meta']['timestamp'] - b['meta']['timestamp']) <= 0.001 and
-                abs(a['meta']['center_frequency'] - b['meta']['center_frequency']) < 10000):
-                return True
-            return False
+        self._messages.insert(insert_index, message)
 
-        def offset_ok(offset):
-            return insert_index + offset >= 0 and insert_index + offset < len(self._messages)
-
-        message = {'meta': meta, 'data': gr.pmt.to_python(gr.pmt.cdr(msg_pmt))}
-
-        replace_index = None
-
-        if offset_ok(0):
-            if dup(self._messages[insert_index], message):
-                if self._messages[insert_index]['meta']['confidence'] < confidence:
-                    replace_index = insert_index
-                else:
-                    return
-
-        offset = 1
-        while replace_index is None:
-            if offset_ok(+offset):
-                if dup(self._messages[insert_index + offset], message):
-                    if self._messages[insert_index + offset]['meta']['confidence'] < confidence:
-                        replace_index = insert_index + offset
-                        break
-                    else:
-                        return
-
-            if offset_ok(-offset):
-                if dup(self._messages[insert_index - offset], message):
-                    if self._messages[insert_index - offset]['meta']['confidence'] < confidence:
-                        replace_index = insert_index - offset
-                        break
-                    else:
-                        return
-
-            if ((not offset_ok(-offset) or abs(self._messages[insert_index - offset]['meta']['timestamp'] - timestamp) > 0.001) and
-                    (not offset_ok(+offset)  or abs(self._messages[insert_index + offset]['meta']['timestamp'] - timestamp) > 0.001)):
-                break
-            offset += 1
-
-        if replace_index is not None:
-            self._messages[replace_index] = message
-        else:
-            self._messages.insert(insert_index, message)
 
     def work(self, input_items, output_items):
         return len(input_items[0])
