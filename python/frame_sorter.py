@@ -63,7 +63,7 @@ class frame_sorter(gr.sync_block):
 
 
         for offset in range(len(self._messages)):
-            if dup(self._messages[offset], message):
+            if dup(self._messages[offset], new_message):
                 if self._messages[offset]['meta']['confidence'] < confidence:
                     del self._messages[offset]
                 break
