@@ -40,6 +40,8 @@ class frame_sorter(gr.sync_block):
 
     def handle_msg(self, msg_pmt):
         meta = gr.pmt.to_python(gr.pmt.car(msg_pmt))
+        new_message = {'meta': meta, 'data': gr.pmt.to_python(gr.pmt.cdr(msg_pmt))}
+
         timestamp = meta['timestamp']
         freq = meta['center_frequency']
         confidence = meta['confidence']
@@ -59,7 +61,6 @@ class frame_sorter(gr.sync_block):
                 return True
             return False
 
-        message = {'meta': meta, 'data': gr.pmt.to_python(gr.pmt.cdr(msg_pmt))}
 
         for offset in range(len(self._messages)):
             if dup(self._messages[offset], message):
@@ -75,7 +76,7 @@ class frame_sorter(gr.sync_block):
                 break
             insert_index += 1
 
-        self._messages.insert(insert_index, message)
+        self._messages.insert(insert_index, new_message)
 
 
     def work(self, input_items, output_items):
