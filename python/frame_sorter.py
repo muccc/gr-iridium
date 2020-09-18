@@ -66,7 +66,9 @@ class frame_sorter(gr.sync_block):
             if dup(self._messages[offset], new_message):
                 if self._messages[offset]['meta']['confidence'] < confidence:
                     del self._messages[offset]
-                break
+                    break
+                else:
+                    return
 
         insert_index = 0
         for message in self._messages:
