@@ -106,6 +106,7 @@ if __name__ == "__main__":
                                                             'decimation',
                                                             'multi-frame',
                                                             'raw-capture=',
+                                                            'debug-id=',
                                                             'help'
                                                             ])
 
@@ -124,6 +125,7 @@ if __name__ == "__main__":
     decimation = 1
     raw_capture_filename = None
     handle_multiple_frames_per_burst = False
+    debug_id = None
 
     if len(remainder) == 0 or remainder[0] == '-':
         filename = "/dev/stdin"
@@ -178,6 +180,8 @@ if __name__ == "__main__":
             handle_multiple_frames_per_burst = True
         elif opt == '--raw-capture':
             raw_capture_filename = arg
+        elif opt == '--debug-id':
+            debug_id = int(arg)
         elif opt in ('-h', '--help'):
             print("Usage: iridium-extractor [options] <filename>", file=sys.stderr)
             print("\t-c frequency\tset center frequency", file=sys.stderr)
@@ -215,6 +219,7 @@ if __name__ == "__main__":
             offline=offline, max_queue_len = max_queue_len,
             handle_multiple_frames_per_burst=handle_multiple_frames_per_burst,
             raw_capture_filename=raw_capture_filename,
+            debug_id=debug_id,
             max_bursts=max_bursts,
             verbose=verbose)
 

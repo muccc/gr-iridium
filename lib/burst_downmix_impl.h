@@ -45,6 +45,7 @@ namespace gr {
       uint64_t d_n_dropped_bursts;
       bool d_handle_multiple_frames_per_burst;
       bool d_debug;
+      int64_t d_debug_id;
 
       gr_complex * d_frame;
       gr_complex * d_tmp_a;
@@ -89,6 +90,7 @@ namespace gr {
 
       size_t get_input_queue_size();
       uint64_t get_n_dropped_bursts();
+      void debug_id(uint64_t id);
 
       int work(int noutput_items,
          gr_vector_const_void_star &input_items,

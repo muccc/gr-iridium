@@ -87,7 +87,7 @@ The decimation has to be even. Internally a poly phase filter bank will be used 
 
 It is not recommended to use a decimation smaller than 4, as there is only little benefit otherwise.
 
-Decimating the input signal can improve real time performance but is not recommended for offline processing. During offline processing it tends to become a major bottleneck. 
+Decimating the input signal can improve real time performance but is not recommended for offline processing. During offline processing it tends to become a major bottleneck.
 
 #### `-c`: Center Frequency
 The center frequency for the source or the file in Hz.
@@ -105,4 +105,12 @@ The sample rate of the source or the file.
 
 #### `-q`: Queue Length
 For each channel (by default there is one), a queue is filled with samples where the detector has detected activity. By default each queue is 500 frames long. You can tweak the length of the queue(s) with this option.
+
+#### `--debug-id`: Output debug information for a specific burst
+Each burst which is detected gets assigned an id. It appears in the output data as `I:xxxxxxxxxxx` for bursts which were decoded into frames.
+
+Set this option (e.g. `--debug-id=23`) to output debug information for burst number 23. Debug information includes:
+
+ - Debug prints on `stdout`.
+ - Raw sample files written to `/tmp/signals`.
 

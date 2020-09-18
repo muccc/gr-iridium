@@ -83,6 +83,7 @@ namespace gr {
               d_search_depth(search_depth),
               d_pre_start_samples(int(0.1e-3 * d_output_sample_rate)),
               d_n_dropped_bursts(0),
+              d_debug_id(-1),
 
               // Take the FFT over the (short) preamble + 10 symbols from the unique word (UW)
               // (Frames with a 64 symbol preamble will use 26 symbols of the preamble)
@@ -342,6 +343,12 @@ namespace gr {
       return d_n_dropped_bursts;
     }
 
+    void
+    burst_downmix_impl::debug_id(uint64_t id)
+    {
+      d_debug_id = id;
+    }
+
     // Maps an index in [-N/2 .. (N/2)-1] notation to [0 .. N-1] notation
     int burst_downmix_impl::fft_shift_index(int index, int fft_size)
     {
@@ -590,6 +597,10 @@ namespace gr {
       uint64_t id = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("id"), pmt::PMT_NIL));
       uint64_t offset = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("offset"), pmt::PMT_NIL));
 
+      if(id == d_debug_id) {
+        d_debug = true;
+      }
+
       if(d_debug) {
         printf("---------------> id:%" PRIu64 " len:%zu\n", id, burst_size);
         float absolute_frequency = center_frequency + relative_frequency * sample_rate;
@@ -728,6 +739,10 @@ namespace gr {
       }
 
       message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
+
+      if(d_debug_id >= 0) {
+        d_debug = false;
+      }
     }
 
     int

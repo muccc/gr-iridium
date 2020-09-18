@@ -51,6 +51,7 @@ namespace gr {
 
       virtual uint64_t get_n_dropped_bursts() = 0;
       virtual size_t get_input_queue_size() = 0;
+      virtual void debug_id(uint64_t id) = 0;
     };
 
   } // namespace iridium
