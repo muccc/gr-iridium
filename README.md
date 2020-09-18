@@ -114,3 +114,5 @@ Set this option (e.g. `--debug-id=23`) to output debug information for burst num
  - Debug prints on `stdout`.
  - Raw sample files written to `/tmp/signals`.
 
+#### `--file-info`: File Info
+Manually set the file info field (second field) in the output data. If this option is not used, the current time will be used.

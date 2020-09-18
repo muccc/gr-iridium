@@ -107,6 +107,7 @@ if __name__ == "__main__":
                                                             'multi-frame',
                                                             'raw-capture=',
                                                             'debug-id=',
+                                                            'file-info=',
                                                             'help'
                                                             ])
 
@@ -126,6 +127,7 @@ if __name__ == "__main__":
     raw_capture_filename = None
     handle_multiple_frames_per_burst = False
     debug_id = None
+    file_info = None
 
     if len(remainder) == 0 or remainder[0] == '-':
         filename = "/dev/stdin"
@@ -182,6 +184,8 @@ if __name__ == "__main__":
             raw_capture_filename = arg
         elif opt == '--debug-id':
             debug_id = int(arg)
+        elif opt == '--file-info':
+            file_info = arg
         elif opt in ('-h', '--help'):
             print("Usage: iridium-extractor [options] <filename>", file=sys.stderr)
             print("\t-c frequency\tset center frequency", file=sys.stderr)
@@ -221,7 +225,8 @@ if __name__ == "__main__":
             raw_capture_filename=raw_capture_filename,
             debug_id=debug_id,
             max_bursts=max_bursts,
-            verbose=verbose)
+            verbose=verbose,
+            file_info=file_info)
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))
     statistics_thread.setDaemon(True)

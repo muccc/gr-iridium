@@ -29,13 +29,17 @@ class iridium_frame_printer(gr.sync_block):
     """
     docstring for block iridium_frame_printer
     """
-    def __init__(self):
+    def __init__(self, file_info=None):
         gr.sync_block.__init__(self,
             name="iridium_frame_printer",
             in_sig=None,
             out_sig=None)
 
-        self._file_info = "i-%d-t1" % time.time()
+        if file_info is None:
+            self._file_info = "i-%d-t1" % time.time()
+        else:
+            self._file_info = file_info
+
         self.message_port_register_in(gr.pmt.intern('pdus'))
         self.set_msg_handler(gr.pmt.intern('pdus'), self.handle_msg)
 
