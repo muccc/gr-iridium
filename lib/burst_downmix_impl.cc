@@ -291,8 +291,6 @@ namespace gr {
         std::cout << std::endl;
       }
 
-      std::reverse(sync_word_padded.begin(), sync_word_padded.end());
-      volk_32fc_conjugate_32fc(&sync_word_padded[0], &sync_word_padded[0], sync_word_padded.size());
       return sync_word_padded;
     }
 
@@ -324,7 +322,9 @@ namespace gr {
       //d_sync_search_len = d_corr_fft_size - d_dl_preamble_reversed_conj.size() + 1;
 
       if(d_debug) {
-        std::cout << "Conv FFT size:" << d_corr_fft_size << std::endl;
+        std::cout << "Sync search len:" << d_sync_search_len << std::endl;
+        std::cout << "Corr FFT target size:" << corr_fft_size_target << std::endl;
+        std::cout << "Corr FFT size:" << d_corr_fft_size << std::endl;
       }
 
       // Allocate space for the pre transformed filters
@@ -341,10 +341,12 @@ namespace gr {
       memcpy(fft_engine.get_inbuf(), &d_dl_preamble_reversed_conj[0], sizeof(gr_complex) * sync_word_len);
       fft_engine.execute();
       memcpy(d_dl_preamble_reversed_conj_fft, fft_engine.get_outbuf(), sizeof(gr_complex) * d_corr_fft_size);
+      volk_32fc_conjugate_32fc(&d_dl_preamble_reversed_conj_fft[0], &d_dl_preamble_reversed_conj_fft[0], d_corr_fft_size);
 
       memcpy(fft_engine.get_inbuf(), &d_ul_preamble_reversed_conj[0], sizeof(gr_complex) * sync_word_len);
       fft_engine.execute();
       memcpy(d_ul_preamble_reversed_conj_fft, fft_engine.get_outbuf(), sizeof(gr_complex) * d_corr_fft_size);
+      volk_32fc_conjugate_32fc(&d_ul_preamble_reversed_conj_fft[0], &d_ul_preamble_reversed_conj_fft[0], d_corr_fft_size);
 
       // Update the size of the work FFTs
       // TODO: This could be moved to the initialization list
@@ -544,12 +546,15 @@ namespace gr {
        * Uses an FFT to perform the correlation.
        */
 
-      memcpy(d_corr_fft->get_inbuf(), d_tmp_a, sizeof(gr_complex) * d_sync_search_len);
+      //memcpy(d_corr_fft->get_inbuf(), d_tmp_a, sizeof(gr_complex) * d_sync_search_len);
+      memcpy(d_corr_fft->get_inbuf() + ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol, d_tmp_a, sizeof(gr_complex) * d_sync_search_len);
       d_corr_fft->execute();
 
       // We use the initial FFT for both correlations (DL and UL)
       volk_32fc_x2_multiply_32fc(d_corr_dl_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_dl_preamble_reversed_conj_fft[0], d_corr_fft_size);
+      //volk_32fc_x2_divide_32fc(d_corr_dl_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_dl_preamble_reversed_conj_fft[0], d_corr_fft_size);
       volk_32fc_x2_multiply_32fc(d_corr_ul_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_ul_preamble_reversed_conj_fft[0], d_corr_fft_size);
+      //volk_32fc_x2_divide_32fc(d_corr_ul_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_ul_preamble_reversed_conj_fft[0], d_corr_fft_size);
       d_corr_dl_ifft->execute();
       d_corr_ul_ifft->execute();
 
@@ -561,7 +566,8 @@ namespace gr {
 
       // Find the peaks of the correlations
       volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_dl_ifft->get_outbuf(), d_corr_fft_size);
-      float * max_dl_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      //float * max_dl_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      float * max_dl_p = std::max_element(d_magnitude_f, d_magnitude_f + d_sync_search_len);
       corr_offset_dl = max_dl_p - d_magnitude_f;
       if(corr_offset_dl > 0) {
         correction_dl = interpolate(d_magnitude_f[corr_offset_dl-1], d_magnitude_f[corr_offset_dl], d_magnitude_f[corr_offset_dl+1]);
@@ -569,7 +575,8 @@ namespace gr {
       float max_dl = *max_dl_p;
 
       volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_ul_ifft->get_outbuf(), d_corr_fft_size);
-      float * max_ul_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      //float * max_ul_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      float * max_ul_p = std::max_element(d_magnitude_f, d_magnitude_f + d_sync_search_len);
       corr_offset_ul = max_ul_p - d_magnitude_f;
       if(corr_offset_ul > 0) {
         correction_ul = interpolate(d_magnitude_f[corr_offset_ul-1], d_magnitude_f[corr_offset_ul], d_magnitude_f[corr_offset_ul+1]);
@@ -597,15 +604,18 @@ namespace gr {
       if(d_debug) {
         printf("Conv max index = %d\n", corr_offset);
       }
-
+#if 0
       // Careful: The correlation might have found the start of the sync word
       // before the first sample => preamble_offset might be negative
       int preamble_offset = corr_offset - d_dl_preamble_reversed_conj.size() + 1;
       int uw_start = preamble_offset + ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
+#endif
+
+      //int uw_start = corr_offset + ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
+      int uw_start = corr_offset;
 
       // If the UW starts at an offset < 0, we will not be able to demodulate the signal
       if(uw_start < 0) {
-        // TODO: Log a warning.
         return 0;
       }
 
