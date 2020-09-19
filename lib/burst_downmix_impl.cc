@@ -546,15 +546,45 @@ namespace gr {
        * Uses an FFT to perform the correlation.
        */
 
-      //memcpy(d_corr_fft->get_inbuf(), d_tmp_a, sizeof(gr_complex) * d_sync_search_len);
-      memcpy(d_corr_fft->get_inbuf() + ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol, d_tmp_a, sizeof(gr_complex) * d_sync_search_len);
+#if 0
+      float XX = 0;
+      for(int i=0; i<d_dl_preamble_reversed_conj.size(); i++) {
+        XX += (d_dl_preamble_reversed_conj[i] * std::conj(d_dl_preamble_reversed_conj[i])).real();
+      }
+#endif
+
+      int pre_len = ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
+      //pre_len = 0;
+
+      memcpy(d_corr_fft->get_inbuf() + pre_len, d_tmp_a, sizeof(gr_complex) * d_sync_search_len);
+
+      float yy[d_sync_search_len + pre_len + d_dl_preamble_reversed_conj.size()];
+      memset(yy, 0, sizeof(yy));
+      volk_32fc_magnitude_squared_32f(yy, d_corr_fft->get_inbuf(), d_sync_search_len + pre_len);
+
+      //float YY[d_sync_search_len];
+      float XXYY[d_sync_search_len];
+      //memset(YY, 0, sizeof(YY));
+
+      for(int i=0; i<d_sync_search_len; i++) {
+        float YY = 0;
+        for(int j=0; j<d_dl_preamble_reversed_conj.size(); j++) {
+          //YY[i] += yy[i + j];
+          YY += yy[i + j];
+        }
+        //XXYY[i] = sqrt(XX + YY[i]);
+        //XXYY[i] = sqrt(YY[i]);
+        XXYY[i] = sqrt(YY);
+        //std::cout << XXYY[i] << ", ";
+      }
+      //std::cout << std::endl;
+
+
       d_corr_fft->execute();
 
       // We use the initial FFT for both correlations (DL and UL)
       volk_32fc_x2_multiply_32fc(d_corr_dl_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_dl_preamble_reversed_conj_fft[0], d_corr_fft_size);
-      //volk_32fc_x2_divide_32fc(d_corr_dl_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_dl_preamble_reversed_conj_fft[0], d_corr_fft_size);
       volk_32fc_x2_multiply_32fc(d_corr_ul_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_ul_preamble_reversed_conj_fft[0], d_corr_fft_size);
-      //volk_32fc_x2_divide_32fc(d_corr_ul_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_ul_preamble_reversed_conj_fft[0], d_corr_fft_size);
       d_corr_dl_ifft->execute();
       d_corr_ul_ifft->execute();
 
@@ -566,7 +596,11 @@ namespace gr {
 
       // Find the peaks of the correlations
       volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_dl_ifft->get_outbuf(), d_corr_fft_size);
-      //float * max_dl_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+
+      for(int i=0; i<d_sync_search_len; i++) {
+        d_magnitude_f[i] /= XXYY[i];
+      }
+
       float * max_dl_p = std::max_element(d_magnitude_f, d_magnitude_f + d_sync_search_len);
       corr_offset_dl = max_dl_p - d_magnitude_f;
       if(corr_offset_dl > 0) {
@@ -575,7 +609,10 @@ namespace gr {
       float max_dl = *max_dl_p;
 
       volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_ul_ifft->get_outbuf(), d_corr_fft_size);
-      //float * max_ul_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      for(int i=0; i<d_sync_search_len; i++) {
+        d_magnitude_f[i] /= XXYY[i];
+      }
+
       float * max_ul_p = std::max_element(d_magnitude_f, d_magnitude_f + d_sync_search_len);
       corr_offset_ul = max_ul_p - d_magnitude_f;
       if(corr_offset_ul > 0) {
