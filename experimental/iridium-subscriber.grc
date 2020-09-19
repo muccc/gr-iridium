@@ -77,7 +77,7 @@ blocks:
   id: variable
   parameters:
     comment: ''
-    value: 500e3/4/8
+    value: 500e3/2
   states:
     bus_sink: false
     bus_source: false
@@ -183,6 +183,23 @@ blocks:
     coordinate: [896, 376.0]
     rotation: 0
     state: enabled
+- name: blocks_null_sink_0
+  id: blocks_null_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    bus_structure_sink: '[[0,],]'
+    comment: ''
+    num_inputs: '1'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1216, 536.0]
+    rotation: 0
+    state: disabled
 - name: fosphor_qt_sink_c_0
   id: fosphor_qt_sink_c
   parameters:
@@ -294,7 +311,7 @@ blocks:
 - name: zeromq_sub_source_0
   id: zeromq_sub_source
   parameters:
-    address: tcp://10.42.0.160:12345
+    address: tcp://10.42.0.169:12345
     affinity: ''
     alias: ''
     comment: ''
@@ -315,7 +332,7 @@ blocks:
 - name: zeromq_sub_source_0_0_0
   id: zeromq_sub_source
   parameters:
-    address: tcp://10.42.0.160:12347
+    address: tcp://10.42.0.169:12347
     affinity: ''
     alias: ''
     comment: ''
@@ -337,6 +354,7 @@ blocks:
 connections:
 - [analog_sig_source_x_0, '0', blocks_multiply_xx_0, '1']
 - [analog_sig_source_x_0_0, '0', blocks_multiply_xx_0_0, '0']
+- [blocks_add_xx_0, '0', blocks_null_sink_0, '0']
 - [blocks_add_xx_0, '0', fosphor_qt_sink_c_0_0_0, '0']
 - [blocks_multiply_xx_0, '0', blocks_add_xx_0, '1']
 - [blocks_multiply_xx_0_0, '0', blocks_add_xx_0, '0']
