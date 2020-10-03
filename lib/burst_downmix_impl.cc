@@ -555,8 +555,8 @@ namespace gr {
       int corr_offset_dl;
       int corr_offset_ul;
 
-      float correction_dl;
-      float correction_ul;
+      float correction_dl = 0;
+      float correction_ul = 0;
 
       // Find the peaks of the correlations
       volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_dl_ifft->get_outbuf(), d_corr_fft_size);
