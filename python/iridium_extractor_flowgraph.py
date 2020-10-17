@@ -52,6 +52,7 @@ class FlowGraph(gr.top_block):
             self._pfb_over_sample_ratio = self._channels / (self._channels - 1.)
             pfb_output_sample_rate = int(round(float(self._input_sample_rate) / self._channels * self._pfb_over_sample_ratio))
             assert pfb_output_sample_rate == self._input_sample_rate / decimation
+            assert pfb_output_sample_rate % 250000 == 0
 
 
             # The over sampled region of the FIR filter contains half of the signal width and
