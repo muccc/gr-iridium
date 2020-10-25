@@ -203,6 +203,11 @@ if __name__ == "__main__":
             print("For more documentation check: https://github.com/muccc/gr-iridium/", file=sys.stderr)
             exit(-1)
 
+    if file_info is None and offline:
+        file_info=filename
+        file_info=file_info[file_info.rfind('/')+1:]
+        file_info=file_info[:file_info.rfind('.')]
+
     if sample_rate == None:
         print("Sample rate missing!", file=sys.stderr)
         exit(1)
