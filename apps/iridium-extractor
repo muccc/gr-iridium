@@ -131,11 +131,14 @@ if __name__ == "__main__":
 
     if len(remainder) == 0 or remainder[0] == '-':
         filename = "/dev/stdin"
-    else:
+    elif len(remainder)==1:
         filename = remainder[0]
         if not os.path.isfile(filename):
             print("Specified input file `%s` does not exist" % filename, file=sys.stderr)
             exit(1)
+    else:
+        print("Excess arguments after filename.", file=sys.stderr)
+        exit(1)
 
     if filename.endswith(".conf"):
         import configparser
