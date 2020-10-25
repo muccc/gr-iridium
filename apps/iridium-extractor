@@ -223,6 +223,10 @@ if __name__ == "__main__":
     if decimation > 1 and decimation % 2:
         print("Decimations > 1 must be even", file=sys.stderr)
         exit(1)
+    if debug_id is not None:
+        if not os.path.isdir('/tmp/signals'):
+            print("/tmp/signals directory missing!", file=sys.stderr)
+            exit(1)
 
 
     tb = iridium.iridium_extractor_flowgraph.FlowGraph(center_frequency=center, sample_rate=sample_rate, decimation=decimation, 
