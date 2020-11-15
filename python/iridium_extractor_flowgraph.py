@@ -184,7 +184,10 @@ class FlowGraph(gr.top_block):
             else:
                 raise RuntimeError("Unknown sample format for offline mode given")
 
-            file_source = blocks.file_source(itemsize=itemsize, filename=self._filename, repeat=False)
+            if self._filename == '/dev/stdin':
+                file_source = blocks.file_descriptor_source(itemsize=itemsize, fd=0, repeat=False)
+            else:
+                file_source = blocks.file_source(itemsize=itemsize, filename=self._filename, repeat=False)
 
             if converter:
                 multi = blocks.multiply_const_cc(scale)
