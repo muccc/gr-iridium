@@ -856,7 +856,7 @@ namespace gr {
 
       if(cfo == 0) {
         cfo = cfo_estimate(sample_rate, burst_size, start);
-        if(cfo > 1000) {
+        if(abs(cfo) > 1000) {
             goto retry;
         }
       }
