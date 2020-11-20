@@ -437,6 +437,45 @@ namespace gr {
       return correction;
     }
 
+    int burst_downmix_impl::cfo_estimate(float sample_rate, size_t burst_size, int start)
+    {
+      /*
+       * Find the fine CFO estimate using an FFT over the preamble and the first symbols
+       * of the unique word.
+       * The signal gets squared to remove the BPSK modulation from the unique word.
+       */
+
+      if(burst_size - start < d_cfo_est_fft_size) {
+        // There are not enough samples available to run the FFT.
+        return 0;
+      }
+
+      // TODO: Not sure which way to square is faster.
+      //volk_32fc_x2_multiply_32fc(d_tmp_a, d_frame + start, d_frame + start, d_cfo_est_fft_size);
+      volk_32fc_s32f_power_32fc(d_tmp_a, d_frame + start, 2, d_cfo_est_fft_size);
+      volk_32fc_32f_multiply_32fc(d_cfo_est_fft.get_inbuf(), d_tmp_a, d_cfo_est_window_f, d_cfo_est_fft_size);
+      d_cfo_est_fft.execute();
+      volk_32fc_magnitude_32f(d_magnitude_f, d_cfo_est_fft.get_outbuf(), d_cfo_est_fft_size * d_fft_over_size_facor);
+      float * x = std::max_element(d_magnitude_f, d_magnitude_f + d_cfo_est_fft_size * d_fft_over_size_facor);
+      const int max_index_shifted = x - d_magnitude_f;
+
+      const int max_index = fft_unshift_index(max_index_shifted, d_cfo_est_fft_size * d_fft_over_size_facor);
+      if(d_debug) {
+        printf("max_index=%d\n", max_index);
+      }
+
+      // Normalize the result.
+      // Divide by two to remove the effect of the squaring operation before.
+      float center_offset = (float)max_index / (d_cfo_est_fft_size * d_fft_over_size_facor) / 2;
+
+      if(d_debug) {
+        printf("center_offset=%f (%f)\n", center_offset, center_offset * d_output_sample_rate);
+      }
+
+      return center_offset * d_output_sample_rate;
+    }
+
+
     int
     burst_downmix_impl::process_next_frame(float sample_rate, float center_frequency,
             double offset, uint64_t id, size_t burst_size, int start)
@@ -446,6 +485,10 @@ namespace gr {
        */
       int max_frame_length = 0;
       int min_frame_length = 0;
+
+      if(d_debug) {
+        printf("id: %d\n", id);
+      }
 
       // Simplex transmissions and broadcast frames might have a 64 symbol preamble.
       // We ignore that and cut away the extra 48 symbols.
@@ -665,6 +708,9 @@ namespace gr {
       /*
        * Extract the burst and meta data from the cpdu
        */
+
+      int cfo = 0;
+      retry:
       pmt::pmt_t samples = pmt::cdr(msg);
       size_t burst_size = pmt::length(samples);
       const gr_complex * burst = (const gr_complex*)pmt::c32vector_elements(samples, burst_size);
@@ -675,6 +721,8 @@ namespace gr {
       float sample_rate = pmt::to_float(pmt::dict_ref(meta, pmt::mp("sample_rate"), pmt::PMT_NIL));
       uint64_t id = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("id"), pmt::PMT_NIL));
       double offset = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("offset"), pmt::PMT_NIL));
+
+      relative_frequency += (float)cfo/sample_rate;
 
       if(id == d_debug_id) {
         d_debug = true;
@@ -804,6 +852,13 @@ namespace gr {
       if(d_debug) {
         std::cout << "Start:" << start << "\n";
         write_data_c(d_frame + start, burst_size - start, (char *)"signal-filtered-deci-cut-start", id);
+      }
+
+      if(cfo == 0) {
+        cfo = cfo_estimate(sample_rate, burst_size, start);
+        if(cfo > 1000) {
+            goto retry;
+        }
       }
 
       if(d_handle_multiple_frames_per_burst) {

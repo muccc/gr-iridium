@@ -83,6 +83,7 @@ namespace gr {
       int fft_shift_index(int index, int fft_size);
       int fft_unshift_index(int index, int fft_size);
       float interpolate(float alpha, float beta, float gamma);
+      int cfo_estimate(float sample_rate, size_t burst_size, int start);
 
      public:
       burst_downmix_impl(int sample_rate, int search_depth, size_t hard_max_queue_len,
