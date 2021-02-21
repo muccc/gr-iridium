@@ -35,7 +35,7 @@ namespace gr {
     class IRIDIUM_API iuchar_to_complex : virtual public gr::sync_decimator
     {
      public:
-      typedef boost::shared_ptr<iuchar_to_complex> sptr;
+      typedef std::shared_ptr<iuchar_to_complex> sptr;
 
       /*!
        * \brief Return a shared_ptr to a new instance of iridium::iuchar_to_complex.

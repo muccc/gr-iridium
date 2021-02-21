@@ -35,7 +35,7 @@ namespace gr {
     class IRIDIUM_API pdu_round_robin : virtual public gr::sync_block
     {
      public:
-      typedef boost::shared_ptr<pdu_round_robin> sptr;
+      typedef std::shared_ptr<pdu_round_robin> sptr;
 
       /*!
        * \brief Return a shared_ptr to a new instance of iridium::pdu_round_robin.

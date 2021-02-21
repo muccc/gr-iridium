@@ -35,7 +35,7 @@ namespace gr {
     class IRIDIUM_API fft_burst_tagger : virtual public gr::sync_block
     {
      public:
-      typedef boost::shared_ptr<fft_burst_tagger> sptr;
+      typedef std::shared_ptr<fft_burst_tagger> sptr;
 
       /*!
        * \brief Return a shared_ptr to a new instance of iridium::fft_burst_tagger.

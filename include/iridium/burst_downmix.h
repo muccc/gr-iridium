@@ -35,7 +35,7 @@ namespace gr {
     class IRIDIUM_API burst_downmix : virtual public gr::sync_block
     {
      public:
-      typedef boost::shared_ptr<burst_downmix> sptr;
+      typedef std::shared_ptr<burst_downmix> sptr;
 
       /*!
        * \brief Return a shared_ptr to a new instance of iridium::burst_downmix.

@@ -35,7 +35,7 @@ namespace gr {
     class IRIDIUM_API iridium_qpsk_demod_cpp : virtual public gr::sync_block
     {
      public:
-      typedef boost::shared_ptr<iridium_qpsk_demod_cpp> sptr;
+      typedef std::shared_ptr<iridium_qpsk_demod_cpp> sptr;
 
       /*!
        * \brief Return a shared_ptr to a new instance of iridium::iridium_qpsk_demod_cpp.
