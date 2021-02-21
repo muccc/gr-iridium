@@ -137,11 +137,11 @@ namespace gr {
               d_corr_dl_ifft(NULL),
               d_corr_ul_ifft(NULL),
 
-              d_input_fir(0, input_taps),
-              d_start_finder_fir(0, start_finder_taps),
-              d_rrc_fir(0, gr::filter::firdes::root_raised_cosine(1.0, d_output_sample_rate, ::iridium::SYMBOLS_PER_SECOND, .4, 51)),
-              d_rc_fir(0, rcosfilter(51, 0.4, 1. / ::iridium::SYMBOLS_PER_SECOND, d_output_sample_rate)),
-              d_cfo_est_fft(fft::fft_complex(d_cfo_est_fft_size * d_fft_over_size_facor, true, 1))
+              d_input_fir(input_taps),
+              d_start_finder_fir(start_finder_taps),
+              d_rrc_fir(gr::filter::firdes::root_raised_cosine(1.0, d_output_sample_rate, ::iridium::SYMBOLS_PER_SECOND, .4, 51)),
+              d_rc_fir(rcosfilter(51, 0.4, 1. / ::iridium::SYMBOLS_PER_SECOND, d_output_sample_rate)),
+              d_cfo_est_fft(d_cfo_est_fft_size * d_fft_over_size_facor)
     {
       d_dl_preamble_reversed_conj = generate_sync_word(::iridium::direction::DOWNLINK);
       d_ul_preamble_reversed_conj = generate_sync_word(::iridium::direction::UPLINK);
@@ -239,11 +239,11 @@ namespace gr {
       sync_word_padded.erase(std::end(sync_word_padded) - d_output_samples_per_symbol + 1, std::end(sync_word_padded));
 #endif
 #if 0
-      fft::fft_complex fft_engine = fft::fft_complex(sync_word.size(), true, 1);
+      fft::fft_complex_fwd fft_engine(sync_word.size());
       memcpy(fft_engine.get_inbuf(), &sync_word[0], sizeof(gr_complex) * sync_word.size());
       fft_engine.execute();
 
-      fft::fft_complex ifft_engine = fft::fft_complex(sync_word.size() * d_output_samples_per_symbol, false, 1);
+      fft::fft_complex_rev ifft_engine(sync_word.size() * d_output_samples_per_symbol);
       memset(ifft_engine.get_inbuf(), 0, sizeof(gr_complex) * sync_word.size() * d_output_samples_per_symbol);
       memcpy(ifft_engine.get_inbuf(), fft_engine.get_outbuf(), sizeof(gr_complex) * sync_word.size() / 2);
       memcpy(ifft_engine.get_inbuf() + sync_word.size() * d_output_samples_per_symbol - sync_word.size()/2 ,fft_engine.get_outbuf() + sync_word.size()/2, sizeof(gr_complex) * sync_word.size() / 2);
@@ -332,7 +332,7 @@ namespace gr {
       d_ul_preamble_reversed_conj_fft = (gr_complex *)volk_malloc(d_corr_fft_size * sizeof(gr_complex), volk_get_alignment());
 
       // Temporary FFT to pre transform the filters
-      fft::fft_complex fft_engine = fft::fft_complex(d_corr_fft_size);
+      fft::fft_complex_fwd fft_engine(d_corr_fft_size);
       memset(fft_engine.get_inbuf(), 0, sizeof(gr_complex) * d_corr_fft_size);
 
       int sync_word_len = d_dl_preamble_reversed_conj.size();
@@ -348,9 +348,9 @@ namespace gr {
 
       // Update the size of the work FFTs
       // TODO: This could be moved to the initialization list
-      d_corr_fft = new fft::fft_complex(d_corr_fft_size, true, 1);
-      d_corr_dl_ifft = new fft::fft_complex(d_corr_fft_size, false, 1);
-      d_corr_ul_ifft = new fft::fft_complex(d_corr_fft_size, false, 1);
+      d_corr_fft = new fft::fft_complex_fwd(d_corr_fft_size);
+      d_corr_dl_ifft = new fft::fft_complex_rev(d_corr_fft_size);
+      d_corr_ul_ifft = new fft::fft_complex_rev(d_corr_fft_size);
 
       // The inputs need to zero, as we might not use it completely
       memset(d_corr_fft->get_inbuf(), 0, sizeof(gr_complex) * d_corr_fft_size);

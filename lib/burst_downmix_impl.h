@@ -57,9 +57,9 @@ namespace gr {
       float * d_magnitude_filtered_f;
       float * d_cfo_est_window_f;
 
-      gr::fft::fft_complex * d_corr_fft;
-      gr::fft::fft_complex * d_corr_dl_ifft;
-      gr::fft::fft_complex * d_corr_ul_ifft;
+      gr::fft::fft_complex_fwd * d_corr_fft;
+      gr::fft::fft_complex_rev * d_corr_dl_ifft;
+      gr::fft::fft_complex_rev * d_corr_ul_ifft;
 
       filter::kernel::fir_filter_ccf d_input_fir;
       filter::kernel::fir_filter_fff d_start_finder_fir;
@@ -70,7 +70,7 @@ namespace gr {
       std::vector<gr_complex> d_ul_preamble_reversed_conj;
 
       blocks::rotator d_r;
-      gr::fft::fft_complex d_cfo_est_fft;
+      gr::fft::fft_complex_fwd d_cfo_est_fft;
 
       void handler(pmt::pmt_t msg);
       int process_next_frame(float sample_rate, float center_frequency,

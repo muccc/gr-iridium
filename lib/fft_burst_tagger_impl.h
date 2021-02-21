@@ -72,7 +72,7 @@ namespace gr {
 
       FILE * d_burst_debug_file;
 
-      gr::fft::fft_complex          *d_fft;
+      gr::fft::fft_complex_fwd          *d_fft;
       std::vector<peak> d_peaks;
       std::vector<burst> d_bursts;
       std::vector<burst> d_new_bursts;

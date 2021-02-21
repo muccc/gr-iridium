@@ -68,7 +68,7 @@ namespace gr {
     {
         
         const int nthreads = 1;
-        d_fft = new fft::fft_complex(d_fft_size, true, nthreads);
+        d_fft = new fft::fft_complex_fwd(d_fft_size, nthreads);
 
         set_output_multiple(d_fft_size);
 
