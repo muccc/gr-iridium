@@ -74,7 +74,13 @@ ENDIF()
 # Install directories
 ########################################################################
 include(FindPkgConfig)
-find_package(Gnuradio "3.9" REQUIRED COMPONENTS blocks fft volk filter)
+find_package(Gnuradio "3.9" COMPONENTS blocks fft volk filter)
+
+if(NOT Gnuradio_FOUND)
+    message(FATAL_ERROR "GNU Radio 3.9 not found. If you want to build for 3.7 or 3.8, please use the maint-3.7 or maint-3.8 branch respectively. Consider joining #iridium on irc.blafasel.net to ask for help.")
+endif()
+
+
 include(GrVersion)
 
 include(GrPlatform) #define LIB_SUFFIX
