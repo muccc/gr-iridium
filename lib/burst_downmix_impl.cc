@@ -603,7 +603,7 @@ namespace gr {
 
       float * max_dl_p = std::max_element(d_magnitude_f, d_magnitude_f + d_sync_search_len);
       corr_offset_dl = max_dl_p - d_magnitude_f;
-      if(corr_offset_dl > 0) {
+      if(corr_offset_dl > 0 && corr_offset_dl < d_sync_search_len - 1) {
         correction_dl = interpolate(d_magnitude_f[corr_offset_dl-1], d_magnitude_f[corr_offset_dl], d_magnitude_f[corr_offset_dl+1]);
       }
       float max_dl = *max_dl_p;
@@ -615,7 +615,7 @@ namespace gr {
 
       float * max_ul_p = std::max_element(d_magnitude_f, d_magnitude_f + d_sync_search_len);
       corr_offset_ul = max_ul_p - d_magnitude_f;
-      if(corr_offset_ul > 0) {
+      if(corr_offset_ul > 0 && corr_offset_ul < d_sync_search_len - 1) {
         correction_ul = interpolate(d_magnitude_f[corr_offset_ul-1], d_magnitude_f[corr_offset_ul], d_magnitude_f[corr_offset_ul+1]);
       }
       float max_ul = *max_ul_p;
