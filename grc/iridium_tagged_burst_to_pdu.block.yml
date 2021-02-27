@@ -21,6 +21,10 @@ parameters:
     label: Relative Sample Rate
     dtype: float
     default: '1.0'
+-   id: sample_offset
+    label: Sample Offset
+    dtype: float
+    default: '0'
 -   id: max_outstanding
     label: Maximum Outstanding Bursts
     dtype: int
@@ -43,6 +47,6 @@ outputs:
 templates:
     imports: import iridium
     make: iridium.tagged_burst_to_pdu(${max_burst_size}, ${relative_center_frequency},
-        ${relative_span}, ${relative_sample_rate}, ${max_outstanding}, ${drop_overflow})
+        ${relative_span}, ${relative_sample_rate}, $(sample_offset), ${max_outstanding}, ${drop_overflow})
 
 file_format: 1
