@@ -492,6 +492,7 @@ namespace gr {
       // Interpolate the result of the FFT to get a finer resolution.
       // see http://www.dsprelated.com/dspbooks/sasp/Quadratic_Interpolation_Spectral_Peaks.html
       // TODO: The window should be Gaussian and the output should be put on a log scale
+      // https://ccrma.stanford.edu/~jos/sasp/Quadratic_Interpolation_Spectral_Peaks.html
 
       // To access d_magnitude_f we have to shift the index back to how the FFT output works
       const int alpha_index = fft_shift_index(max_index - 1, d_cfo_est_fft_size * d_fft_over_size_facor);
@@ -721,8 +722,7 @@ namespace gr {
 
 #if 0
       // Option for additional padding. Probably not needed.
-      //int input_fir_pad_size = (d_input_fir.ntaps() - 1) / 2;
-      int input_fir_pad_size = d_input_fir.ntaps();
+      int input_fir_pad_size = (d_input_fir.ntaps() - 1) / 2;
       memmove(d_tmp_a + input_fir_pad_size, d_tmp_a, sizeof(gr_complex) * burst_size);
       memset(d_tmp_a, 0, sizeof(gr_complex) * input_fir_pad_size);
       memset(d_tmp_a + input_fir_pad_size + burst_size, 0, sizeof(gr_complex) * input_fir_pad_size);
@@ -730,7 +730,7 @@ namespace gr {
       burst_size = burst_size / decimation;
 #else
       burst_size = (burst_size - d_input_fir.ntaps() + 1) / decimation;
-      //offset += d_input_fir.ntaps()/2;
+      offset += d_input_fir.ntaps()/2;
 #endif
 
       d_input_fir.filterNdec(d_frame, d_tmp_a, burst_size, decimation);
