@@ -82,6 +82,8 @@ class FlowGraph(gr.top_block):
                 print("Consider reducing the decimation factor or increase the over sampling ratio", file=sys.stderr)
 
 
+            pfb_input_delay = (len(self._pfb_fir_filter) + 1) // 2 - self._channels / self._pfb_over_sample_ratio
+            self._pfb_delay = pfb_input_delay / decimation
             self._burst_sample_rate = pfb_output_sample_rate
             if self._verbose:
                 print("self._channels", self._channels, file=sys.stderr)
@@ -254,7 +256,8 @@ class FlowGraph(gr.top_block):
                 relative_span = 1. / self._channels
                 relative_sample_rate = relative_span * self._pfb_over_sample_ratio
                 burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len, relative_center,
-                                            relative_span, relative_sample_rate, self._max_queue_len, not self._offline)
+                                            relative_span, relative_sample_rate, -self._pfb_delay,
+                                            self._max_queue_len, not self._offline)
                 burst_downmixer = iridium.burst_downmix(self._burst_sample_rate,
                                     int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
 
@@ -283,7 +286,7 @@ class FlowGraph(gr.top_block):
             burst_downmix = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
             if debug_id is not None: burst_downmix.debug_id(debug_id)
 
-            burst_to_pdu = iridium.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 1.0, self._max_queue_len, not self._offline)
+            burst_to_pdu = iridium.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 1.0, 0, self._max_queue_len, not self._offline)
 
             tb.connect(self._fft_burst_tagger, burst_to_pdu)
 
