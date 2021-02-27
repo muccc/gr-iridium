@@ -45,8 +45,10 @@ namespace gr {
        * class. iridium::tagged_burst_to_pdu::make is the public interface for
        * creating new instances.
        */
-      static sptr make(int max_burst_size, float relative_center_frequency, float relative_span,
-                        float d_relative_sample_rate, int outstanding_limit, bool drop_overflow);
+      static sptr make(int max_burst_size, float relative_center_frequency,
+                        float relative_span, float d_relative_sample_rate,
+                        double sample_offset,
+                        int outstanding_limit, bool drop_overflow);
 
       virtual uint64_t get_n_dropped_bursts() = 0;
       virtual int get_output_queue_size() = 0;

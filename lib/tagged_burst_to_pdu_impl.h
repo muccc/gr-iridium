@@ -28,7 +28,7 @@ namespace gr {
 
     struct burst_data {
         uint64_t id;
-        uint64_t offset;
+        double offset;
         float magnitude;
         float relative_frequency;
         float center_frequency;
@@ -44,6 +44,7 @@ namespace gr {
        float d_relative_center_frequency;
        float d_relative_span;
        float d_relative_sample_rate;
+       double d_sample_offset;
        int d_max_burst_size;
        int d_outstanding;
        int d_max_outstanding;
@@ -69,8 +70,10 @@ namespace gr {
        int get_output_max_queue_size();
        void burst_handled(pmt::pmt_t msg);
      public:
-      tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency, float relative_span,
-                                float d_relative_sample_rate, int outstanding_limit, bool drop_overflow);
+      tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency,
+                                float relative_span, float d_relative_sample_rate,
+                                double sample_offset,
+                                int outstanding_limit, bool drop_overflow);
       ~tagged_burst_to_pdu_impl();
 
       uint64_t get_n_dropped_bursts();
