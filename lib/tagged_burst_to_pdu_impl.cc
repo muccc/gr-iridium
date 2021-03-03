@@ -111,6 +111,7 @@ namespace gr {
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("relative_frequency"), pmt::mp(burst.relative_frequency));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("center_frequency"), pmt::mp(burst.center_frequency));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("sample_rate"), pmt::mp(burst.sample_rate));
+      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("noise"), pmt::mp(burst.noise));
 
       pmt::pmt_t msg = pmt::cons(d_pdu_meta,
           d_pdu_vector);
@@ -143,6 +144,7 @@ namespace gr {
           float center_frequency = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("center_frequency"), pmt::PMT_NIL));
           float sample_rate = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("sample_rate"), pmt::PMT_NIL));
           float relative_frequency = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("relative_frequency"), pmt::PMT_NIL));
+          float noise = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("noise"), pmt::PMT_NIL));
 
 
           // Adjust the values based on our position behind a potential filter bank
@@ -151,7 +153,7 @@ namespace gr {
           relative_frequency = (relative_frequency - d_relative_center_frequency) / d_relative_sample_rate;
 
           burst_data burst = {id, (double)tag.offset, magnitude, relative_frequency,
-            center_frequency, sample_rate, 0};
+            center_frequency, sample_rate, noise, 0};
           burst.data = (gr_complex *) malloc(sizeof(gr_complex) * d_max_burst_size);
 
           if(burst.data != NULL) {

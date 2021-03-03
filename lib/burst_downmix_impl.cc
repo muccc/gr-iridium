@@ -439,7 +439,7 @@ namespace gr {
 
     int
     burst_downmix_impl::process_next_frame(float sample_rate, float center_frequency,
-            double offset, uint64_t sub_id, size_t burst_size, int start)
+            double offset, uint64_t sub_id, size_t burst_size, int start, float noise)
     {
       /*
        * Use the center frequency to make some assumptions about the burst.
@@ -649,6 +649,7 @@ namespace gr {
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("uw_start"), pmt::mp(correction));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("offset"), pmt::mp(offset + start));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(sub_id));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("noise"), pmt::mp(noise));
 
       if(d_debug) {
         printf("center_frequency=%f, uw_start=%u\n", center_frequency, uw_start);
@@ -676,6 +677,7 @@ namespace gr {
       float sample_rate = pmt::to_float(pmt::dict_ref(meta, pmt::mp("sample_rate"), pmt::PMT_NIL));
       uint64_t id = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("id"), pmt::PMT_NIL));
       double offset = pmt::to_double(pmt::dict_ref(meta, pmt::mp("offset"), pmt::PMT_NIL));
+      float noise = pmt::to_float(pmt::dict_ref(meta, pmt::mp("noise"), pmt::PMT_NIL));
 
       if(id == d_debug_id) {
         d_debug = true;
@@ -810,13 +812,13 @@ namespace gr {
         int handled_samples;
         int sub_id = id;
         do {
-            handled_samples = process_next_frame(sample_rate, center_frequency, offset, sub_id, burst_size, start);
+            handled_samples = process_next_frame(sample_rate, center_frequency, offset, sub_id, burst_size, start, noise);
             start += handled_samples;
             // This is OK as ids are incremented by 10 by the burst tagger
             sub_id++;
         } while(d_handle_multiple_frames_per_burst && handled_samples > 0);
       } else {
-        process_next_frame(sample_rate, center_frequency, offset, id, burst_size, start);
+        process_next_frame(sample_rate, center_frequency, offset, id, burst_size, start, noise);
       }
 
       message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
