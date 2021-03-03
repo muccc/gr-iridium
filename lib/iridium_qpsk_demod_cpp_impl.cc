@@ -328,6 +328,7 @@ namespace gr {
       uint64_t sub_id = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("id"), pmt::PMT_NIL));
       double offset = pmt::to_double(pmt::dict_ref(meta, pmt::mp("offset"), pmt::PMT_NIL));
       double uw_start = pmt::to_float(pmt::dict_ref(meta, pmt::mp("uw_start"), pmt::PMT_NIL));
+      float noise = pmt::to_float(pmt::dict_ref(meta, pmt::mp("noise"), pmt::PMT_NIL));
 
       int sps = sample_rate / 25000;
       double timestamp = (offset + uw_start) / (double)sample_rate;
@@ -382,6 +383,7 @@ namespace gr {
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(sub_id));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("confidence"), pmt::mp(confidence));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("level"), pmt::mp(level));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("noise"), pmt::mp(noise));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("n_symbols"), pmt::mp((int)n_symbols));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)(ul_uw_ok?1:0)));
 

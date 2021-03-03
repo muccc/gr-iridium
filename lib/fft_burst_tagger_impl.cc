@@ -225,6 +225,8 @@ namespace gr {
           // The burst might have started one FFT earlier
           b.start = d_index - d_burst_pre_len;
           b.last_active = b.start;
+          // Keep noise level around (dbFS)
+          b.noise = 20 * log10(d_baseline_sum_f[b.center_bin] / d_history_size / d_fft_size);
 
           d_bursts.push_back(b);
           d_new_bursts.push_back(b);
@@ -324,6 +326,7 @@ namespace gr {
         value = pmt::dict_add(value, pmt::mp("center_frequency"), pmt::from_float(d_center_frequency));
         value = pmt::dict_add(value, pmt::mp("magnitude"), pmt::from_float(b.magnitude));
         value = pmt::dict_add(value, pmt::mp("sample_rate"), pmt::from_float(d_sample_rate));
+        value = pmt::dict_add(value, pmt::mp("noise"), pmt::from_float(b.noise));
 
         // Our output is lagging by d_burst_pre_len samples.
         // Compensate by moving the tag into the past
