@@ -33,6 +33,7 @@ namespace gr {
         uint64_t last_active;
         int center_bin;
         float magnitude;
+        float noise;
         uint64_t id;
     };
 

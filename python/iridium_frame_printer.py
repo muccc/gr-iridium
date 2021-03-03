@@ -62,9 +62,10 @@ class iridium_frame_printer(gr.sync_block):
         id = meta['id']
         confidence = meta['confidence']
         level = meta['level']
+        noise = meta['noise']
         n_symbols = meta['n_symbols']
         data = ''.join([str(x) for x in bits])
-        print("RAW: %s %012.4f %010d A:OK I:%011d %3d%% %.5f %3d %s"%(self._file_info, timestamp*1000, freq, id,
+        print("RAW: %s %012.4f %010d N:%.6f I:%011d %3d%% %.5f %3d %s"%(self._file_info, timestamp*1000, freq, noise, id,
             confidence, level, (n_symbols - gr_iridium.UW_LENGTH), data))
 
     def work(self, input_items, output_items):
