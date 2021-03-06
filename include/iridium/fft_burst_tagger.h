@@ -22,7 +22,7 @@
 #define INCLUDED_IRIDIUM_FFT_BURST_TAGGER_H
 
 #include <iridium/api.h>
-#include <gnuradio/block.h>
+#include <gnuradio/sync_block.h>
 
 namespace gr {
   namespace iridium {
@@ -32,7 +32,7 @@ namespace gr {
      * \ingroup iridium
      *
      */
-    class IRIDIUM_API fft_burst_tagger : virtual public gr::block
+    class IRIDIUM_API fft_burst_tagger : virtual public gr::sync_block
     {
      public:
       typedef boost::shared_ptr<fft_burst_tagger> sptr;

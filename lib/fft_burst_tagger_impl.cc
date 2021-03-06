@@ -54,7 +54,7 @@ namespace gr {
     fft_burst_tagger_impl::fft_burst_tagger_impl(float center_frequency, int fft_size, int sample_rate,
                         int burst_pre_len, int burst_post_len, int burst_width,
                         int max_bursts, float threshold, int history_size, bool debug)
-      : gr::block("fft_burst_tagger",
+      : gr::sync_block("fft_burst_tagger",
               gr::io_signature::make(1, 1, sizeof(gr_complex)),
               gr::io_signature::make(1, 1, sizeof(gr_complex))),
         d_center_frequency(center_frequency), d_sample_rate(sample_rate),
@@ -73,7 +73,7 @@ namespace gr {
         set_output_multiple(d_fft_size);
 
         // We need to keep d_burst_pre_len samples
-        // in the buffer to be able to tag a burst at its start.
+        // in the buffer to be able to tag a burst at it's start.
         // Set the history to this + 1, so we always have
         // this amount of samples available at the start of
         // our input buffer.
@@ -321,8 +321,10 @@ namespace gr {
         value = pmt::dict_add(value, pmt::mp("magnitude"), pmt::from_float(b.magnitude));
         value = pmt::dict_add(value, pmt::mp("sample_rate"), pmt::from_float(d_sample_rate));
 
+        // Our output is lagging by d_burst_pre_len samples.
+        // Compensate by moving the tag into the past
         //printf("Tagging new burst %" PRIu64 " on sample %" PRIu64 " (nitems_read(0)=%" PRIu64 ")\n", b.id, b.start + d_burst_pre_len, nitems_read(0));
-        add_item_tag(0, b.start, key, value);
+        add_item_tag(0, b.start + d_burst_pre_len, key, value);
       }
       d_new_bursts.clear();
     }
@@ -333,9 +335,9 @@ namespace gr {
       auto b = std::begin(d_gone_bursts);
 
       while (b != std::end(d_gone_bursts)) {
-        uint64_t output_index = b->stop;
+        uint64_t output_index = b->stop + d_burst_pre_len;
 
-        if(nitems_written(0) <= output_index && output_index < nitems_written(0) + noutput_items) {
+        if(nitems_read(0) <= output_index && output_index < nitems_read(0) + noutput_items) {
           pmt::pmt_t key = pmt::string_to_symbol("gone_burst");
           pmt::pmt_t value = pmt::make_dict();
           value = pmt::dict_add(value, pmt::mp("id"), pmt::from_uint64(b->id));
@@ -356,14 +358,8 @@ namespace gr {
       return d_n_tagged_bursts;
     }
 
-    void fft_burst_tagger_impl::forecast(int noutput_items, gr_vector_int& ninput_items_required)
-    {
-        ninput_items_required[0] = noutput_items;
-    }
-
     int
-    fft_burst_tagger_impl::general_work(int noutput_items,
-        gr_vector_int& ninput_items,
+    fft_burst_tagger_impl::work(int noutput_items,
         gr_vector_const_void_star &input_items,
         gr_vector_void_star &output_items)
     {
@@ -373,12 +369,6 @@ namespace gr {
       gr_complex *out = (gr_complex *) output_items[0];
 
       assert(noutput_items % d_fft_size == 0);
-
-      // Let GR fill the history with samples and call us again
-      if(nitems_read(0) < d_burst_pre_len) {
-        consume_each(std::min((uint64_t)d_burst_pre_len - nitems_read(0), (uint64_t)ninput_items[0]));
-        return 0;
-      }
 
       for(int i = 0; i < noutput_items; i += d_fft_size) {
         d_index = nitems_read(0) + i;
@@ -408,8 +398,7 @@ namespace gr {
         update_filters_post();
       }
 
-      consume_each(noutput_items);
-      memcpy(out, in - d_burst_pre_len, sizeof(gr_complex) * noutput_items);
+      memcpy(out, in - d_burst_pre_len, sizeof(gr_complex) * noutput_items); 
 
       tag_new_bursts();
       tag_gone_bursts(noutput_items);
