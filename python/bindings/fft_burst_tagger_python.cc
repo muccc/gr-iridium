@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(fft_burst_tagger.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(7e1ef6ce85f39e8de2162b26c141a4de)                     */
+/* BINDTOOL_HEADER_FILE_HASH(3a407d31732c7e6eb8e55628673ec05c)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -33,7 +33,7 @@ void bind_fft_burst_tagger(py::module& m)
     using fft_burst_tagger    = ::gr::iridium::fft_burst_tagger;
 
 
-    py::class_<fft_burst_tagger, gr::block, gr::basic_block,
+    py::class_<fft_burst_tagger, gr::sync_block, gr::block, gr::basic_block,
         std::shared_ptr<fft_burst_tagger>>(m, "fft_burst_tagger", D(fft_burst_tagger))
 
         .def(py::init(&fft_burst_tagger::make),
