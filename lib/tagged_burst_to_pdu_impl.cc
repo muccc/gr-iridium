@@ -108,10 +108,10 @@ namespace gr {
       pmt::pmt_t d_pdu_vector = pmt::init_c32vector(burst.len, burst.data);
 
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("id"), pmt::mp(burst.id));
-      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("offset"), pmt::mp(burst.offset + d_sample_offset));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("magnitude"), pmt::mp(burst.magnitude));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("center_frequency"), pmt::mp(burst.center_frequency));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("sample_rate"), pmt::mp(burst.sample_rate));
+      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("timestamp"), pmt::mp(burst.timestamp));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("noise"), pmt::mp(burst.noise));
 
       pmt::pmt_t msg = pmt::cons(d_pdu_meta,
@@ -145,6 +145,7 @@ namespace gr {
           float center_frequency = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("center_frequency"), pmt::PMT_NIL));
           float sample_rate = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("sample_rate"), pmt::PMT_NIL));
           float relative_frequency = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("relative_frequency"), pmt::PMT_NIL));
+          uint64_t timestamp = pmt::to_uint64(pmt::dict_ref(tag.value, pmt::mp("timestamp"), pmt::PMT_NIL));
           float noise = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("noise"), pmt::PMT_NIL));
 
 
@@ -154,9 +155,10 @@ namespace gr {
           relative_frequency = (relative_frequency - d_relative_center_frequency) / d_relative_sample_rate;
           center_frequency += relative_frequency * sample_rate;
 
+          timestamp += d_sample_offset * 1e9 / sample_rate;
 
           burst_data burst = {id, (double)tag.offset, magnitude,
-            center_frequency, sample_rate, noise, 0};
+            center_frequency, sample_rate, timestamp, noise, 0};
           burst.data = (gr_complex *) volk_malloc(sizeof(gr_complex) * d_max_burst_size, volk_get_alignment());
 
           float phase_inc = 2 * M_PI * -relative_frequency;

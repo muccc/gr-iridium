@@ -74,8 +74,9 @@ namespace gr {
 
       void handler(pmt::pmt_t msg);
       int process_next_frame(float sample_rate, float center_frequency,
-            double offset, uint64_t sub_id, size_t burst_size, int start, float noise, float magnitude);
- 
+            uint64_t timestamp, uint64_t sub_id, size_t burst_size,
+            int start, float noise, float magnitude);
+
       void update_buffer_sizes(size_t burst_size);
       void initialize_cfo_est_fft(void);
       void initialize_correlation_filter(void);

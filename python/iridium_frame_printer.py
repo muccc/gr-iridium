@@ -35,10 +35,8 @@ class iridium_frame_printer(gr.sync_block):
             in_sig=None,
             out_sig=None)
 
-        if file_info is None:
-            self._file_info = "i-%d-t1" % time.time()
-        else:
-            self._file_info = file_info
+        self._file_info = file_info
+        self._t0 = 0
 
         self.message_port_register_in(gr.pmt.intern('pdus'))
         self.set_msg_handler(gr.pmt.intern('pdus'), self.handle_msg)
@@ -58,6 +56,11 @@ class iridium_frame_printer(gr.sync_block):
         msg = gr.pmt.cdr(msg_pmt)
         bits = gr.pmt.u8vector_elements(msg)
         timestamp = meta['timestamp']
+
+        if self._file_info is None:
+            self._t0 = (timestamp // 1e9) * 1e9
+            self._file_info = "i-%d-t1" % (self._t0 // 1e9)
+
         freq = meta['center_frequency']
         id = meta['id']
         confidence = meta['confidence']
@@ -66,8 +69,8 @@ class iridium_frame_printer(gr.sync_block):
         magnitude = meta['magnitude']
         n_symbols = meta['n_symbols']
         data = ''.join([str(x) for x in bits])
-        print("RAW: %s %012.4f %010d N:%05.2f%+06.2f I:%011d %3d%% %.5f %3d %s"%(self._file_info, timestamp*1000, freq, magnitude, noise, id,
-            confidence, level, (n_symbols - gr_iridium.UW_LENGTH), data))
+        print("RAW: %s %012.4f %010d N:%05.2f%+06.2f I:%011d %3d%% %.5f %3d %s"%(self._file_info, (timestamp-self._t0)/1e6,
+            freq, magnitude, noise, id, confidence, level, (n_symbols - gr_iridium.UW_LENGTH), data))
 
     def work(self, input_items, output_items):
         return len(input_items[0])

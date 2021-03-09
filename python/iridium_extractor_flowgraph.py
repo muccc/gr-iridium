@@ -130,6 +130,8 @@ class FlowGraph(gr.top_block):
             else:
                 source = osmosdr.source()
 
+            source.set_time_now(osmosdr.time_spec_t.get_system_time())
+
             source.set_sample_rate(self._input_sample_rate)
             source.set_center_freq(self._center_frequency, 0)
 
@@ -219,6 +221,7 @@ class FlowGraph(gr.top_block):
                                 max_bursts=max_bursts,
                                 threshold=self._threshold,
                                 history_size=512,
+                                offline=self._offline,
                                 debug=self._verbose)
 
         # Initial filter to filter the detected bursts. Runs at burst_sample_rate. Used to decimate the signal.
@@ -261,7 +264,7 @@ class FlowGraph(gr.top_block):
                 relative_sample_rate = relative_span * self._pfb_over_sample_ratio
                 burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len,
                                             relative_center, relative_span, relative_sample_rate,
-                                            -(self._pfb_delay + self._burst_pre_len / decimation),
+                                            -self._pfb_delay,
                                             self._max_queue_len, not self._offline)
                 burst_downmixer = iridium.burst_downmix(self._burst_sample_rate,
                                     int(0.007 * self._burst_sample_rate), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
@@ -293,7 +296,7 @@ class FlowGraph(gr.top_block):
 
             burst_to_pdu = iridium.tagged_burst_to_pdu(self._max_burst_len,
                                                         0.0, 1.0, 1.0,
-                                                        -self._burst_pre_len,
+                                                        0,
                                                         self._max_queue_len, not self._offline)
 
             tb.connect(self._fft_burst_tagger, burst_to_pdu)
