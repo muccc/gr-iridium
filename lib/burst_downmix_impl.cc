@@ -439,7 +439,8 @@ namespace gr {
 
     int
     burst_downmix_impl::process_next_frame(float sample_rate, float center_frequency,
-            double offset, uint64_t sub_id, size_t burst_size, int start, float noise, float magnitude)
+            uint64_t timestamp, uint64_t sub_id, size_t burst_size, int start,
+            float noise, float magnitude)
     {
       /*
        * Use the center frequency to make some assumptions about the burst.
@@ -637,6 +638,7 @@ namespace gr {
         write_data_c(d_tmp_b + uw_start, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rrc-rotate-cut", sub_id);
       }
 
+      timestamp += start * 1e9 / sample_rate;
       /*
        * Done :)
        */
@@ -647,7 +649,7 @@ namespace gr {
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("center_frequency"), pmt::mp(center_frequency));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)direction));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("uw_start"), pmt::mp(correction));
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("offset"), pmt::mp(offset + start));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("timestamp"), pmt::mp(timestamp));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(sub_id));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("noise"), pmt::mp(noise));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("magnitude"), pmt::mp(magnitude));
@@ -676,7 +678,7 @@ namespace gr {
       float center_frequency = pmt::to_float(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
       float sample_rate = pmt::to_float(pmt::dict_ref(meta, pmt::mp("sample_rate"), pmt::PMT_NIL));
       uint64_t id = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("id"), pmt::PMT_NIL));
-      double offset = pmt::to_double(pmt::dict_ref(meta, pmt::mp("offset"), pmt::PMT_NIL));
+      uint64_t timestamp = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("timestamp"), pmt::PMT_NIL));
       float noise = pmt::to_float(pmt::dict_ref(meta, pmt::mp("noise"), pmt::PMT_NIL));
       float magnitude = pmt::to_float(pmt::dict_ref(meta, pmt::mp("magnitude"), pmt::PMT_NIL));
 
@@ -687,7 +689,6 @@ namespace gr {
       if(d_debug) {
         printf("---------------> id:%" PRIu64 " len:%zu\n", id, burst_size);
         printf("center_frequency=%f\n", center_frequency);
-        printf("offset=%f\n", offset);
         printf("sample_rate=%f\n", sample_rate);
       }
 
@@ -721,13 +722,13 @@ namespace gr {
       burst_size = burst_size / decimation;
 #else
       burst_size = (burst_size - d_input_fir.ntaps() + 1) / decimation;
-      offset += d_input_fir.ntaps()/2;
+
+      timestamp += d_input_fir.ntaps() / 2 * 1e9 / sample_rate;
 #endif
 
       d_input_fir.filterNdec(d_frame, burst, burst_size, decimation);
 
       sample_rate /= decimation;
-      offset /= decimation;
 
       if(d_debug) {
         printf("---------------> id:%" PRIu64 " len:%lu\n", id, burst_size/d_output_sample_rate);
@@ -783,13 +784,15 @@ namespace gr {
         int handled_samples;
         int sub_id = id;
         do {
-            handled_samples = process_next_frame(sample_rate, center_frequency, offset, sub_id, burst_size, start, noise, magnitude);
+            handled_samples = process_next_frame(sample_rate, center_frequency, timestamp,
+                                                    sub_id, burst_size, start, noise, magnitude);
             start += handled_samples;
             // This is OK as ids are incremented by 10 by the burst tagger
             sub_id++;
         } while(d_handle_multiple_frames_per_burst && handled_samples > 0);
       } else {
-        process_next_frame(sample_rate, center_frequency, offset, id, burst_size, start, noise, magnitude);
+        process_next_frame(sample_rate, center_frequency, timestamp, id, burst_size, start,
+                            noise, magnitude);
       }
 
       message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));

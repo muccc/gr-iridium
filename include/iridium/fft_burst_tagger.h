@@ -48,7 +48,8 @@ namespace gr {
       static sptr make(float center_frequency, int fft_size, int sample_rate,
                             int burst_pre_len, int burst_post_len,
                             int burst_width, int max_bursts=0, float threshold=7,
-                            int history_size=512, bool debug=false);
+                            int history_size=512,
+                            bool offline=false, bool debug=false);
 
       virtual uint64_t get_n_tagged_bursts() = 0;
       virtual uint64_t get_sample_count() = 0;
