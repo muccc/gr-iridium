@@ -39,12 +39,13 @@ namespace gr {
     fft_burst_tagger::sptr
     fft_burst_tagger::make(float center_frequency, int fft_size, int sample_rate,
                             int burst_pre_len, int burst_post_len, int burst_width,
-                            int max_bursts, float threshold, int history_size, bool debug)
+                            int max_bursts, float threshold, int history_size,
+                            bool offline, bool debug)
     {
       return gnuradio::get_initial_sptr
         (new fft_burst_tagger_impl(center_frequency, fft_size, sample_rate,
                 burst_pre_len, burst_post_len, burst_width,
-                max_bursts, threshold, history_size, debug));
+                max_bursts, threshold, history_size, offline, debug));
     }
 
 
@@ -53,7 +54,8 @@ namespace gr {
      */
     fft_burst_tagger_impl::fft_burst_tagger_impl(float center_frequency, int fft_size, int sample_rate,
                         int burst_pre_len, int burst_post_len, int burst_width,
-                        int max_bursts, float threshold, int history_size, bool debug)
+                        int max_bursts, float threshold, int history_size,
+                        bool offline, bool debug)
       : gr::sync_block("fft_burst_tagger",
               gr::io_signature::make(1, 1, sizeof(gr_complex)),
               gr::io_signature::make(1, 1, sizeof(gr_complex))),
@@ -64,10 +66,11 @@ namespace gr {
         d_n_tagged_bursts(0),
         d_fft(NULL), d_history_size(history_size), d_peaks(std::vector<peak>()),
         d_bursts(std::vector<burst>()), d_history_primed(false), d_history_index(0),
-        d_burst_post_len(burst_post_len), d_debug(debug), d_burst_debug_file(NULL)
-
+        d_burst_post_len(burst_post_len), d_debug(debug), d_burst_debug_file(NULL),
+        d_last_rx_time_offset(0),
+        d_last_rx_time_timestamp(0),
+        d_offline(offline)
     {
-        
         const int nthreads = 1;
         d_fft = new fft::fft_complex(d_fft_size, true, nthreads);
 
@@ -321,12 +324,17 @@ namespace gr {
         pmt::pmt_t key = pmt::string_to_symbol("new_burst");
         float relative_frequency = (b.center_bin - d_fft_size / 2) / float(d_fft_size);
 
+
+        const uint64_t offset = b.start - d_last_rx_time_offset;
+        const uint64_t timestamp = d_last_rx_time_timestamp + offset * 1e9 / d_sample_rate;
+
         pmt::pmt_t value = pmt::make_dict();
         value = pmt::dict_add(value, pmt::mp("id"), pmt::from_uint64(b.id));
         value = pmt::dict_add(value, pmt::mp("relative_frequency"), pmt::from_float(relative_frequency));
         value = pmt::dict_add(value, pmt::mp("center_frequency"), pmt::from_float(d_center_frequency));
         value = pmt::dict_add(value, pmt::mp("magnitude"), pmt::from_float(b.magnitude));
         value = pmt::dict_add(value, pmt::mp("sample_rate"), pmt::from_float(d_sample_rate));
+        value = pmt::dict_add(value, pmt::mp("timestamp"), pmt::from_uint64(timestamp));
         value = pmt::dict_add(value, pmt::mp("noise"), pmt::from_float(b.noise));
 
         // Our output is lagging by d_burst_pre_len samples.
@@ -384,6 +392,27 @@ namespace gr {
       gr_complex *out = (gr_complex *) output_items[0];
 
       assert(noutput_items % d_fft_size == 0);
+
+      if(d_last_rx_time_timestamp == 0 && !d_offline) {
+        struct timeval time_now{};
+        gettimeofday(&time_now, nullptr);
+        d_last_rx_time_timestamp = time_now.tv_sec * 1e9 + time_now.tv_usec * 1e3;
+      }
+
+      std::vector<tag_t> rx_time_tags;
+      get_tags_in_window(rx_time_tags, 0, 0, noutput_items, pmt::mp("rx_time"));
+      if(!rx_time_tags.empty()) {
+        std::sort(rx_time_tags.begin(), rx_time_tags.end(), tag_t::offset_compare);
+        const auto& rx_time_tag = rx_time_tags.back();
+
+        d_last_rx_time_offset = rx_time_tag.offset;
+
+        const pmt::pmt_t& value = rx_time_tag.value;
+        const uint64_t seconds = pmt::to_uint64(pmt::tuple_ref(value, 0));
+        const double seconds_fraction = pmt::to_double(pmt::tuple_ref(value, 1));
+
+        d_last_rx_time_timestamp = seconds * 1e9 + seconds_fraction * 1e9;
+      }
 
       for(int i = 0; i < noutput_items; i += d_fft_size) {
         d_index = nitems_read(0) + i;

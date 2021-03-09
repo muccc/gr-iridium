@@ -51,10 +51,10 @@ class frame_sorter(gr.sync_block):
         remove_index = None
         for idx, message in enumerate(self._messages):
             ts_delta = timestamp - message['meta']['timestamp']
-            if ts_delta > 1:
+            if ts_delta > 1e9:
                 self.message_port_pub(gr.pmt.intern('pdus'), gr.pmt.cons(gr.pmt.to_pmt(message['meta']), gr.pmt.to_pmt(message['data'])))
                 remove_count += 1
-            elif abs(ts_delta) <= 0.001:
+            elif abs(ts_delta) <= 1000:
                 if abs(message['meta']['center_frequency'] - freq) < 10000:
                     if message['meta']['confidence'] < confidence:
                         remove_index = idx
