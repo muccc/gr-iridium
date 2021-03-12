@@ -191,7 +191,7 @@ namespace gr {
         // If the phase is off too much, we lower the reported confidence
         int phase = (gr::fast_atan2f(burst[index]) + M_PI) * 180 / M_PI;
         int offset = 45 - (phase % 90);
-        if(offset <= 22) {
+        if(abs(offset) <= 22) {
           n_ok++;
         }
 
