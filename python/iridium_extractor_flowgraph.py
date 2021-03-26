@@ -316,6 +316,9 @@ class FlowGraph(gr.top_block):
     def get_n_access_ok_bursts(self):
         return self._iridium_qpsk_demod.get_n_access_ok_bursts()
 
+    def get_n_access_ok_sub_bursts(self):
+        return self._iridium_qpsk_demod.get_n_access_ok_sub_bursts()
+
     def get_queue_size(self):
         size = 0
         for converter in self._burst_to_pdu_converters:

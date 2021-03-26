@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(iridium_qpsk_demod_cpp.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(0e952e69852c678e7695647849d0e35f)                     */
+/* BINDTOOL_HEADER_FILE_HASH(07fe7bba31958714996fbc94cea43794)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -54,6 +54,12 @@ void bind_iridium_qpsk_demod_cpp(py::module& m)
         
         .def("get_n_access_ok_bursts",&iridium_qpsk_demod_cpp::get_n_access_ok_bursts,       
             D(iridium_qpsk_demod_cpp,get_n_access_ok_bursts)
+        )
+
+
+        
+        .def("get_n_access_ok_sub_bursts",&iridium_qpsk_demod_cpp::get_n_access_ok_sub_bursts,       
+            D(iridium_qpsk_demod_cpp,get_n_access_ok_sub_bursts)
         )
 
         ;
