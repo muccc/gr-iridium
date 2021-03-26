@@ -61,7 +61,7 @@ class Demod(object):
             print("level:",level)
             print('lmax:', lmax)
 
-        i = start_sample
+        i = round(start_sample)
 
         # Make sure we do not get a slightly negative index
         # from the correlations
