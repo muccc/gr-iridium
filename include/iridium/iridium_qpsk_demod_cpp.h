@@ -45,7 +45,7 @@ namespace gr {
        * class. iridium::iridium_qpsk_demod_cpp::make is the public interface for
        * creating new instances.
        */
-      static sptr make();
+      static sptr make(int n_channels);
 
       virtual uint64_t get_n_handled_bursts() = 0;
       virtual uint64_t get_n_access_ok_bursts() = 0;

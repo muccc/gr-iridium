@@ -42,7 +42,7 @@ namespace gr {
 
       std::vector<uint8_t> d_bits;
 
-      void handler(pmt::pmt_t msg);
+      void handler(int channel, pmt::pmt_t msg);
       void update_buffer_sizes(size_t burst_size);
       int decimate(const gr_complex * in, int size, int sps, gr_complex * out);
       void qpskFirstOrderPLL(const gr_complex* x, int size, float alpha, gr_complex* y);
@@ -51,7 +51,7 @@ namespace gr {
       void decode_deqpsk(int * demodulated_burst, size_t n_symbols);
       void map_symbols_to_bits(const int * demodulated_burst, size_t n_symbols, std::vector<uint8_t> &bits);
      public:
-      iridium_qpsk_demod_cpp_impl();
+      iridium_qpsk_demod_cpp_impl(int n_channels);
       ~iridium_qpsk_demod_cpp_impl();
 
       uint64_t get_n_handled_bursts();
