@@ -56,7 +56,9 @@ namespace gr {
         d_demodulated_burst(NULL),
         d_n_handled_bursts(0),
         d_n_access_ok_bursts(0),
-        d_symbol_mapping{0, 1, 2, 3}
+        d_n_access_ok_sub_bursts(0),
+        d_symbol_mapping{0, 1, 2, 3},
+        d_channel_id(n_channels, UINT64_MAX)
     {
       message_port_register_out(pmt::mp("pdus"));
 
@@ -307,6 +309,12 @@ namespace gr {
       return d_n_access_ok_bursts;
     }
 
+    uint64_t
+    iridium_qpsk_demod_cpp_impl::get_n_access_ok_sub_bursts()
+    {
+      return d_n_access_ok_sub_bursts;
+    }
+
     void
     iridium_qpsk_demod_cpp_impl::handler(int channel, pmt::pmt_t msg)
     {
@@ -352,7 +360,16 @@ namespace gr {
         return;
       }
 
-      d_n_access_ok_bursts++;
+
+      // Let's count the number of bursts before
+      // the burst downmix split them up
+      uint64_t id = sub_id / 10;
+      if(d_channel_id[channel] != id) {
+        d_channel_id[channel] = id;
+        d_n_access_ok_bursts++;
+      }
+
+      d_n_access_ok_sub_bursts++;
 
       decode_deqpsk(d_demodulated_burst, n_symbols);
 
