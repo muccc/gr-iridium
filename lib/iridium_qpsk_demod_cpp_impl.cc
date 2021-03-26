@@ -34,17 +34,17 @@ namespace gr {
   namespace iridium {
 
     iridium_qpsk_demod_cpp::sptr
-    iridium_qpsk_demod_cpp::make()
+    iridium_qpsk_demod_cpp::make(int n_channels)
     {
       return gnuradio::get_initial_sptr
-        (new iridium_qpsk_demod_cpp_impl());
+        (new iridium_qpsk_demod_cpp_impl(n_channels));
     }
 
 
     /*
      * The private constructor
      */
-    iridium_qpsk_demod_cpp_impl::iridium_qpsk_demod_cpp_impl()
+    iridium_qpsk_demod_cpp_impl::iridium_qpsk_demod_cpp_impl(int n_channels)
       : gr::sync_block("iridium_qpsk_demod_cpp",
               gr::io_signature::make(0, 0, 0),
               gr::io_signature::make(0, 0, 0)),
@@ -58,11 +58,19 @@ namespace gr {
         d_n_access_ok_bursts(0),
         d_symbol_mapping{0, 1, 2, 3}
     {
-      message_port_register_in(pmt::mp("cpdus"));
-
       message_port_register_out(pmt::mp("pdus"));
 
-      set_msg_handler(pmt::mp("cpdus"), boost::bind(&iridium_qpsk_demod_cpp_impl::handler, this, _1));
+      if(n_channels > 1) {
+        for(int i=0; i < n_channels; i++) {
+          auto port_name = pmt::mp("cpdus" + std::to_string(i));
+          message_port_register_in(port_name);
+          set_msg_handler(port_name, [this, i](pmt::pmt_t msg) { this->handler(i, msg); });
+        }
+      } else {
+        auto port_name = pmt::mp("cpdus");
+        message_port_register_in(port_name);
+        set_msg_handler(port_name, [this](pmt::pmt_t msg) { this->handler(0, msg); });
+      }
     }
 
     /*
@@ -300,7 +308,7 @@ namespace gr {
     }
 
     void
-    iridium_qpsk_demod_cpp_impl::handler(pmt::pmt_t msg)
+    iridium_qpsk_demod_cpp_impl::handler(int channel, pmt::pmt_t msg)
     {
       pmt::pmt_t samples = pmt::cdr(msg);
       size_t burst_size = pmt::length(samples);

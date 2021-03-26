@@ -95,6 +95,7 @@ class FlowGraph(gr.top_block):
         else:
             self._use_pfb = False
             self._burst_sample_rate = self._input_sample_rate
+            self._channels = 1
 
         # After 90 ms there needs to be a pause in the frame sturcture.
         # Let's make that the limit for a detected burst
@@ -224,11 +225,9 @@ class FlowGraph(gr.top_block):
         start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, 250000, 5e3/2, 10e3/2, 60)
         #print len(start_finder_filter)
 
-        self._iridium_qpsk_demod = iridium.iridium_qpsk_demod_cpp()
+        self._iridium_qpsk_demod = iridium.iridium_qpsk_demod_cpp(self._channels)
         self._frame_sorter = iridium.frame_sorter()
         self._iridium_frame_printer = iridium.iridium_frame_printer(file_info)
-
-        #self._iridium_qpsk_demod = iridium.iridium_qpsk_demod(250000)
 
         if raw_capture_filename:
             multi = blocks.multiply_const_cc(32768)
@@ -282,7 +281,7 @@ class FlowGraph(gr.top_block):
                 tb.msg_connect((self._burst_to_pdu_converters[i], 'cpdus'), (self._burst_downmixers[i], 'cpdus'))
                 tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (self._burst_to_pdu_converters[i], 'burst_handled'))
 
-                tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus'))
+                tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus' + i))
         else:
             burst_downmix = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
             if debug_id is not None: burst_downmix.debug_id(debug_id)

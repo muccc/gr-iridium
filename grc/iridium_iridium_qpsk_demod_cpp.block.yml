@@ -4,6 +4,12 @@ id: iridium_iridium_qpsk_demod_cpp
 label: iridium_qpsk_demod_cpp
 category: '[Iridium]'
 
+parameters:
+-   id: channels
+    label: Channels
+    dtype: int
+    default: '1'
+
 inputs:
 -   domain: message
     id: cpdus
@@ -11,9 +17,10 @@ inputs:
 outputs:
 -   domain: message
     id: pdus
+    multiplicity: ${channel}
 
 templates:
     imports: import iridium
-    make: iridium.iridium_qpsk_demod_cpp()
+    make: "iridium.iridium_qpsk_demod_cpp(${channels})"
 
 file_format: 1

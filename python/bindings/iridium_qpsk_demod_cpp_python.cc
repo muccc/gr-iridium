@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(iridium_qpsk_demod_cpp.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(9126147ce941c38d40d66a1b92cccd69)                     */
+/* BINDTOOL_HEADER_FILE_HASH(0e952e69852c678e7695647849d0e35f)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -37,6 +37,7 @@ void bind_iridium_qpsk_demod_cpp(py::module& m)
         std::shared_ptr<iridium_qpsk_demod_cpp>>(m, "iridium_qpsk_demod_cpp", D(iridium_qpsk_demod_cpp))
 
         .def(py::init(&iridium_qpsk_demod_cpp::make),
+           py::arg("n_channels"),
            D(iridium_qpsk_demod_cpp,make)
         )
         
