@@ -39,8 +39,10 @@ namespace gr {
       int d_symbol_mapping[4];
       uint64_t d_n_handled_bursts;
       uint64_t d_n_access_ok_bursts;
+      uint64_t d_n_access_ok_sub_bursts;
 
       std::vector<uint8_t> d_bits;
+      std::vector<uint64_t> d_channel_id;
 
       void handler(int channel, pmt::pmt_t msg);
       void update_buffer_sizes(size_t burst_size);
@@ -56,6 +58,7 @@ namespace gr {
 
       uint64_t get_n_handled_bursts();
       uint64_t get_n_access_ok_bursts();
+      uint64_t get_n_access_ok_sub_bursts();
 
       int work(int noutput_items,
          gr_vector_const_void_star &input_items,

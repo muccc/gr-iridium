@@ -49,6 +49,7 @@ namespace gr {
 
       virtual uint64_t get_n_handled_bursts() = 0;
       virtual uint64_t get_n_access_ok_bursts() = 0;
+      virtual uint64_t get_n_access_ok_sub_bursts() = 0;
     };
 
   } // namespace iridium
