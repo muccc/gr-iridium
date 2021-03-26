@@ -439,7 +439,7 @@ namespace gr {
 
     int
     burst_downmix_impl::process_next_frame(float sample_rate, float center_frequency,
-            double offset, uint64_t id, size_t burst_size, int start)
+            double offset, uint64_t sub_id, size_t burst_size, int start)
     {
       /*
        * Use the center frequency to make some assumptions about the burst.
@@ -522,7 +522,7 @@ namespace gr {
       center_frequency += center_offset * sample_rate;
 
       if(d_debug) {
-        write_data_c(d_tmp_a, burst_size - start, (char *)"signal-filtered-deci-cut-start-shift", id);
+        write_data_c(d_tmp_a, burst_size - start, (char *)"signal-filtered-deci-cut-start-shift", sub_id);
       }
 
       // Make some room at the start and the end, so the RRC can run
@@ -536,7 +536,7 @@ namespace gr {
       d_rrc_fir.filterN(d_tmp_a, d_tmp_b, burst_size - start);
 
       if(d_debug) {
-        write_data_c(d_tmp_a, burst_size - start, (char *)"signal-filtered-deci-cut-start-shift-rrc", id);
+        write_data_c(d_tmp_a, burst_size - start, (char *)"signal-filtered-deci-cut-start-shift-rrc", sub_id);
       }
 
       /*
@@ -620,7 +620,7 @@ namespace gr {
       d_r.rotateN(d_tmp_b, d_tmp_a, frame_size);
 
       if(d_debug) {
-        write_data_c(d_tmp_b, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rrc-rotate", id);
+        write_data_c(d_tmp_b, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rrc-rotate", sub_id);
       }
 
       /*
@@ -634,7 +634,7 @@ namespace gr {
       start += uw_start;
 
       if(d_debug) {
-        write_data_c(d_tmp_b + uw_start, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rrc-rotate-cut", id);
+        write_data_c(d_tmp_b + uw_start, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rrc-rotate-cut", sub_id);
       }
 
       /*
@@ -648,7 +648,7 @@ namespace gr {
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)direction));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("uw_start"), pmt::mp(correction));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("offset"), pmt::mp(offset + start));
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(id));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(sub_id));
 
       if(d_debug) {
         printf("center_frequency=%f, uw_start=%u\n", center_frequency, uw_start);
@@ -807,12 +807,13 @@ namespace gr {
       }
 
       if(d_handle_multiple_frames_per_burst) {
-        // Make some room in the id space
-        uint64_t new_id = id * 10;
         int handled_samples;
+        int sub_id = id;
         do {
-            handled_samples = process_next_frame(sample_rate, center_frequency, offset, new_id++, burst_size, start);
+            handled_samples = process_next_frame(sample_rate, center_frequency, offset, sub_id, burst_size, start);
             start += handled_samples;
+            // This is OK as ids are incremented by 10 by the burst tagger
+            sub_id++;
         } while(d_handle_multiple_frames_per_burst && handled_samples > 0);
       } else {
         process_next_frame(sample_rate, center_frequency, offset, id, burst_size, start);
