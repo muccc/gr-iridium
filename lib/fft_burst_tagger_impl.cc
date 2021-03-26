@@ -213,8 +213,12 @@ namespace gr {
       for(peak p : d_peaks) {
         if(d_burst_mask_f[p.bin]) {
           burst b;
-          b.id = d_burst_id++;
+          b.id = d_burst_id;
           b.center_bin = p.bin;
+
+          // Allow downstream blocks to split this burst
+          // and assing sub ids
+          d_burst_id += 10;
 
           // Normalize the relative magnitude
           b.magnitude = 10 * log10(p.relative_magnitude * d_history_size);
