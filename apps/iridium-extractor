@@ -240,6 +240,25 @@ if __name__ == "__main__":
             print("/tmp/signals directory missing!", file=sys.stderr)
             exit(1)
 
+    if True:
+        settings= [
+            "sample_rate",
+            "center",
+            "fmt",
+            "offline",
+            "threshold",
+            "decimation",
+            "max_queue_len",
+            "max_bursts",
+            "handle_multiple_frames_per_burst",
+            "burst_width"
+            ]
+        for x,var in enumerate(settings):
+            if x%4==0:
+                if x>0: print()
+                print("[startup]", end='')
+            print(" %s=%s"%(var,globals()[var]), end='')
+        print()
 
     tb = iridium.iridium_extractor_flowgraph.FlowGraph(center_frequency=center, sample_rate=sample_rate, decimation=decimation, 
             filename=filename, sample_format=fmt,
