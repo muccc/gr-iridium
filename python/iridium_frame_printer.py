@@ -42,8 +42,18 @@ class iridium_frame_printer(gr.sync_block):
 
         self.message_port_register_in(gr.pmt.intern('pdus'))
         self.set_msg_handler(gr.pmt.intern('pdus'), self.handle_msg)
+        # hack: hijack system message port
+        self.set_msg_handler(gr.pmt.intern('system'), self.handle_msg_sys)
+
+    def handle_msg_sys(self, msg_pmt):
+        # ignore system message(s)
+        meta = gr.pmt.to_python(gr.pmt.car(msg_pmt))
 
     def handle_msg(self, msg_pmt):
+        if msg_pmt == gr.pmt.PMT_EOF:
+            # pass EOF to (original) system handler
+            self.system_handler(gr.pmt.cons(gr.pmt.intern('done'),gr.pmt.to_pmt(1)))
+            return
         meta = gr.pmt.to_python(gr.pmt.car(msg_pmt))
         msg = gr.pmt.cdr(msg_pmt)
         bits = gr.pmt.u8vector_elements(msg)
@@ -59,4 +69,3 @@ class iridium_frame_printer(gr.sync_block):
 
     def work(self, input_items, output_items):
         return len(input_items[0])
-
