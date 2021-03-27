@@ -118,11 +118,12 @@ def print_stats(tb):
 
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:oq:b:D:h', [
+    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vid:f:oq:b:D:h', [
                                                             'burst-width=',
                                                             'center=',
                                                             'rate=',
                                                             'verbose',
+                                                            'info',
                                                             'db=',
                                                             'format=',
                                                             'offline',
@@ -139,6 +140,7 @@ if __name__ == "__main__":
     center = None
     burst_width = 40000
     verbose = False
+    info = False
     threshold = 18 # about 18 dB over noise
     fmt = None
     max_queue_len = 500
@@ -243,6 +245,8 @@ if __name__ == "__main__":
             threshold = float(arg)
         elif opt in ('-v', '--verbose'):
             verbose = True
+        elif opt in ('-i', '--info'):
+            info = True
         elif opt in ('-f', '--format'):
             fmt = arg
         elif opt in ('-o', '--offline'):
@@ -309,6 +313,25 @@ if __name__ == "__main__":
             print("/tmp/signals directory missing!", file=sys.stderr)
             exit(1)
 
+    if info:
+        settings= [
+            "sample_rate",
+            "center",
+            "fmt",
+            "offline",
+            "threshold",
+            "decimation",
+            "max_queue_len",
+            "max_bursts",
+            "handle_multiple_frames_per_burst",
+            "burst_width"
+            ]
+        for x,var in enumerate(settings):
+            if x%4==0:
+                if x>0: print()
+                print("[startup]", end='')
+            print(" %s=%s"%(var,globals()[var]), end='')
+        print()
 
     tb = iridium.iridium_extractor_flowgraph.FlowGraph(center_frequency=center, sample_rate=sample_rate, decimation=decimation, 
             filename=filename, sample_format=fmt,
