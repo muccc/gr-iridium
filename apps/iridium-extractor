@@ -14,12 +14,14 @@ queue_len_max = 0
 out_count = 0
 in_count = 0
 drop_count = 0
-ok_count = 0
+in_ok_count = 0
+out_ok_count = 0
 
 in_count_total = 0
 out_count_total = 0
 drop_count_total = 0
-ok_count_total = 0
+in_ok_count_total = 0
+out_ok_count_total = 0
 
 last_print = 0
 t0 = time.time()
@@ -27,8 +29,8 @@ t0 = time.time()
 
 def print_stats(tb):
     global last_print, queue_len_max, out_count, in_count
-    global drop_count, drop_count_total, ok_count
-    global ok_count_total, out_count_total, in_count_total, t0
+    global drop_count, drop_count_total, in_ok_count, out_ok_count
+    global in_ok_count_total, out_ok_count_total, out_count_total, in_count_total, t0
     while True:
 
         queue_len = tb.get_queue_size()
@@ -36,7 +38,8 @@ def print_stats(tb):
 
         in_count = tb.get_n_detected_bursts() - in_count_total
         out_count = tb.get_n_handled_bursts() - out_count_total
-        ok_count = tb.get_n_access_ok_sub_bursts() - ok_count_total
+        in_ok_count = tb.get_n_access_ok_bursts() - in_ok_count_total
+        out_ok_count = tb.get_n_access_ok_sub_bursts() - out_ok_count_total
         drop_count = tb.get_n_dropped_bursts() - drop_count_total
 
         dt = time.time() - last_print
@@ -47,31 +50,36 @@ def print_stats(tb):
         drop_rate = drop_count / dt
 
         if in_count != 0:
-            ok_ratio = ok_count / float(in_count)
+            in_ok_ratio = in_ok_count / float(in_count)
+            out_ok_ratio = out_ok_count / float(in_count)
         else:
-            ok_ratio = 0
+            in_ok_ratio = 0
+            out_ok_ratio = 0
 
-        ok_rate = ok_count / dt
+        ok_rate = out_ok_count / dt
         drop_count_total += drop_count
-        ok_count_total += ok_count
+        in_ok_count_total += in_ok_count
+        out_ok_count_total += out_ok_count
         out_count_total += out_count
 
         if in_count_total != 0:
-            ok_ratio_total = ok_count_total / float(in_count_total)
+            ok_ratio_total = out_ok_count_total / float(in_count_total)
         else:
             ok_ratio_total = 0
 
-        ok_rate_avg = ok_count_total / (time.time() - t0)
+        ok_rate_avg = out_ok_count_total / (time.time() - t0)
 
         stats = ""
         stats += "%d" % time.time()
-        stats += " | i: %3d/s" % in_rate + " | i_avg: %3d/s" % in_rate_avg
-        stats += " | q: %4d" % queue_len + " | q_max: %4d" % queue_len_max
+        stats += " | i: %3d/s" % in_rate
+        stats += " | i_avg: %3d/s" % in_rate_avg
+        stats += " | q_max: %4d" % queue_len_max
+        stats += " | i_ok: %3d%%" % (in_ok_ratio * 100)
         stats += " | o: %4d/s" % out_rate
-        stats += " | ok: %3d%%" % (ok_ratio * 100)
+        stats += " | ok: %3d%%" % (out_ok_ratio * 100)
         stats += " | ok: %3d/s" % ok_rate
         stats += " | ok_avg: %3d%%" % (ok_ratio_total * 100)
-        stats += " | ok: %10d" % ok_count_total
+        stats += " | ok: %10d" % out_ok_count_total
         stats += " | ok_avg: %3d/s" % ok_rate_avg
         stats += " | d: %d" % drop_count_total
         print(stats, file=sys.stderr)
@@ -79,9 +87,6 @@ def print_stats(tb):
 
         queue_len_max = 0
         in_count = 0
-        out_count = 0
-        drop_count = 0
-        ok_count = 0
         last_print = time.time()
 
         time.sleep(1)
