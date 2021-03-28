@@ -18,6 +18,7 @@ class FlowGraph(gr.top_block):
     def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, signal_width=40e3, offline=False, max_queue_len=500,
             handle_multiple_frames_per_burst=False, raw_capture_filename=None, debug_id=None, max_bursts=0, verbose=False, file_info=None):
         gr.top_block.__init__(self, "Top Block")
+        self.handle_sigint = False
         self._center_frequency = center_frequency
         self._burst_width = 40e3
         self._input_sample_rate = sample_rate
@@ -338,3 +339,16 @@ class FlowGraph(gr.top_block):
         for downmix in self._burst_downmixers:
             dropped += downmix.get_n_dropped_bursts()
         return dropped
+
+    def run(self, *args, **kwargs):
+        self.start(*args, **kwargs)
+        try:
+            self.wait()
+        except KeyboardInterrupt:
+            # some magic to get blocks to flush data
+            self.lock()
+            self._fft_burst_tagger.stop()
+            self.unlock()
+            # shut down everything
+            self._impl.stop()
+            self.wait()
