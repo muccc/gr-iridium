@@ -121,7 +121,7 @@ if __name__ == "__main__":
     search_depth = 0.007
     verbose = False
     sample_rate = None
-    threshold = 8.5 # about 8.5 dB over noise
+    threshold = 17 # about 17 dB over noise
     fmt = None
     jobs = 4
     offline = False
