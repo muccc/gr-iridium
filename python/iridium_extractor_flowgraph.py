@@ -29,9 +29,11 @@ class FlowGraph(gr.top_block):
         self._max_queue_len = max_queue_len
         self._handle_multiple_frames_per_burst = handle_multiple_frames_per_burst
 
-        self._fft_size = int(math.pow(2, 1 + int(math.log(self._input_sample_rate / 1000, 2)))) # fft is approx 1ms long
+        self._fft_size = 2**round(math.log(self._input_sample_rate / 1000, 2)) # FFT is approx. 1 ms long
         self._burst_pre_len = 2 * self._fft_size
-        self._burst_post_len = 8 * self._fft_size
+
+        # Keep 16 ms of signal after the FFT loses track
+        self._burst_post_len = int(self._input_sample_rate * 16e-3)
 
         # Just to keep the code below a bit more portable
         tb = self
