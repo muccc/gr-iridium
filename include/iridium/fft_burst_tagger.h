@@ -51,6 +51,7 @@ namespace gr {
                             int history_size=512, bool debug=false);
 
       virtual uint64_t get_n_tagged_bursts() = 0;
+      virtual uint64_t get_sample_count() = 0;
     };
 
   } // namespace iridium
