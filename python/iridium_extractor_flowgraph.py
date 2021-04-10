@@ -313,6 +313,9 @@ class FlowGraph(gr.top_block):
     def get_n_detected_bursts(self):
         return self._fft_burst_tagger.get_n_tagged_bursts()
 
+    def get_sample_count(self):
+        return self._fft_burst_tagger.get_sample_count()
+
     def get_n_handled_bursts(self):
         return self._iridium_qpsk_demod.get_n_handled_bursts()
 
