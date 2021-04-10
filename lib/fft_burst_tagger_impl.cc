@@ -60,6 +60,7 @@ namespace gr {
         d_center_frequency(center_frequency), d_sample_rate(sample_rate),
         d_fft_size(fft_size), d_burst_pre_len(burst_pre_len),
         d_burst_id(0),
+        d_sample_count(0),
         d_n_tagged_bursts(0),
         d_fft(NULL), d_history_size(history_size), d_peaks(std::vector<peak>()),
         d_bursts(std::vector<burst>()), d_history_primed(false), d_history_index(0),
@@ -365,11 +366,18 @@ namespace gr {
       return d_n_tagged_bursts;
     }
 
+    uint64_t
+    fft_burst_tagger_impl::get_sample_count()
+    {
+      return d_sample_count;
+    }
+
     int
     fft_burst_tagger_impl::work(int noutput_items,
         gr_vector_const_void_star &input_items,
         gr_vector_void_star &output_items)
     {
+	  d_sample_count+=noutput_items;
 
       // We keep d_burst_pre_len additional samples in front of our data
       const gr_complex *in = (const gr_complex *) input_items[0] + d_burst_pre_len;

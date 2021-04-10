@@ -30,4 +30,7 @@
 
  static const char *__doc_gr_iridium_fft_burst_tagger_get_n_tagged_bursts = R"doc()doc";
 
+
+ static const char *__doc_gr_iridium_fft_burst_tagger_get_sample_count = R"doc()doc";
+
   
