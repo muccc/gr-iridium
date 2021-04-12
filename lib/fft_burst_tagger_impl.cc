@@ -102,7 +102,7 @@ namespace gr {
             d_burst_mask_f[i] = 1.0;
         }
 
-        d_threshold = pow(10, threshold/20) / d_history_size;
+        d_threshold = pow(10, threshold/10) / d_history_size;
         if(d_debug) {
           fprintf(stderr, "threshold=%f, d_threshold=%f (%f/%d)\n",
               threshold, d_threshold, d_threshold * d_history_size, d_history_size);
@@ -217,16 +217,16 @@ namespace gr {
           b.center_bin = p.bin;
 
           // Allow downstream blocks to split this burst
-          // and assing sub ids
+          // and assign sub ids
           d_burst_id += 10;
 
           // Normalize the relative magnitude
-          b.magnitude = 20 * log10(p.relative_magnitude * d_history_size);
+          b.magnitude = 10 * log10(p.relative_magnitude * d_history_size);
           // The burst might have started one FFT earlier
           b.start = d_index - d_burst_pre_len;
           b.last_active = b.start;
           // Keep noise level around (dbFS)
-          b.noise = 20 * log10(d_baseline_sum_f[b.center_bin] / d_history_size / d_fft_size);
+          b.noise = 10 * log10(d_baseline_sum_f[b.center_bin] / d_history_size / (d_fft_size * d_fft_size));
 
           d_bursts.push_back(b);
           d_new_bursts.push_back(b);
@@ -382,8 +382,7 @@ namespace gr {
 
         volk_32fc_32f_multiply_32fc(d_fft->get_inbuf(), &in[i], d_window_f, d_fft_size);
         d_fft->execute();
-        //volk_32fc_magnitude_squared_32f(d_magnitude_f, fft_result, d_fft_size);
-        volk_32fc_magnitude_32f(d_magnitude_f, d_fft->get_outbuf(), d_fft_size);
+        volk_32fc_magnitude_squared_32f(d_magnitude_f, d_fft->get_outbuf(), d_fft_size);
         memcpy(&d_magnitude_shifted_f[0], &d_magnitude_f[d_fft_size/2], sizeof(float) * d_fft_size/2);
         memcpy(&d_magnitude_shifted_f[d_fft_size/2], &d_magnitude_f[0], sizeof(float) * d_fft_size/2);
 
