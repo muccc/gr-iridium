@@ -753,32 +753,16 @@ namespace gr {
        */
 
       int half_fir_size = (d_start_finder_fir.ntaps() - 1) / 2;
-#if 1
+      int fir_size = d_start_finder_fir.ntaps();
+
       // The burst might be shorter than d_search_depth.
-      int N = std::min(d_search_depth, (int)burst_size);
+      int N = std::min(d_search_depth, (int)burst_size - (fir_size - 1));
 
-      // TODO: Maybe it safe and more efficient to add the offset
-      // to the call to volk.
-      volk_32fc_magnitude_32f(d_magnitude_f, d_frame, N);
-      memmove(d_magnitude_f + half_fir_size, d_magnitude_f, sizeof(float) * N);
+      volk_32fc_magnitude_32f(d_magnitude_f, d_frame, N + fir_size - 1);
 
       if(d_debug) {
-        write_data_f(d_magnitude_f + half_fir_size, N, (char *)"signal-mag", id);
+        write_data_f(d_magnitude_f, N + fir_size - 1, (char *)"signal-mag", id);
       }
-
-      memset(d_magnitude_f, 0, sizeof(float) * half_fir_size);
-      memset(d_magnitude_f + half_fir_size + N, 0, sizeof(float) * half_fir_size);
-#else
-      volk_32fc_magnitude_32f(d_magnitude_f, d_frame, std::min(d_search_depth, burst_size));
-      if(burst_size < d_search_depth) {
-        memset(d_magnitude_f + burst_size, 0, sizeof(float) * (d_search_depth - burst_size));
-      }
-      int N = d_search_depth - d_start_finder_fir.ntaps() + 1;
-      if(d_debug) {
-        write_data_f(d_magnitude_f, N, (char *)"signal-mag", id);
-      }
-#endif
-
 
       d_start_finder_fir.filterN(d_magnitude_filtered_f, d_magnitude_f, N);
 
@@ -799,11 +783,9 @@ namespace gr {
         }
       }
 
-#if 1
-      start = std::max(start - d_pre_start_samples, 0);
-#else
-      start = std::max(start - d_pre_start_samples + half_fir_size, 0);
-#endif
+      if(start > 0) {
+        start = std::max(start + half_fir_size - d_pre_start_samples, 0);
+      }
 
       if(d_debug) {
         std::cout << "Start:" << start << "\n";
