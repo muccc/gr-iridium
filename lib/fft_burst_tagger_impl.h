@@ -59,6 +59,7 @@ namespace gr {
       uint64_t d_index;
       uint64_t d_burst_id;
       uint64_t d_n_tagged_bursts;
+      uint64_t d_sample_count;
 
       float * d_window_f;
       float * d_magnitude_f;
@@ -99,6 +100,7 @@ namespace gr {
       ~fft_burst_tagger_impl();
 
       uint64_t get_n_tagged_bursts();
+      uint64_t get_sample_count();
 
       int work(int noutput_items,
          gr_vector_const_void_star &input_items,
