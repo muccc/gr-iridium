@@ -480,7 +480,7 @@ namespace gr {
       volk_32fc_s32f_power_32fc(d_tmp_a, d_frame + start, 2, d_cfo_est_fft_size);
       volk_32fc_32f_multiply_32fc(d_cfo_est_fft.get_inbuf(), d_tmp_a, d_cfo_est_window_f, d_cfo_est_fft_size);
       d_cfo_est_fft.execute();
-      volk_32fc_magnitude_32f(d_magnitude_f, d_cfo_est_fft.get_outbuf(), d_cfo_est_fft_size * d_fft_over_size_facor);
+      volk_32fc_magnitude_squared_32f(d_magnitude_f, d_cfo_est_fft.get_outbuf(), d_cfo_est_fft_size * d_fft_over_size_facor);
       float * x = std::max_element(d_magnitude_f, d_magnitude_f + d_cfo_est_fft_size * d_fft_over_size_facor);
       const int max_index_shifted = x - d_magnitude_f;
 
@@ -758,7 +758,7 @@ namespace gr {
       // The burst might be shorter than d_search_depth.
       int N = std::min(d_search_depth, (int)burst_size - (fir_size - 1));
 
-      volk_32fc_magnitude_32f(d_magnitude_f, d_frame, N + fir_size - 1);
+      volk_32fc_magnitude_squared_32f(d_magnitude_f, d_frame, N + fir_size - 1);
 
       if(d_debug) {
         write_data_f(d_magnitude_f, N + fir_size - 1, (char *)"signal-mag", id);
@@ -771,7 +771,7 @@ namespace gr {
       }
 
       float * max = std::max_element(d_magnitude_filtered_f, d_magnitude_filtered_f + N);
-      float threshold = *max * 0.5;
+      float threshold = *max * 0.28;
       if(d_debug) {
         std::cout << "Threshold:" << threshold << " Max:" << *max << "(" << (max - d_magnitude_filtered_f) << ")\n";
       }
