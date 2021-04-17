@@ -261,7 +261,7 @@ class FlowGraph(gr.top_block):
                                             relative_center, relative_span, relative_sample_rate,
                                             -(self._pfb_delay + self._burst_pre_len / decimation),
                                             self._max_queue_len, not self._offline)
-                burst_downmixer = iridium.burst_downmix(self._burst_sample_rate,
+                burst_downmixer = iridium.burst_downmix(250000,
                                     int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
 
                 if debug_id is not None: burst_downmixer.debug_id(debug_id)
@@ -286,7 +286,7 @@ class FlowGraph(gr.top_block):
 
                 tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus%d' % i))
         else:
-            burst_downmix = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
+            burst_downmix = iridium.burst_downmix(250000, int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
             if debug_id is not None: burst_downmix.debug_id(debug_id)
 
             burst_to_pdu = iridium.tagged_burst_to_pdu(self._max_burst_len,
