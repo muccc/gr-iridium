@@ -25,6 +25,8 @@
 #include <gnuradio/io_signature.h>
 #include "tagged_burst_to_pdu_impl.h"
 
+#include <volk/volk.h>
+
 #include <unistd.h>
 #include <inttypes.h>
 
@@ -94,7 +96,7 @@ namespace gr {
     {
         // If the burst really gets longer than this, we can just throw away the data
       if(burst.len + n <= d_max_burst_size) {
-        memcpy(burst.data + burst.len, data, n * sizeof(gr_complex));
+        volk_32fc_s32fc_x2_rotator_32fc(burst.data + burst.len, data, burst.phase_incr, &burst.phase, n);
         burst.len += n;
       }
     }
@@ -108,7 +110,6 @@ namespace gr {
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("id"), pmt::mp(burst.id));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("offset"), pmt::mp(burst.offset + d_sample_offset));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("magnitude"), pmt::mp(burst.magnitude));
-      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("relative_frequency"), pmt::mp(burst.relative_frequency));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("center_frequency"), pmt::mp(burst.center_frequency));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("sample_rate"), pmt::mp(burst.sample_rate));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("noise"), pmt::mp(burst.noise));
@@ -151,10 +152,16 @@ namespace gr {
           center_frequency += d_relative_center_frequency * sample_rate;
           sample_rate = sample_rate * d_relative_sample_rate;
           relative_frequency = (relative_frequency - d_relative_center_frequency) / d_relative_sample_rate;
+          center_frequency += relative_frequency * sample_rate;
 
-          burst_data burst = {id, (double)tag.offset, magnitude, relative_frequency,
+
+          burst_data burst = {id, (double)tag.offset, magnitude,
             center_frequency, sample_rate, noise, 0};
-          burst.data = (gr_complex *) malloc(sizeof(gr_complex) * d_max_burst_size);
+          burst.data = (gr_complex *) volk_malloc(sizeof(gr_complex) * d_max_burst_size, volk_get_alignment());
+
+          float phase_inc = 2 * M_PI * -relative_frequency;
+          burst.phase_incr = exp(gr_complex(0, phase_inc));
+          burst.phase = gr_complex(1, 0);
 
           if(burst.data != NULL) {
             d_bursts[id] = burst;
@@ -188,7 +195,7 @@ namespace gr {
             printf("gone burst: %" PRIu64 " %zu\n", id, burst.len);
           }
           publish_burst(burst);
-          free(d_bursts[id].data);
+          volk_free(d_bursts[id].data);
           d_bursts.erase(id);
         }
       }
@@ -237,7 +244,7 @@ namespace gr {
 
           while (b != std::end(d_bursts)) {
             n_dropped_bursts++;
-            free(b->second.data);
+            volk_free(b->second.data);
             b = d_bursts.erase(b);
           }
 
