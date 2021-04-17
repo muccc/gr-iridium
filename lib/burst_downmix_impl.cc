@@ -99,13 +99,13 @@ namespace gr {
     /*
      * The private constructor
      */
-    burst_downmix_impl::burst_downmix_impl(int sample_rate, int search_depth, size_t hard_max_queue_len,
+    burst_downmix_impl::burst_downmix_impl(int output_sample_rate, int search_depth, size_t hard_max_queue_len,
             const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps,
             bool handle_multiple_frames_per_burst)
       : gr::sync_block("burst_downmix",
               gr::io_signature::make(0, 0, 0),
               gr::io_signature::make(0, 0, 0)),
-              d_output_sample_rate(250000),
+              d_output_sample_rate(output_sample_rate),
               d_output_samples_per_symbol(d_output_sample_rate / ::iridium::SYMBOLS_PER_SECOND),
               d_max_burst_size(0),
               d_search_depth(search_depth),
@@ -743,7 +743,7 @@ namespace gr {
       offset /= decimation;
 
       if(d_debug) {
-        printf("---------------> id:%" PRIu64 " len:%f\n", id, burst_size/d_output_sample_rate);
+        printf("---------------> id:%" PRIu64 " len:%lu\n", id, burst_size/d_output_sample_rate);
         write_data_c(d_frame, burst_size, (char *)"signal-filtered-deci", id);
       }
 
@@ -817,6 +817,7 @@ namespace gr {
         gr_vector_const_void_star &input_items,
         gr_vector_void_star &output_items)
     {
+      return 0;
     }
 
   } /* namespace iridium */

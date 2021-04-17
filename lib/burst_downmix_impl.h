@@ -32,7 +32,7 @@ namespace gr {
     class burst_downmix_impl : public burst_downmix
     {
      private:
-      float d_output_sample_rate;
+      int d_output_sample_rate;
       int d_output_samples_per_symbol;
       size_t d_max_burst_size;
       int d_search_depth;

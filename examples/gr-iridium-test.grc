@@ -132,7 +132,7 @@ blocks:
     input_taps: input_filter
     maxoutbuf: '0'
     minoutbuf: '0'
-    sample_rate: samp_rate
+    output_sample_rate: '250000'
     search_depth: int(0.007 * 250000)
     start_finder_taps: start_finder_filter
   states:

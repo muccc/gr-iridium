@@ -5,8 +5,8 @@ label: burst_downmix
 category: '[Iridium]'
 
 parameters:
--   id: sample_rate
-    label: Sample Rate
+-   id: output_sample_rate
+    label: Output Sample Rate
     dtype: int
 -   id: search_depth
     label: Search Depth
@@ -37,7 +37,7 @@ outputs:
 
 templates:
     imports: import iridium
-    make: iridium.burst_downmix(${sample_rate}, ${search_depth}, ${hard_max_queue_len},
+    make: iridium.burst_downmix(${output_sample_rate}, ${search_depth}, ${hard_max_queue_len},
         ${input_taps}, ${start_finder_taps}, ${handle_multiple_frames_per_burst})
 
 file_format: 1
