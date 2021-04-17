@@ -109,7 +109,7 @@ def print_stats(tb):
 
 if __name__ == "__main__":
     options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:j:oq:b:D:h', ['offset=',
-                                                            'window=',
+                                                            'burst-width=',
                                                             'center=',
                                                             'rate=',
                                                             'search-depth=',
@@ -131,7 +131,7 @@ if __name__ == "__main__":
                                                             ])
 
     center = None
-    search_window = 40000
+    burst_width = 40000
     search_depth = 0.007
     verbose = False
     threshold = 16 # about 16 dB over noise
@@ -170,8 +170,8 @@ if __name__ == "__main__":
         fmt = 'float'
 
     for opt, arg in options:
-        if opt in ('-w', '--search-window'):
-            search_window = int(arg)
+        if opt in ('-w', '--burst-width'):
+            burst_width = int(arg)
         elif opt in ('-c', '--center'):
             center = int(arg)
         elif opt in ('-r', '--rate'):
@@ -248,7 +248,7 @@ if __name__ == "__main__":
 
     tb = iridium.iridium_extractor_flowgraph.FlowGraph(center_frequency=center, sample_rate=sample_rate, decimation=decimation, 
             filename=filename, sample_format=fmt,
-            threshold=threshold, signal_width=search_window,
+            threshold=threshold, burst_width=burst_width,
             offline=offline, max_queue_len = max_queue_len,
             handle_multiple_frames_per_burst=handle_multiple_frames_per_burst,
             raw_capture_filename=raw_capture_filename,
