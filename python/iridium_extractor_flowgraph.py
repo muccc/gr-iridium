@@ -82,9 +82,9 @@ class FlowGraph(gr.top_block):
             self._pfb_fir_filter = gnuradio.filter.firdes.low_pass_2(1, self._input_sample_rate, self._fir_bw, self._fir_tw, 60)
 
             # If the transition width approaches 0, the filter size goes up significantly.
-            if len(self._pfb_fir_filter) > 200:
+            if len(self._pfb_fir_filter) > 300:
                 print("Warning: The PFB FIR filter has an abnormal large number of taps:", len(self._pfb_fir_filter), file=sys.stderr)
-                print("Consider reducing the decimation factor or increase the over sampling ratio", file=sys.stderr)
+                print("Consider reducing the decimation factor", file=sys.stderr)
 
 
             pfb_input_delay = (len(self._pfb_fir_filter) + 1) // 2 - self._channels / self._pfb_over_sample_ratio
