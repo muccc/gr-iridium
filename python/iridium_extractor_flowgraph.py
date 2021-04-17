@@ -48,7 +48,7 @@ class FlowGraph(gr.top_block):
             # We will set up a filter bank with an odd number of outputs and
             # and an over sampling ratio to still get the desired decimation.
 
-            # The goal is to still catch signal which (due to doppler shift) end up
+            # The goal is to reconstruct signals which (due to Doppler shift) end up
             # on the border of two channels.
 
             # For this to work the desired decimation must be even.
@@ -66,15 +66,19 @@ class FlowGraph(gr.top_block):
             # the transition region of the FIR filter.
             # The bandwidth is simply increased by the signal width.
             # A signal which has its center frequency directly on the border of
-            # two channels will reconstruct correclty on both channels.
+            # two channels will reconstruct correctly on both channels.
             self._fir_bw = (self._input_sample_rate / self._channels + self._burst_width) / 2
 
-            # The remaining bandwidth inside the over samples region is used to
-            # contain the transistion region of the filter.
+            # The remaining bandwidth inside the over sampled region is used to
+            # contain the transition region of the filter.
             # It can be multiplied by two as it is allowed to continue into the
             # transition region of the neighboring channel.
-            # TODO: Draw a nice graphic how this works.
+            # Some details can be found here: https://youtu.be/6ngYp8W-AX0?t=2289
             self._fir_tw = (pfb_output_sample_rate / 2 - self._fir_bw) * 2
+
+            # Real world data shows only a minor degradation in performance when
+            # doubling the transition width.
+            self._fir_tw *= 2
 
             # If the over sampling ratio is not large enough, there is not
             # enough room to construct a transition region.
@@ -206,10 +210,6 @@ class FlowGraph(gr.top_block):
             else:
                 source = file_source
 
-
-        #fft_burst_tagger::make(float center_frequency, int fft_size, int sample_rate,
-        #                    int burst_pre_len, int burst_post_len, int burst_width,
-        #                    int max_bursts, float threshold, int history_size, bool debug)
 
         self._fft_burst_tagger = iridium.fft_burst_tagger(center_frequency=self._center_frequency,
                                 fft_size=self._fft_size,
