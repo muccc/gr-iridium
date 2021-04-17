@@ -134,6 +134,7 @@ if __name__ == "__main__":
     max_queue_len = 500
     max_bursts = 0
     decimation = 1
+    samples_per_symbol = 10
     raw_capture_filename = None
     handle_multiple_frames_per_burst = False
     debug_id = None
@@ -159,6 +160,15 @@ if __name__ == "__main__":
 
         sample_rate = int(d['sample_rate'])
         center = int(d['center_freq'])
+
+        if 'samples_per_symbol' in d:
+            samples_per_symbol = int(d['samples_per_symbol'])
+
+        if 'decimation' in d:
+            decimation = int(d['decimation'])
+
+        if 'multi_frame' in d:
+            handle_multiple_frames_per_burst = d['multi_frame'] == 'True'
 
         fmt = 'float'
 
@@ -240,7 +250,8 @@ if __name__ == "__main__":
             debug_id=debug_id,
             max_bursts=max_bursts,
             verbose=verbose,
-            file_info=file_info)
+            file_info=file_info,
+            samples_per_symbol=samples_per_symbol)
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))
     statistics_thread.setDaemon(True)
