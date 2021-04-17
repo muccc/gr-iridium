@@ -15,12 +15,12 @@ import math
 
 
 class FlowGraph(gr.top_block):
-    def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, signal_width=40e3, offline=False, max_queue_len=500,
+    def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, burst_width=40e3, offline=False, max_queue_len=500,
             handle_multiple_frames_per_burst=False, raw_capture_filename=None, debug_id=None, max_bursts=0, verbose=False, file_info=None):
         gr.top_block.__init__(self, "Top Block")
         self.handle_sigint = False
         self._center_frequency = center_frequency
-        self._burst_width = 40e3
+        self._burst_width = burst_width
         self._input_sample_rate = sample_rate
         self._verbose = verbose
         self._threshold = threshold
