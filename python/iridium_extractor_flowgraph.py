@@ -35,6 +35,8 @@ class FlowGraph(gr.top_block):
         # Keep 16 ms of signal after the FFT loses track
         self._burst_post_len = int(self._input_sample_rate * 16e-3)
 
+        self._output_sample_rate = 25000 * 10
+
         # Just to keep the code below a bit more portable
         tb = self
 
@@ -55,7 +57,7 @@ class FlowGraph(gr.top_block):
             self._pfb_over_sample_ratio = self._channels / (self._channels - 1.)
             pfb_output_sample_rate = int(round(float(self._input_sample_rate) / self._channels * self._pfb_over_sample_ratio))
             assert pfb_output_sample_rate == self._input_sample_rate / decimation
-            assert pfb_output_sample_rate % 250000 == 0
+            assert pfb_output_sample_rate % self._output_sample_rate == 0
 
 
             # The over sampled region of the FIR filter contains half of the signal width and
@@ -218,14 +220,12 @@ class FlowGraph(gr.top_block):
                                 debug=self._verbose)
 
         # Initial filter to filter the detected bursts. Runs at burst_sample_rate. Used to decimate the signal.
-        # TODO: Should probably be set to self._burst_width
-        input_filter = gnuradio.filter.firdes.low_pass_2(1, self._burst_sample_rate, 40e3/2, 40e3, 40)
+        input_filter = gnuradio.filter.firdes.low_pass_2(1, self._burst_sample_rate, self._burst_width/2, self._burst_width, 40)
         #input_filter = gnuradio.filter.firdes.low_pass_2(1, self._burst_sample_rate, 42e3/2, 24e3, 40)
         #print len(input_filter)
 
         # Filter to find the start of the signal. Should be fairly narrow.
-        # TODO: 250000 appears as magic number here
-        start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, 250000, 5e3/2, 10e3/2, 60)
+        start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, self._output_sample_rate, 5e3/2, 10e3/2, 60)
         #print len(start_finder_filter)
 
         self._iridium_qpsk_demod = iridium.iridium_qpsk_demod_cpp(self._channels)
@@ -261,8 +261,8 @@ class FlowGraph(gr.top_block):
                                             relative_center, relative_span, relative_sample_rate,
                                             -(self._pfb_delay + self._burst_pre_len / decimation),
                                             self._max_queue_len, not self._offline)
-                burst_downmixer = iridium.burst_downmix(250000,
-                                    int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
+                burst_downmixer = iridium.burst_downmix(self._output_sample_rate,
+                                    int(0.007 * self._output_sample_rate), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
 
                 if debug_id is not None: burst_downmixer.debug_id(debug_id)
 
@@ -286,7 +286,7 @@ class FlowGraph(gr.top_block):
 
                 tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus%d' % i))
         else:
-            burst_downmix = iridium.burst_downmix(250000, int(0.007 * 250000), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
+            burst_downmix = iridium.burst_downmix(self._output_sample_rate, int(0.007 * self._output_sample_rate), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
             if debug_id is not None: burst_downmix.debug_id(debug_id)
 
             burst_to_pdu = iridium.tagged_burst_to_pdu(self._max_burst_len,
