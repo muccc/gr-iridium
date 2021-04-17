@@ -673,7 +673,6 @@ namespace gr {
       const gr_complex * burst = (const gr_complex*)pmt::c32vector_elements(samples, burst_size);
 
       pmt::pmt_t meta = pmt::car(msg);
-      float relative_frequency = pmt::to_float(pmt::dict_ref(meta, pmt::mp("relative_frequency"), pmt::PMT_NIL));
       float center_frequency = pmt::to_float(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
       float sample_rate = pmt::to_float(pmt::dict_ref(meta, pmt::mp("sample_rate"), pmt::PMT_NIL));
       uint64_t id = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("id"), pmt::PMT_NIL));
@@ -687,8 +686,7 @@ namespace gr {
 
       if(d_debug) {
         printf("---------------> id:%" PRIu64 " len:%zu\n", id, burst_size);
-        float absolute_frequency = center_frequency + relative_frequency * sample_rate;
-        printf("relative_frequency=%f, absolute_frequency=%f\n", relative_frequency, absolute_frequency);
+        printf("center_frequency=%f\n", center_frequency);
         printf("offset=%f\n", offset);
         printf("sample_rate=%f\n", sample_rate);
       }
@@ -708,17 +706,6 @@ namespace gr {
         write_data_c(burst, burst_size, (char *)"signal", id);
       }
 
-
-      /*
-       * Shift the center frequency of the burst to the provided rough CFO estimate.
-       */
-      float phase_inc = 2 * M_PI * -relative_frequency;
-      d_r.set_phase_incr(exp(gr_complex(0, phase_inc)));
-      d_r.set_phase(gr_complex(1, 0));
-      d_r.rotateN(d_tmp_a, burst, burst_size);
-      center_frequency += relative_frequency * sample_rate;
-
-
       /*
        * Apply the initial low pass filter and decimate the burst.
        */
@@ -737,7 +724,7 @@ namespace gr {
       offset += d_input_fir.ntaps()/2;
 #endif
 
-      d_input_fir.filterNdec(d_frame, d_tmp_a, burst_size, decimation);
+      d_input_fir.filterNdec(d_frame, burst, burst_size, decimation);
 
       sample_rate /= decimation;
       offset /= decimation;
