@@ -108,20 +108,16 @@ def print_stats(tb):
 
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:j:oq:b:D:h', ['offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:oq:b:D:h', [
                                                             'burst-width=',
                                                             'center=',
                                                             'rate=',
-                                                            'search-depth=',
                                                             'verbose',
                                                             'db=',
                                                             'format=',
-                                                            'jobs=',
                                                             'offline',
                                                             'queuelen=',
                                                             'burstsize=',
-                                                            'uplink',
-                                                            'downlink',
                                                             'decimation',
                                                             'multi-frame',
                                                             'raw-capture=',
@@ -132,14 +128,11 @@ if __name__ == "__main__":
 
     center = None
     burst_width = 40000
-    search_depth = 0.007
     verbose = False
     threshold = 16 # about 16 dB over noise
     fmt = None
-    jobs = 4
     max_queue_len = 500
     max_bursts = 0
-    direction = None
     decimation = 1
     raw_capture_filename = None
     handle_multiple_frames_per_burst = False
@@ -176,26 +169,18 @@ if __name__ == "__main__":
             center = int(arg)
         elif opt in ('-r', '--rate'):
             sample_rate = int(arg)
-        elif opt in ('-s', '--search'):
-            search_depth = float(arg)
         elif opt in ('-d', '--db'):
             threshold = float(arg)
         elif opt in ('-v', '--verbose'):
             verbose = True
         elif opt in ('-f', '--format'):
             fmt = arg
-        elif opt in ('-j', '--jobs'):
-            jobs = int(arg)
         elif opt in ('-o', '--offline'):
             offline = True
         elif opt in ('-q', '--queuelen'):
             max_queue_len = int(arg)
         elif opt in ('-b', '--burstsize'):
             max_bursts = int(arg)
-        #elif opt == '--uplink':
-        #    direction = iridium.UPLINK
-        #elif opt == '--downlink':
-        #    direction = iridium.DOWNLINK
         elif opt in ('-D', '--decimation'):
             decimation = int(arg)
         elif opt == '--multi-frame':
