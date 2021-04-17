@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(burst_downmix.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(f25f0f1b9b46ef17ea9b73f73866e66f)                     */
+/* BINDTOOL_HEADER_FILE_HASH(4bcf3a55a8e6a51c9b1ae7cbca1f55fe)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -37,7 +37,7 @@ void bind_burst_downmix(py::module& m)
         std::shared_ptr<burst_downmix>>(m, "burst_downmix", D(burst_downmix))
 
         .def(py::init(&burst_downmix::make),
-           py::arg("sample_rate"),
+           py::arg("output_sample_rate"),
            py::arg("search_depth"),
            py::arg("hard_max_queue_len"),
            py::arg("input_taps"),
