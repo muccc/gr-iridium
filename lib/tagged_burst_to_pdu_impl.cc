@@ -37,12 +37,14 @@ namespace gr {
     tagged_burst_to_pdu::make(int max_burst_size, float relative_center_frequency,
                                 float relative_span, float relative_sample_rate,
                                 double sample_offset,
+                                const std::vector<float> &taps, int decimation,
                                 int outstanding_limit, bool drop_overflow)
     {
       return gnuradio::get_initial_sptr
         (new tagged_burst_to_pdu_impl(max_burst_size, relative_center_frequency,
             relative_span, relative_sample_rate,
             sample_offset,
+            taps, decimation,
             outstanding_limit, drop_overflow));
     }
 
@@ -53,6 +55,7 @@ namespace gr {
     tagged_burst_to_pdu_impl::tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency,
                                                         float relative_span, float relative_sample_rate,
                                                         double sample_offset,
+                                                        const std::vector<float> &taps, int decimation,
                                                         int outstanding_limit, bool drop_overflow)
       : gr::sync_block("tagged_burst_to_pdu",
               gr::io_signature::make(1, 1, sizeof(gr_complex)),
@@ -68,7 +71,9 @@ namespace gr {
               d_outstanding_limit(outstanding_limit),
               d_n_dropped_bursts(0),
               d_drop_overflow(drop_overflow),
-              d_blocked(false)
+              d_blocked(false),
+              d_output_fir(taps),
+              d_decimation(decimation)
     {
       d_lower_border = relative_center_frequency - relative_span / 2;
       d_upper_border = relative_center_frequency + relative_span / 2;
@@ -105,10 +110,25 @@ namespace gr {
     tagged_burst_to_pdu_impl::publish_burst(burst_data &burst)
     {
       pmt::pmt_t d_pdu_meta = pmt::make_dict();
-      pmt::pmt_t d_pdu_vector = pmt::init_c32vector(burst.len, burst.data);
+      pmt::pmt_t d_pdu_vector;
+
+      burst.offset += d_sample_offset;
+
+      if(d_output_fir.ntaps() > 0) {
+        burst.len = (burst.len - d_output_fir.ntaps() + 1) / d_decimation;
+        burst.offset += d_output_fir.ntaps()/2;
+
+        d_pdu_vector = pmt::make_c32vector(burst.len, 0);
+        size_t tmp;
+        d_output_fir.filterNdec(pmt::c32vector_writable_elements(d_pdu_vector, tmp), burst.data, burst.len, d_decimation);
+        burst.sample_rate /= d_decimation;
+        burst.offset /= d_decimation;
+      } else {
+        d_pdu_vector = pmt::init_c32vector(burst.len, burst.data);
+      }
 
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("id"), pmt::mp(burst.id));
-      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("offset"), pmt::mp(burst.offset + d_sample_offset));
+      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("offset"), pmt::mp(burst.offset));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("magnitude"), pmt::mp(burst.magnitude));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("center_frequency"), pmt::mp(burst.center_frequency));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("sample_rate"), pmt::mp(burst.sample_rate));
