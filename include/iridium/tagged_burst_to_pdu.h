@@ -48,6 +48,7 @@ namespace gr {
       static sptr make(int max_burst_size, float relative_center_frequency,
                         float relative_span, float d_relative_sample_rate,
                         double sample_offset,
+                        const std::vector<float> &taps, int decimation,
                         int outstanding_limit, bool drop_overflow);
 
       virtual uint64_t get_n_dropped_bursts() = 0;

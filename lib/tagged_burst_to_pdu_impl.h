@@ -23,6 +23,8 @@
 
 #include <iridium/tagged_burst_to_pdu.h>
 
+#include <gnuradio/filter/fir_filter.h>
+
 namespace gr {
   namespace iridium {
 
@@ -61,6 +63,9 @@ namespace gr {
 
        std::map<uint64_t, burst_data> d_bursts;
 
+       filter::kernel::fir_filter_ccf d_output_fir;
+       int d_decimation;
+
        void append_to_burst(burst_data &burst, const gr_complex * data, size_t n);
        void publish_burst(burst_data &burst);
 
@@ -76,6 +81,7 @@ namespace gr {
       tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency,
                                 float relative_span, float d_relative_sample_rate,
                                 double sample_offset,
+                                const std::vector<float> &taps, int decimation,
                                 int outstanding_limit, bool drop_overflow);
       ~tagged_burst_to_pdu_impl();
 

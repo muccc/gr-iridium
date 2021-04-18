@@ -187,6 +187,7 @@ blocks:
     affinity: ''
     alias: ''
     comment: ''
+    decimation: '1'
     drop_overflow: 'False'
     max_burst_size: '100000'
     max_outstanding: '500'
@@ -196,6 +197,7 @@ blocks:
     relative_sample_rate: '1.0'
     relative_span: '1.0'
     sample_offset: '0'
+    taps: '[]'
   states:
     bus_sink: false
     bus_source: false

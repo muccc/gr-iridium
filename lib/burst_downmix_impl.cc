@@ -166,9 +166,12 @@ namespace gr {
      */
     burst_downmix_impl::~burst_downmix_impl()
     {
-        if(d_frame) {
-          volk_free(d_frame);
+        if(d_input_fir.ntaps() > 0) {
+          if(d_frame) {
+            volk_free(d_frame);
+          }
         }
+
         if(d_tmp_a) {
           volk_free(d_tmp_a);
         }
@@ -360,10 +363,13 @@ namespace gr {
     {
       if(burst_size > d_max_burst_size) {
         d_max_burst_size = burst_size;
-        if(d_frame) {
-          volk_free(d_frame);
+
+        if(d_input_fir.ntaps() > 0) {
+          if(d_frame) {
+            volk_free(d_frame);
+          }
+          d_frame = (gr_complex *)volk_malloc(d_max_burst_size * sizeof(gr_complex), volk_get_alignment());
         }
-        d_frame = (gr_complex *)volk_malloc(d_max_burst_size * sizeof(gr_complex), volk_get_alignment());
 
         if(d_tmp_a) {
           volk_free(d_tmp_a);
@@ -707,34 +713,25 @@ namespace gr {
         write_data_c(burst, burst_size, (char *)"signal", id);
       }
 
-      /*
-       * Apply the initial low pass filter and decimate the burst.
-       */
-      int decimation = std::lround(sample_rate) / d_output_sample_rate;
-
-#if 0
-      // Option for additional padding. Probably not needed.
-      int input_fir_pad_size = (d_input_fir.ntaps() - 1) / 2;
-      memmove(d_tmp_a + input_fir_pad_size, d_tmp_a, sizeof(gr_complex) * burst_size);
-      memset(d_tmp_a, 0, sizeof(gr_complex) * input_fir_pad_size);
-      memset(d_tmp_a + input_fir_pad_size + burst_size, 0, sizeof(gr_complex) * input_fir_pad_size);
-
-      burst_size = burst_size / decimation;
-#else
-      burst_size = (burst_size - d_input_fir.ntaps() + 1) / decimation;
-
-      timestamp += d_input_fir.ntaps() / 2 * 1e9 / sample_rate;
-#endif
-
-      d_input_fir.filterNdec(d_frame, burst, burst_size, decimation);
-
-      sample_rate /= decimation;
+      if(d_input_fir.ntaps() > 0) {
+        /*
+        * Apply the initial low pass filter and decimate the burst.
+        */
+        int decimation = std::lround(sample_rate) / d_output_sample_rate;
+        burst_size = (burst_size - d_input_fir.ntaps() + 1) / decimation;
+        timestamp += d_input_fir.ntaps() / 2 * 1e9 / sample_rate;
+        d_input_fir.filterNdec(d_frame, burst, burst_size, decimation);
+        sample_rate /= decimation;
+      } else {
+        //memcpy(d_frame, burst, burst_size * sizeof(gr_complex));
+        assert(std::lround(sample_rate) == d_output_sample_rate);
+        d_frame = (gr_complex *)burst;
+      }
 
       if(d_debug) {
         printf("---------------> id:%" PRIu64 " len:%lu\n", id, burst_size/d_output_sample_rate);
         write_data_c(d_frame, burst_size, (char *)"signal-filtered-deci", id);
       }
-
       /*
        * Search for the start of the burst by looking at the magnitude.
        * Look at most d_search_depth far.

@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(tagged_burst_to_pdu.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(845bfc5d58543800edb1b6b75fb59b2f)                     */
+/* BINDTOOL_HEADER_FILE_HASH(f48cc766665fc26620aae0afb1de4157)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -42,6 +42,8 @@ void bind_tagged_burst_to_pdu(py::module& m)
            py::arg("relative_span"),
            py::arg("d_relative_sample_rate"),
            py::arg("sample_offset"),
+           py::arg("taps"),
+           py::arg("decimation"),
            py::arg("outstanding_limit"),
            py::arg("drop_overflow"),
            D(tagged_burst_to_pdu,make)
