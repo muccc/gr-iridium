@@ -96,6 +96,26 @@ namespace gr {
       d_outstanding--;
     }
 
+    gr_complex *
+    tagged_burst_to_pdu_impl::allocate_burst_data()
+    {
+      gr_complex *data;
+      if(!d_data_pool.empty()) {
+        data = d_data_pool.back();
+        d_data_pool.pop_back();
+      } else {
+        data = (gr_complex *) volk_malloc(sizeof(gr_complex) * d_max_burst_size, volk_get_alignment());
+      }
+
+      return data;
+    }
+
+    void
+    tagged_burst_to_pdu_impl::free_burst_data(gr_complex * data)
+    {
+      d_data_pool.push_back(data);
+    }
+
     void
     tagged_burst_to_pdu_impl::append_to_burst(burst_data &burst, const gr_complex * data, size_t n)
     {
@@ -175,9 +195,10 @@ namespace gr {
           center_frequency += relative_frequency * sample_rate;
 
 
-          burst_data burst = {id, (double)tag.offset, magnitude,
-            center_frequency, sample_rate, noise, 0};
-          burst.data = (gr_complex *) volk_malloc(sizeof(gr_complex) * d_max_burst_size, volk_get_alignment());
+          burst_data burst = {.id = id, .offset = (double)tag.offset, .magnitude = magnitude,
+                                .center_frequency = center_frequency, .sample_rate = sample_rate,
+                                .noise = noise, .len = 0};
+          burst.data = allocate_burst_data();
 
           float phase_inc = 2 * M_PI * -relative_frequency;
           burst.phase_incr = exp(gr_complex(0, phase_inc));
@@ -215,7 +236,7 @@ namespace gr {
             printf("gone burst: %" PRIu64 " %zu\n", id, burst.len);
           }
           publish_burst(burst);
-          volk_free(d_bursts[id].data);
+          free_burst_data(d_bursts[id].data);
           d_bursts.erase(id);
         }
       }
@@ -264,7 +285,7 @@ namespace gr {
 
           while (b != std::end(d_bursts)) {
             n_dropped_bursts++;
-            volk_free(b->second.data);
+            free_burst_data(b->second.data);
             b = d_bursts.erase(b);
           }
 

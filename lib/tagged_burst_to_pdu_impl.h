@@ -60,10 +60,14 @@ namespace gr {
        float d_lower_border;
        float d_upper_border;
 
+       std::vector<gr_complex *> d_data_pool;
        std::map<uint64_t, burst_data> d_bursts;
 
        filter::kernel::fir_filter_ccf d_output_fir;
        int d_decimation;
+
+       gr_complex * allocate_burst_data();
+       void free_burst_data(gr_complex *data);
 
        void append_to_burst(burst_data &burst, const gr_complex * data, size_t n);
        void publish_burst(burst_data &burst);
