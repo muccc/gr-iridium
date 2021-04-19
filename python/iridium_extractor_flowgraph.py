@@ -293,6 +293,7 @@ class FlowGraph(gr.top_block):
                                 history_size=512,
                                 offline=self._offline,
                                 debug=self._verbose)
+        self._fft_burst_tagger.set_min_output_buffer((2**20) * 100)
 
         # Initial filter to filter the detected bursts. Runs at burst_sample_rate. Used to decimate the signal.
         burst_filter = gnuradio.filter.firdes.low_pass_2(1, self._channel_sample_rate, self._burst_width/2, self._burst_width, 40)
@@ -300,8 +301,8 @@ class FlowGraph(gr.top_block):
         if self._verbose:
             print("Burst filter len:", len(burst_filter), file=sys.stderr)
 
-        pdu_output_filter = ()
-        downmix_input_filter = burst_filter
+        pdu_output_filter = burst_filter
+        downmix_input_filter = ()
 
 
         # Filter to find the start of the signal. Should be fairly narrow.
@@ -344,6 +345,7 @@ class FlowGraph(gr.top_block):
                                             self._max_queue_len, not self._offline)
                 burst_downmixer = iridium.burst_downmix(self._burst_sample_rate,
                                     int(0.007 * self._burst_sample_rate), 0, downmix_input_filter, (start_finder_filter), self._handle_multiple_frames_per_burst)
+                burst_downmixer.set_processor_affinity([0,1])
 
                 if debug_id is not None: burst_downmixer.debug_id(debug_id)
 
