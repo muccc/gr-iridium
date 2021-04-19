@@ -47,38 +47,32 @@ class frame_sorter(gr.sync_block):
         confidence = meta['confidence']
 
         remove_count = 0
-        for message in self._messages:
-            if timestamp - message['meta']['timestamp'] > 1:
+        insert_index = -1
+        remove_index = None
+        for idx, message in enumerate(self._messages):
+            ts_delta = timestamp - message['meta']['timestamp']
+            if ts_delta > 1:
                 self.message_port_pub(gr.pmt.intern('pdus'), gr.pmt.cons(gr.pmt.to_pmt(message['meta']), gr.pmt.to_pmt(message['data'])))
                 remove_count += 1
-            else:
+            elif abs(ts_delta) <= 0.001:
+                if abs(message['meta']['center_frequency'] - freq) < 10000:
+                    if message['meta']['confidence'] < confidence:
+                        remove_index = idx
+                    else:
+                        insert_index=None
+            elif ts_delta < 0:
                 break
-        self._messages = self._messages[remove_count:]
+            if ts_delta > 0 and insert_index is not None:
+                insert_index=idx
 
-        def dup(a, b):
-            if (abs(a['meta']['timestamp'] - b['meta']['timestamp']) <= 0.001 and
-                abs(a['meta']['center_frequency'] - b['meta']['center_frequency']) < 10000):
-                return True
-            return False
-
-
-        for offset in range(len(self._messages)):
-            if dup(self._messages[offset], new_message):
-                if self._messages[offset]['meta']['confidence'] < confidence:
-                    del self._messages[offset]
-                    break
-                else:
-                    return
-
-        insert_index = 0
-        for message in self._messages:
-            if message['meta']['timestamp'] > timestamp:
-                break
-            if message['meta']['timestamp'] == timestamp and message['meta']['center_frequency'] > freq:
-                break
-            insert_index += 1
-
-        self._messages.insert(insert_index, new_message)
+        if insert_index is not None:
+            self._messages.insert(insert_index+1, new_message)
+            if remove_index is not None and remove_index > insert_index:
+                remove_index+=1
+        if remove_index is not None:
+            del self._messages[remove_index]
+        if remove_count > 0:
+            self._messages = self._messages[remove_count:]
 
     def stop(self):
         # Flush remaining messages
