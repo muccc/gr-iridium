@@ -28,6 +28,7 @@ namespace py = pybind11;
     void bind_pdu_null_sink(py::module& m);
     void bind_pdu_round_robin(py::module& m);
     void bind_tagged_burst_to_pdu(py::module& m);
+    void bind_frame_sorter_cpp(py::module& m);
 // ) END BINDING_FUNCTION_PROTOTYPES
 
 
@@ -63,5 +64,6 @@ PYBIND11_MODULE(iridium_python, m)
     bind_pdu_null_sink(m);
     bind_pdu_round_robin(m);
     bind_tagged_burst_to_pdu(m);
+    bind_frame_sorter_cpp(m);
     // ) END BINDING_FUNCTION_CALLS
 }

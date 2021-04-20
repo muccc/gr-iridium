@@ -19,6 +19,7 @@ list(APPEND iridium_sources
     pdu_null_sink_impl.cc
     iridium_qpsk_demod_cpp_impl.cc
     pdu_round_robin_impl.cc
+    frame_sorter_cpp_impl.cc
 )
 
 set(iridium_sources "${iridium_sources}" PARENT_SCOPE)
