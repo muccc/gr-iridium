@@ -40,7 +40,6 @@ class frame_sorter(gr.sync_block):
 
     def handle_msg(self, msg_pmt):
         meta = gr.pmt.to_python(gr.pmt.car(msg_pmt))
-        new_message = {'meta': meta, 'data': gr.pmt.to_python(gr.pmt.cdr(msg_pmt))}
 
         timestamp = meta['timestamp']
         freq = meta['center_frequency']
@@ -50,13 +49,13 @@ class frame_sorter(gr.sync_block):
         insert_index = -1
         remove_index = None
         for idx, message in enumerate(self._messages):
-            ts_delta = timestamp - message['meta']['timestamp']
+            ts_delta = timestamp - message['timestamp']
             if ts_delta > 1:
-                self.message_port_pub(gr.pmt.intern('pdus'), gr.pmt.cons(gr.pmt.to_pmt(message['meta']), gr.pmt.to_pmt(message['data'])))
+                self.message_port_pub(gr.pmt.intern('pdus'), message['pmt'])
                 remove_count += 1
             elif abs(ts_delta) <= 0.001:
-                if abs(message['meta']['center_frequency'] - freq) < 10000:
-                    if message['meta']['confidence'] < confidence:
+                if abs(message['freq'] - freq) < 10000:
+                    if message['confidence'] < confidence:
                         remove_index = idx
                     else:
                         insert_index=None
@@ -66,6 +65,7 @@ class frame_sorter(gr.sync_block):
                 insert_index=idx
 
         if insert_index is not None:
+            new_message = {'timestamp': timestamp, 'freq': freq, 'confidence': confidence, 'pmt': msg_pmt}
             self._messages.insert(insert_index+1, new_message)
             if remove_index is not None and remove_index > insert_index:
                 remove_index+=1
@@ -77,7 +77,7 @@ class frame_sorter(gr.sync_block):
     def stop(self):
         # Flush remaining messages
         for message in self._messages:
-            self.message_port_pub(gr.pmt.intern('pdus'), gr.pmt.cons(gr.pmt.to_pmt(message['meta']), gr.pmt.to_pmt(message['data'])))
+            self.message_port_pub(gr.pmt.intern('pdus'), message['pmt'])
         # Signal end of messages
         self.message_port_pub(gr.pmt.intern('pdus'), gr.pmt.PMT_EOF)
         self._messages = []
