@@ -13,11 +13,11 @@ parameters:
 inputs:
 -   domain: message
     id: cpdus
+    multiplicity: ${channel}
 
 outputs:
 -   domain: message
     id: pdus
-    multiplicity: ${channel}
 
 templates:
     imports: import iridium

@@ -18,5 +18,5 @@ install(FILES
     pdu_null_sink.h
     iridium_qpsk_demod_cpp.h
     pdu_round_robin.h
-    DESTINATION include/iridium
+    frame_sorter_cpp.h DESTINATION include/iridium
 )
