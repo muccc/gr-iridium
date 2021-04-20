@@ -22,6 +22,9 @@
 
 import numpy
 from gnuradio import gr
+from collections import namedtuple
+
+Message = namedtuple('Message', ['timestamp', 'center_frequency', 'confidence', 'pmt'])
 
 class frame_sorter(gr.sync_block):
     """
@@ -42,20 +45,20 @@ class frame_sorter(gr.sync_block):
         meta = gr.pmt.to_python(gr.pmt.car(msg_pmt))
 
         timestamp = meta['timestamp']
-        freq = meta['center_frequency']
+        center_frequency = meta['center_frequency']
         confidence = meta['confidence']
 
         remove_count = 0
         insert_index = -1
         remove_index = None
         for idx, message in enumerate(self._messages):
-            ts_delta = timestamp - message['timestamp']
+            ts_delta = timestamp - message.timestamp
             if ts_delta > 1e9:
-                self.message_port_pub(gr.pmt.intern('pdus'), message['pmt'])
+                self.message_port_pub(gr.pmt.intern('pdus'), message.pmt)
                 remove_count += 1
             elif abs(ts_delta) <= 1000:
-                if abs(message['freq'] - freq) < 10000:
-                    if message['confidence'] < confidence:
+                if abs(message.center_frequency - center_frequency) < 10000:
+                    if message.confidence < confidence:
                         remove_index = idx
                     else:
                         insert_index=None
@@ -65,8 +68,7 @@ class frame_sorter(gr.sync_block):
                 insert_index=idx
 
         if insert_index is not None:
-            new_message = {'timestamp': timestamp, 'freq': freq, 'confidence': confidence, 'pmt': msg_pmt}
-            self._messages.insert(insert_index+1, new_message)
+            self._messages.insert(insert_index+1, Message(timestamp, center_frequency, confidence, msg_pmt))
             if remove_index is not None and remove_index > insert_index:
                 remove_index+=1
         if remove_index is not None:
@@ -77,7 +79,7 @@ class frame_sorter(gr.sync_block):
     def stop(self):
         # Flush remaining messages
         for message in self._messages:
-            self.message_port_pub(gr.pmt.intern('pdus'), message['pmt'])
+            self.message_port_pub(gr.pmt.intern('pdus'), message.pmt)
         self._messages = []
         return True
 
