@@ -17,7 +17,7 @@ class frame_sorter_cpp_impl : public frame_sorter_cpp
 {
 private:
 
-    void handler(pmt::pmt_t msg);
+    void handler(const pmt::pmt_t& msg);
 
 public:
     frame_sorter_cpp_impl();
