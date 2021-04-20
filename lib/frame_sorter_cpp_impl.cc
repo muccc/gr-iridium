@@ -28,7 +28,7 @@ frame_sorter_cpp_impl::frame_sorter_cpp_impl()
     message_port_register_out(pmt::mp("pdus"));
     auto port_name = pmt::mp("pdus");
     message_port_register_in(port_name);
-    set_msg_handler(port_name, [this](pmt::pmt_t msg) { this->handler(msg); });
+    set_msg_handler(port_name, [this](const pmt::pmt_t& msg) { this->handler(msg); });
 }
 
 /*
@@ -36,8 +36,15 @@ frame_sorter_cpp_impl::frame_sorter_cpp_impl()
  */
 frame_sorter_cpp_impl::~frame_sorter_cpp_impl() {}
 
-void frame_sorter_cpp_impl::handler(pmt::pmt_t msg)
+void frame_sorter_cpp_impl::handler(const pmt::pmt_t& msg)
 {
+    pmt::pmt_t symbols = pmt::cdr(msg);
+    pmt::pmt_t meta = pmt::car(msg);
+
+    double timestamp = pmt::to_double(pmt::dict_ref(meta, pmt::mp("timestamp"), pmt::PMT_NIL));
+    float center_frequency = pmt::to_float(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
+    int confidence = pmt::to_long(pmt::dict_ref(meta, pmt::mp("confidence"), pmt::PMT_NIL));
+
 }
 
 int frame_sorter_cpp_impl::work(int noutput_items,
