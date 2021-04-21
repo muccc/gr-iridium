@@ -26,6 +26,10 @@ from collections import namedtuple
 
 Message = namedtuple('Message', ['timestamp', 'center_frequency', 'confidence', 'pmt'])
 
+PMT_TIMESTAMP = gr.pmt.intern('timestamp')
+PMT_CENTER_FREQUENCY = gr.pmt.intern('center_frequency')
+PMT_CONFIDENCE = gr.pmt.intern('confidence')
+
 class frame_sorter(gr.sync_block):
     """
     docstring for block frame_sorter
@@ -42,11 +46,11 @@ class frame_sorter(gr.sync_block):
         self.set_msg_handler(gr.pmt.intern('pdus'), self.handle_msg)
 
     def handle_msg(self, msg_pmt):
-        meta = gr.pmt.to_python(gr.pmt.car(msg_pmt))
+        meta = gr.pmt.car(msg_pmt)
 
-        timestamp = meta['timestamp']
-        center_frequency = meta['center_frequency']
-        confidence = meta['confidence']
+        timestamp = gr.pmt.to_uint64(gr.pmt.dict_ref(meta, PMT_TIMESTAMP, gr.pmt.PMT_NIL))
+        center_frequency = gr.pmt.to_double(gr.pmt.dict_ref(meta, PMT_CENTER_FREQUENCY, gr.pmt.PMT_NIL))
+        confidence = gr.pmt.to_long(gr.pmt.dict_ref(meta, PMT_CONFIDENCE, gr.pmt.PMT_NIL))
 
         remove_count = 0
         insert_index = -1
