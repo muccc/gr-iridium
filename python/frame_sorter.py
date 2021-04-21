@@ -22,12 +22,17 @@
 
 import numpy
 from gnuradio import gr
+import cProfile
+import pstats
+import io
+import sys
 
 class frame_sorter(gr.sync_block):
     """
     docstring for block frame_sorter
     """
     def __init__(self):
+        self.pr = cProfile.Profile()
         gr.sync_block.__init__(self,
             name="frame_sorter",
             in_sig=None,
@@ -39,6 +44,7 @@ class frame_sorter(gr.sync_block):
         self.set_msg_handler(gr.pmt.intern('pdus'), self.handle_msg)
 
     def handle_msg(self, msg_pmt):
+        self.pr.enable()
         meta = gr.pmt.to_python(gr.pmt.car(msg_pmt))
 
         timestamp = meta['timestamp']
@@ -73,6 +79,7 @@ class frame_sorter(gr.sync_block):
             del self._messages[remove_index]
         if remove_count > 0:
             self._messages = self._messages[remove_count:]
+        self.pr.disable()
 
     def stop(self):
         # Flush remaining messages
@@ -81,6 +88,12 @@ class frame_sorter(gr.sync_block):
         # Signal end of messages
         self.message_port_pub(gr.pmt.intern('pdus'), gr.pmt.PMT_EOF)
         self._messages = []
+        s = io.StringIO()
+        sortby = pstats.SortKey.TIME
+        ps = pstats.Stats(self.pr, stream=s).sort_stats(sortby)
+        ps.print_stats()
+        print(s.getvalue(), file=sys.stderr)
+
         return True
 
     def work(self, input_items, output_items):
