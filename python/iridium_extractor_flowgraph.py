@@ -304,7 +304,7 @@ class FlowGraph(gr.top_block):
         #print len(start_finder_filter)
 
         self._iridium_qpsk_demod = iridium.iridium_qpsk_demod_cpp(self._channels)
-        self._frame_sorter = iridium.frame_sorter()
+        self._frame_sorter = iridium.frame_sorter_cpp()
         self._iridium_frame_printer = iridium.iridium_frame_printer(file_info)
 
         if raw_capture_filename:
