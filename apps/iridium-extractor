@@ -148,7 +148,7 @@ if __name__ == "__main__":
     raw_capture_filename = None
     handle_multiple_frames_per_burst = False
     debug_id = None
-    file_info = None
+    file_info = ""
     cfg = {}
 
     if len(remainder) == 0 or remainder[0] == '-' or remainder[0] == '/dev/stdin':
@@ -284,7 +284,7 @@ if __name__ == "__main__":
     if fmt in sample_formats:
         fmt=sample_formats[fmt]
 
-    if file_info is None and offline:
+    if file_info == "" and offline:
         file_info=filename
         file_info=os.path.basename(file_info)
         file_info=os.path.splitext(file_info)[0]

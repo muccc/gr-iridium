@@ -17,7 +17,7 @@ import numpy as np
 
 class FlowGraph(gr.top_block):
     def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, burst_width=40e3, offline=False, max_queue_len=500,
-            handle_multiple_frames_per_burst=False, raw_capture_filename=None, debug_id=None, max_bursts=0, verbose=False, file_info=None, samples_per_symbol=10, config={}):
+            handle_multiple_frames_per_burst=False, raw_capture_filename=None, debug_id=None, max_bursts=0, verbose=False, file_info="", samples_per_symbol=10, config={}):
         gr.top_block.__init__(self, "Top Block")
         self.handle_sigint = False
         self._center_frequency = center_frequency
@@ -305,7 +305,7 @@ class FlowGraph(gr.top_block):
 
         self._iridium_qpsk_demod = iridium.iridium_qpsk_demod_cpp(self._channels)
         self._frame_sorter = iridium.frame_sorter_cpp()
-        self._iridium_frame_printer = iridium.iridium_frame_printer(file_info)
+        self._iridium_frame_printer = iridium.iridium_frame_printer_cpp(file_info)
 
         if raw_capture_filename:
             multi = blocks.multiply_const_cc(32768)

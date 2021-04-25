@@ -16,5 +16,6 @@ install(FILES
     iridium_pdu_round_robin.block.yml
     iridium_iridium_frame_printer.block.yml
     iridium_frame_sorter.block.yml
-    iridium_frame_sorter_cpp.block.yml DESTINATION share/gnuradio/grc/blocks
+    iridium_frame_sorter_cpp.block.yml
+    iridium_iridium_frame_printer_cpp.block.yml DESTINATION share/gnuradio/grc/blocks
 )
