@@ -57,7 +57,7 @@ class iridium_frame_printer(gr.sync_block):
         bits = gr.pmt.u8vector_elements(msg)
         timestamp = meta['timestamp']
 
-        if self._file_info is None:
+        if self._file_info == "":
             self._t0 = (timestamp // 1e9) * 1e9
             self._file_info = "i-%d-t1" % (self._t0 // 1e9)
 
