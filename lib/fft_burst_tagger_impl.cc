@@ -87,6 +87,19 @@ namespace gr {
         std::vector<float> window = fft::window::build(fft::window::WIN_BLACKMAN, d_fft_size, 0);
         memcpy(d_window_f, &window[0], sizeof(float) * d_fft_size);
 
+        // To get better SNR and noise floor estimates we apply the scaling factor and
+        // Equivalent noise bandwidth of our window.
+        // See https://www.sjsu.edu/people/burford.furman/docs/me120/FFT_tutorial_NI.pdf page 15
+        // And https://www.ap.com/blog/fft-spectrum-and-spectral-densities-same-data-different-scaling/
+
+        // Scaling factor
+        for(int j=0; j<d_fft_size; j++) {
+          d_window_f[j] /= 0.42;
+        }
+
+        // Equivalent noise bandwidth
+        d_window_enbw = 1.72;
+
         d_baseline_history_f = (float *)volk_malloc(sizeof(float) * d_fft_size * d_history_size, volk_get_alignment());
         d_baseline_sum_f = (float *)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
         d_magnitude_f = (float *)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
@@ -106,7 +119,9 @@ namespace gr {
             d_burst_mask_f[i] = 1.0;
         }
 
-        d_threshold = pow(10, threshold/10) / d_history_size;
+        // Divide by the ENBW as the calculation of d_relative_magnitude_f does
+        // not take the ENBW of the FFT into account.
+        d_threshold = pow(10, threshold/10) / d_history_size / d_window_enbw;
         if(d_debug) {
           fprintf(stderr, "threshold=%f, d_threshold=%f (%f/%d)\n",
               threshold, d_threshold, d_threshold * d_history_size, d_history_size);
@@ -225,12 +240,15 @@ namespace gr {
           d_burst_id += 10;
 
           // Normalize the relative magnitude
-          b.magnitude = 10 * log10(p.relative_magnitude * d_history_size);
+          // relative_magnitude relates to the uncorrected (regarding ENBW) noise floor.
+          // We apply the ENBW here to have a more accurate SNR estimate
+          b.magnitude = 10 * log10(p.relative_magnitude * d_history_size * d_window_enbw);
           // The burst might have started one FFT earlier
           b.start = d_index - d_burst_pre_len;
           b.last_active = b.start;
           // Keep noise level around (dbFS)
-          b.noise = 10 * log10(d_baseline_sum_f[b.center_bin] / d_history_size / (d_fft_size * d_fft_size));
+          // Apply the ENBW again to get an accurate estimate
+          b.noise = 10 * log10(d_baseline_sum_f[b.center_bin] / d_history_size / (d_fft_size * d_fft_size) / d_window_enbw);
 
           d_bursts.push_back(b);
           d_new_bursts.push_back(b);
@@ -284,6 +302,7 @@ namespace gr {
     {
 
       d_peaks.clear();
+
       for(int bin = d_burst_width / 2; bin < (d_fft_size - d_burst_width / 2); bin++) {
         if(d_relative_magnitude_f[bin] > d_threshold) {
           peak p;
