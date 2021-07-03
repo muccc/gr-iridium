@@ -74,6 +74,7 @@ namespace gr {
       float * d_ones_f;
       float d_threshold;
       float d_center_frequency;
+      float d_window_enbw;
 
       FILE * d_burst_debug_file;
 
