@@ -129,7 +129,7 @@ if __name__ == "__main__":
     center = None
     burst_width = 40000
     verbose = False
-    threshold = 16 # about 16 dB over noise
+    threshold = 18 # about 18 dB over noise
     fmt = None
     max_queue_len = 500
     max_bursts = 0
