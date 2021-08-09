@@ -49,7 +49,7 @@ namespace gr {
       message_port_register_out(pmt::mp("out_0"));
       message_port_register_out(pmt::mp("out_1"));
 
-      set_msg_handler(pmt::mp("in"), boost::bind(&pdu_round_robin_impl::handler, this, _1));
+      set_msg_handler(pmt::mp("in"), boost::bind(&pdu_round_robin_impl::handler, this, boost::placeholders::_1));
     }
 
     /*
