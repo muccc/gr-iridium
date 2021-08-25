@@ -116,6 +116,7 @@ class FlowGraph(gr.top_block):
         if self._verbose:
             print("require %.1f dB" % self._threshold, file=sys.stderr)
             print("burst_width: %d Hz" % self._burst_width, file=sys.stderr)
+            print("source:",config['source'], file=sys.stderr)
 
         if config['source'] == 'osmosdr':
             d = config["osmosdr-source"]
@@ -177,7 +178,69 @@ class FlowGraph(gr.top_block):
             #source.set_dc_offset_mode($dc_offset_mode0, 0)
             #source.set_iq_balance_mode($iq_balance_mode0, 0)
             #source.set_gain_mode($gain_mode0, 0)
-            #source.set_antenna($ant0, 0)
+
+        elif config['source'] == 'soapy':
+            d = config["soapy-source"]
+
+            from gnuradio import soapy
+            if 'driver' not in d:
+                print("No driver specified for soapy", file=sys.stderr)
+                print("Run 'SoapySDRUtil -i' to see available drivers(factories)", file=sys.stderr)
+                exit(1)
+            dev = 'driver='+d['driver']
+            stream_args = ''
+            tune_args = ['']
+            settings = ['']
+            source = soapy.source(dev, "fc32", 1, '', stream_args, tune_args, settings)
+
+            source.set_sample_rate(0, self._input_sample_rate)
+            source.set_frequency(0, self._center_frequency)
+
+            if 'gain' in d:
+                gain = int(d['gain'])
+                source.set_gain_mode(0, False) # AGC: OFF
+                source.set_gain(0, gain)
+                print("Gain:", source.get_gain(0), '(Requested %d)' % gain, file=sys.stderr)
+
+            for key, value in d.items():
+                if key.endswith("_gain"):
+                    gain_option_name = key.split('_')[0]
+                    gain_value = int(value)
+
+                    def match_gain(gain, gain_names):
+                        for gain_name in gain_names:
+                            if gain.lower() == gain_name.lower():
+                                return gain_name
+                        return None
+
+                    gain_name = match_gain(gain_option_name, source.list_gains(0))
+
+                    if gain_name is not None:
+                        source.set_gain(0, gain_name, gain_value)
+                        print(gain_name, "Gain:", source.get_gain(0, gain_name), '(Requested %d)' % gain_value, source.get_gain_range(0, gain_name), file=sys.stderr)
+                    else:
+                        print("WARNING: Gain", gain_option_name, "not supported by source!", file=sys.stderr)
+                        print("Supported gains:", source.list_gains(0), file=sys.stderr)
+
+            if 'bandwidth' in d:
+                bandwidth = int(d['bandwidth'])
+                source.set_bandwidth(0, bandwidth)
+                print("Bandwidth:", source.get_bandwidth(0), '(Requested %d)' % bandwidth, file=sys.stderr)
+            else:
+                source.set_bandwidth(0, 0)
+                print("Warning: Setting bandwidth to", source.get_bandwidth(0), file=sys.stderr)
+
+            if 'antenna' in d:
+                antenna = d['antenna']
+                source.set_antenna(0, antenna)
+                print("Antenna:", source.get_antenna(0), '(Requested %s)' % antenna, file=sys.stderr)
+            else:
+                print("Warning: Setting antenna to", source.get_antenna(0), file=sys.stderr)
+
+            #source.set_frequency_correction(0, f_corr)
+            #source.set_dc_offset_mode(0, True)
+            #source.set_dc_offset(0, dc_off)
+            #source.set_iq_balance(0, iq_bal)
 
         else:
             if sample_format == "cu8":
