@@ -176,6 +176,10 @@ if __name__ == "__main__":
             d=cfg['osmosdr-source']
             cfg['source']='osmosdr'
             offline = False
+        elif 'soapy-source' in cfg:
+            d=cfg['soapy-source']
+            cfg['source']='soapy'
+            offline = False
         else:
             print("Unsupported .conf file format", file=sys.stderr)
             exit(1)
