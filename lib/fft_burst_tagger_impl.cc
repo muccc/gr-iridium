@@ -246,9 +246,10 @@ namespace gr {
           // The burst might have started one FFT earlier
           b.start = d_index - d_burst_pre_len;
           b.last_active = b.start;
-          // Keep noise level around (dbFS)
+          // Keep noise level around (dbFS/Hz)
+          // Need to divide by the fft size twice as d_baseline_sum_f is a square of the FFT's magnitude
           // Apply the ENBW again to get an accurate estimate
-          b.noise = 10 * log10(d_baseline_sum_f[b.center_bin] / d_history_size / (d_fft_size * d_fft_size) / d_window_enbw);
+          b.noise = 10 * log10(d_baseline_sum_f[b.center_bin] / d_history_size / (d_fft_size * d_fft_size) / d_window_enbw / (d_sample_rate / d_fft_size));
 
           d_bursts.push_back(b);
           d_new_bursts.push_back(b);
