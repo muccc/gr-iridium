@@ -154,7 +154,7 @@ namespace gr {
       message_port_register_out(pmt::mp("cpdus"));
       message_port_register_out(pmt::mp("burst_handled"));
 
-      set_msg_handler(pmt::mp("cpdus"), boost::bind(&burst_downmix_impl::handler, this, _1));
+      set_msg_handler(pmt::mp("cpdus"), [this](pmt::pmt_t msg) { this->handler(msg); });
 
       if(d_debug) {
         std::cout << "Start filter size:" << d_start_finder_fir.ntaps() << " Search depth:" << d_search_depth << "\n";
