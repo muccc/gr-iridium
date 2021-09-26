@@ -45,7 +45,7 @@ namespace gr {
               gr::io_signature::make(0, 0, 0))
     {
       message_port_register_in(pmt::mp("pdus"));
-      set_msg_handler(pmt::mp("pdus"), boost::bind(&pdu_null_sink_impl::handler, this, _1));
+      set_msg_handler(pmt::mp("pdus"), [this](pmt::pmt_t msg) { this->handler(msg); });
     }
 
     /*

@@ -66,7 +66,7 @@ namespace gr {
       message_port_register_out(pmt::mp("cpdus"));
 
       message_port_register_in(pmt::mp("burst_handled"));
-      set_msg_handler(pmt::mp("burst_handled"), boost::bind(&tagged_burst_to_pdu_impl::burst_handled, this, _1));
+      set_msg_handler(pmt::mp("burst_handled"), [this](pmt::pmt_t msg) { this->burst_handled(msg); });
     }
 
     /*

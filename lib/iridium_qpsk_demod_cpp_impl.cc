@@ -62,7 +62,7 @@ namespace gr {
 
       message_port_register_out(pmt::mp("pdus"));
 
-      set_msg_handler(pmt::mp("cpdus"), boost::bind(&iridium_qpsk_demod_cpp_impl::handler, this, _1));
+      set_msg_handler(pmt::mp("cpdus"), [this](pmt::pmt_t msg) { this->handler(msg); });
     }
 
     /*
