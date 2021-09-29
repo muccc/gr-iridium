@@ -7,7 +7,7 @@ on:
     types: [opened]
 
 jobs:
-  test:
+  notify:
     runs-on: ubuntu-latest
     steps:
       - name: irc push
