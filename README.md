@@ -1,5 +1,7 @@
 # GNURadio Iridium Out Of Tree Module
 
+[![CI](https://github.com/muccc/gr-iridium/actions/workflows/ci.yml/badge.svg)](https://github.com/muccc/gr-iridium/actions/workflows/ci.yml)
+
 This module provides blocks to build an Iridium burst detector and demodulator.
 
 It provides a sample application which can be used to detect and demodulate data from the Iridium satellite network.
