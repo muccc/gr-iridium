@@ -26,6 +26,16 @@ if(NOT PYTHONINTERP_FOUND)
     return()
 endif()
 
+message(STATUS "CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "GR_PYTHON_DIR: ${GR_PYTHON_DIR}")
+
+execute_process(
+    COMMAND ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/get_python_lib.py" "${CMAKE_INSTALL_PREFIX}"
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    OUTPUT_VARIABLE GR_PYTHON_DIR
+)
+message(STATUS "GR_PYTHON_DIR: ${GR_PYTHON_DIR}")
+
 ########################################################################
 # Install python sources
 ########################################################################

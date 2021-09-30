@@ -37,6 +37,12 @@ endif()
 include(GrSwig)
 include(GrPython)
 
+execute_process(
+    COMMAND ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/../python/get_python_lib.py" "${CMAKE_INSTALL_PREFIX}"
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    OUTPUT_VARIABLE GR_PYTHON_DIR
+)
+
 ########################################################################
 # Setup swig generation
 ########################################################################
