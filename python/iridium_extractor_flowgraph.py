@@ -124,6 +124,8 @@ class FlowGraph(gr.top_block):
             items = config.items("osmosdr-source")
             d = {key: value for key, value in items}
 
+            # work around https://github.com/gnuradio/gnuradio/issues/5121
+            sys.path.append('/usr/local/lib/python3/dist-packages')
             import osmosdr
             if 'device_args' in d:
                 source = osmosdr.source(args=d['device_args'])
