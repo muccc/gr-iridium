@@ -26,6 +26,8 @@
 #include "tagged_burst_to_pdu_impl.h"
 
 #include <unistd.h>
+#include <chrono>
+#include <thread>
 #include <inttypes.h>
 
 namespace gr {
@@ -256,7 +258,7 @@ namespace gr {
           return noutput_items;
         } else {
           // Sleep a bit until our bursts have been processed
-          usleep(100000);
+          std::this_thread::sleep_for(std::chrono::microseconds(100000));
 
           // Tell the scheduler that we have not consumed any input
           return 0;
