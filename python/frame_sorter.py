@@ -78,10 +78,9 @@ class frame_sorter(gr.sync_block):
         # Flush remaining messages
         for message in self._messages:
             self.message_port_pub(gr.pmt.intern('pdus'), gr.pmt.cons(gr.pmt.to_pmt(message['meta']), gr.pmt.to_pmt(message['data'])))
-        # Signal end of messages
-        self.message_port_pub(gr.pmt.intern('pdus'), gr.pmt.PMT_EOF)
         self._messages = []
         return True
 
     def work(self, input_items, output_items):
         return len(input_items[0])
+
