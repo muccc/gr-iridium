@@ -161,12 +161,9 @@ class FlowGraph(gr.top_block):
                         print("Supported gains:", source.get_gain_names(), file=sys.stderr)
 
             if 'bandwidth' in d:
-                bandwidth = int(d['bandwidth'])
-                source.set_bandwidth(bandwidth, 0)
-                print("Bandwidth:", source.get_bandwidth(0), '(Requested %d)' % bandwidth, file=sys.stderr)
+                self._bandwidth = int(d['bandwidth'])
             else:
-                source.set_bandwidth(0, 0)
-                print("Warning: Setting bandwidth to", source.get_bandwidth(0), file=sys.stderr)
+                self._bandwidth = 0
 
             if 'antenna' in d:
                 antenna = d['antenna']
@@ -249,6 +246,7 @@ class FlowGraph(gr.top_block):
             #return
 
         tb.connect(source, self._fft_burst_tagger)
+        self._source = source
 
         if self._use_pfb:
             self._burst_to_pdu_converters = []
@@ -351,6 +349,12 @@ class FlowGraph(gr.top_block):
 
     def run(self, *args, **kwargs):
         self.start(*args, **kwargs)
+
+        # Work around issue in Ubuntu 20.04 gr-osmosdr
+        if "_bandwidth" in self.__dict__:
+            self._source.set_bandwidth(self._bandwidth, 0)
+            print("Bandwidth:", self._source.get_bandwidth(0), '(Requested %d)' % self._bandwidth, file=sys.stderr)
+
         try:
             self.wait()
         except KeyboardInterrupt:
