@@ -38,6 +38,7 @@ GR_PYTHON_INSTALL(
     gr_iridium_demod.py
     iridium_frame_printer.py
     frame_sorter.py
+    file_object_source.py
     DESTINATION ${GR_PYTHON_DIR}/iridium
 )
 

@@ -13,6 +13,7 @@ from gnuradio import blocks
 import sys
 import math
 
+import numpy as np
 
 class FlowGraph(gr.top_block):
     def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, burst_width=40e3, offline=False, max_queue_len=500,
@@ -183,22 +184,29 @@ class FlowGraph(gr.top_block):
                 converter = iridium.iuchar_to_complex()
                 itemsize = gr.sizeof_char
                 scale = 1
+                itemtype = np.uint8
             elif sample_format == "ci8":
                 converter = blocks.interleaved_char_to_complex()
                 itemsize = gr.sizeof_char
                 scale = 1/128.
+                itemtype = np.int8
             elif sample_format == "ci16_le":
                 converter = blocks.interleaved_short_to_complex()
                 itemsize = gr.sizeof_short
                 scale = 1/32768.
+                itemtype = np.int16
             elif sample_format == "cf32_le":
                 converter = None
                 itemsize = gr.sizeof_gr_complex
+                itemtype = np.complex64
             else:
                 raise RuntimeError("Unknown sample format for offline mode given")
 
             if config['source'] == 'stdin':
                 file_source = blocks.file_descriptor_source(itemsize=itemsize, fd=0, repeat=False)
+            elif config['source'] == 'object':
+                from iridium.file_object_source import file_object_source
+                file_source = file_object_source(fileobject=config['object'], itemtype=itemtype)
             else:
                 file_source = blocks.file_source(itemsize=itemsize, filename=config['file'], repeat=False)
 

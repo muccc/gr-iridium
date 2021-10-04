@@ -192,6 +192,18 @@ if __name__ == "__main__":
         cfg['source'] = 'file'
         cfg['file'] = os.path.splitext(filename)[0]+'.sigmf-data'
 
+    if filename.endswith(".sigmf"):
+        import json
+        import tarfile
+        tar = tarfile.open(filename)
+        members = tar.getmembers()
+        meta = [x for x in members if x.name.endswith(".sigmf-meta")][0]
+        sigmf = json.load(tar.extractfile(meta))
+        tardata = [x for x in members if x.name.endswith(".sigmf-data")][0]
+        cfg['source'] = 'object'
+        cfg['object'] = tar.extractfile(tardata)
+        del cfg['file']
+
     if sigmf is not None:
         try:
             sample_rate = int(sigmf['global']['core:sample_rate'])
