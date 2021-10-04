@@ -139,14 +139,20 @@ if __name__ == "__main__":
     handle_multiple_frames_per_burst = False
     debug_id = None
     file_info = None
+    cfg = {}
 
-    if len(remainder) == 0 or remainder[0] == '-':
+    if len(remainder) == 0 or remainder[0] == '-' or remainder[0] == '/dev/stdin':
         filename = "/dev/stdin"
+        cfg['source']='stdin'
     elif len(remainder)==1:
         filename = remainder[0]
-        if not os.path.isfile(filename):
+        if not os.path.exists(filename):
             print("Specified input file `%s` does not exist" % filename, file=sys.stderr)
             exit(1)
+        if os.path.isfile(filename):
+            offline = True
+        cfg['source'] = 'file'
+        cfg['file'] = filename
     else:
         print("Excess arguments after filename.", file=sys.stderr)
         exit(1)
@@ -155,8 +161,14 @@ if __name__ == "__main__":
         import configparser
         config = configparser.ConfigParser()
         config.read(filename)
-        items = config.items("osmosdr-source")
-        d = {key: value for key, value in items}
+        cfg = {x: dict(config.items(x)) for x in config.sections()}
+        if 'osmosdr-source' in cfg:
+            d=cfg['osmosdr-source']
+            cfg['source']='osmosdr'
+            offline = False
+        else:
+            print("Unsupported .conf file format", file=sys.stderr)
+            exit(1)
 
         sample_rate = int(d['sample_rate'])
         center = int(d['center_freq'])
@@ -259,7 +271,8 @@ if __name__ == "__main__":
             max_bursts=max_bursts,
             verbose=verbose,
             file_info=file_info,
-            samples_per_symbol=samples_per_symbol)
+            samples_per_symbol=samples_per_symbol,
+            config=cfg)
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))
     statistics_thread.setDaemon(True)
