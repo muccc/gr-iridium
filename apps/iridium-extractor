@@ -215,6 +215,14 @@ if __name__ == "__main__":
             print("For more documentation check: https://github.com/muccc/gr-iridium/", file=sys.stderr)
             exit(-1)
 
+    # compatibility mappings
+    if fmt=='float':  fmt='cf32_le'
+    if fmt=='fc32':   fmt='cf32_le'
+    if fmt=='sc16':   fmt='ci16_le'
+    if fmt=='hackrf': fmt='ci8'
+    if fmt=='sc8':    fmt='ci8'
+    if fmt=='rtl':    fmt='cu8'
+
     if file_info is None and offline:
         file_info=filename
         file_info=os.path.basename(file_info)
