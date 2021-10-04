@@ -184,19 +184,19 @@ class FlowGraph(gr.top_block):
             #source.set_antenna($ant0, 0)
 
         else:
-            if sample_format == "rtl":
+            if sample_format == "cu8":
                 converter = iridium.iuchar_to_complex()
                 itemsize = gr.sizeof_char
                 scale = 1
-            elif sample_format == "hackrf":
+            elif sample_format == "ci8":
                 converter = blocks.interleaved_char_to_complex()
                 itemsize = gr.sizeof_char
                 scale = 1/128.
-            elif sample_format == "sc16":
+            elif sample_format == "ci16_le":
                 converter = blocks.interleaved_short_to_complex()
                 itemsize = gr.sizeof_short
                 scale = 1/32768.
-            elif sample_format == "float":
+            elif sample_format == "cf32_le":
                 converter = None
                 itemsize = gr.sizeof_gr_complex
             else:
