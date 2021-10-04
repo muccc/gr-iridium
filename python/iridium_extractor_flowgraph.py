@@ -16,7 +16,7 @@ import math
 
 class FlowGraph(gr.top_block):
     def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, burst_width=40e3, offline=False, max_queue_len=500,
-            handle_multiple_frames_per_burst=False, raw_capture_filename=None, debug_id=None, max_bursts=0, verbose=False, file_info=None, samples_per_symbol=10):
+            handle_multiple_frames_per_burst=False, raw_capture_filename=None, debug_id=None, max_bursts=0, verbose=False, file_info=None, samples_per_symbol=10, config={}):
         gr.top_block.__init__(self, "Top Block")
         self.handle_sigint = False
         self._center_frequency = center_frequency
@@ -116,13 +116,8 @@ class FlowGraph(gr.top_block):
             print("require %.1f dB" % self._threshold, file=sys.stderr)
             print("burst_width: %d Hz" % self._burst_width, file=sys.stderr)
 
-
-        if self._filename.endswith(".conf"):
-            import configparser
-            config = configparser.ConfigParser()
-            config.read(self._filename)
-            items = config.items("osmosdr-source")
-            d = {key: value for key, value in items}
+        if config['source'] == 'osmosdr':
+            d = config["osmosdr-source"]
 
             # work around https://github.com/gnuradio/gnuradio/issues/5121
             sys.path.append('/usr/local/lib/python3/dist-packages')
@@ -202,10 +197,12 @@ class FlowGraph(gr.top_block):
             else:
                 raise RuntimeError("Unknown sample format for offline mode given")
 
-            if self._filename == '/dev/stdin':
+            if config['source'] == 'stdin':
                 file_source = blocks.file_descriptor_source(itemsize=itemsize, fd=0, repeat=False)
             else:
-                file_source = blocks.file_source(itemsize=itemsize, filename=self._filename, repeat=False)
+                file_source = blocks.file_source(itemsize=itemsize, filename=config['file'], repeat=False)
+
+            self.source=file_source # XXX: keep reference
 
             if converter:
                 multi = blocks.multiply_const_cc(scale)
