@@ -184,6 +184,28 @@ if __name__ == "__main__":
 
         fmt = 'float'
 
+    sigmf = None
+    if filename.endswith(".sigmf-meta") or filename.endswith(".sigmf-data"):
+        import json
+        meta = os.path.splitext(filename)[0]+'.sigmf-meta'
+        sigmf = json.load(open(meta))
+        cfg['source'] = 'file'
+        cfg['file'] = os.path.splitext(filename)[0]+'.sigmf-data'
+
+    if sigmf is not None:
+        try:
+            sample_rate = int(sigmf['global']['core:sample_rate'])
+        except:
+            pass
+        try:
+            center = int(sigmf['captures'][0]['core:frequency'])
+        except:
+            pass
+        try:
+            fmt = sigmf['global']['core:datatype']
+        except:
+            print("[sigmf] datatype missing.", file=sys.stderr)
+
     for opt, arg in options:
         if opt in ('-w', '--burst-width'):
             burst_width = int(arg)
