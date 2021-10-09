@@ -36,6 +36,11 @@ jobs:
          ln -s prbs15-2M-20dB.sigmf-data test-data/prbs15-2M-20dB.fc32
          iridium-extractor --offline -c 1622000000 -r 2000000 -f float test-data/prbs15-2M-20dB.fc32 |grep ^RAW > prbs15-2M-20dB.bits.raw
          cmp prbs15-2M-20dB.bits prbs15-2M-20dB.bits.raw
+      - name: Test SigMF Archive support
+        run: |
+         tar cf test-data/prbs15-2M-20dB.sigmf test-data/prbs15-2M-20dB.sigmf-*
+         iridium-extractor test-data/prbs15-2M-20dB.sigmf |grep ^RAW > prbs15-2M-20dB.bits.archive
+         cmp prbs15-2M-20dB.bits prbs15-2M-20dB.bits.archive
       - name: Install gr-osmosdr
         run: |
          git clone https://github.com/osmocom/gr-osmosdr
