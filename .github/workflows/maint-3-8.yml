@@ -30,6 +30,8 @@ jobs:
          sudo ldconfig
       - name: Demod PRBS15
         run: |
+         # No CI tests for sigmfdata yet in maint-3.8
+         cp test-data/prbs15-2M-20dB.sigmf-data test-data/prbs15-2M-20dB.fc32
          # Work around a bug in the extractor which does not print "in flight" frames
          cat test-data/prbs15-2M-20dB.fc32 test-data/prbs15-2M-20dB.fc32 test-data/prbs15-2M-20dB.fc32 test-data/prbs15-2M-20dB.fc32 > test-data/prbs15-2M-20dBx4.fc32
          iridium-extractor --offline -c 1622000000 -r 2000000 -f float test-data/prbs15-2M-20dBx4.fc32 > prbs15-2M-20dB.bits
