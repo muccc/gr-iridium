@@ -54,3 +54,7 @@ jobs:
         run: |
          iridium-extractor examples/hackrf-10msps.conf 2>&1 | tee stderr-out
          cat stderr-out | grep "No supported devices found"
+      - name: Test Open SDR with soapy
+        run: |
+         iridium-extractor examples/hackrf-soapy.conf 2>&1 | tee stderr-out
+         cat stderr-out | grep "RuntimeError: no hackrf device matches"
