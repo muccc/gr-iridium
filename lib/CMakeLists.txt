@@ -12,6 +12,7 @@
 include(GrPlatform) #define LIB_SUFFIX
 
 list(APPEND iridium_sources
+    fir_filter.cc
     fft_burst_tagger_impl.cc
     iuchar_to_complex_impl.cc
     tagged_burst_to_pdu_impl.cc

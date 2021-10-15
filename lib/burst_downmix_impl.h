@@ -21,9 +21,9 @@
 #ifndef INCLUDED_IRIDIUM_BURST_DOWNMIX_IMPL_H
 #define INCLUDED_IRIDIUM_BURST_DOWNMIX_IMPL_H
 
-#include <gnuradio/blocks/rotator.h>
-#include <gnuradio/filter/fir_filter.h>
+#include "fir_filter.h"
 
+#include <gnuradio/blocks/rotator.h>
 #include <iridium/burst_downmix.h>
 
 namespace gr {
@@ -61,10 +61,10 @@ namespace gr {
       gr::fft::fft_complex_rev * d_corr_dl_ifft;
       gr::fft::fft_complex_rev * d_corr_ul_ifft;
 
-      filter::kernel::fir_filter_ccf d_input_fir;
-      filter::kernel::fir_filter_fff d_start_finder_fir;
-      filter::kernel::fir_filter_ccf d_rrc_fir;
-      filter::kernel::fir_filter_ccf d_rc_fir;
+      kernel::fir_filter_ccf d_input_fir;
+      kernel::fir_filter_fff d_start_finder_fir;
+      kernel::fir_filter_ccf d_rrc_fir;
+      kernel::fir_filter_ccf d_rc_fir;
 
       std::vector<gr_complex> d_dl_preamble_reversed_conj;
       std::vector<gr_complex> d_ul_preamble_reversed_conj;
