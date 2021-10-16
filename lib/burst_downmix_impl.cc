@@ -712,6 +712,11 @@ namespace gr {
        */
       int decimation = std::lround(sample_rate) / d_output_sample_rate;
 
+      if(!volk_is_aligned(burst)) {
+        memcpy(d_tmp_a, burst, sizeof(gr_complex) * burst_size);
+        burst = d_tmp_a;
+      }
+
 #if 0
       // Option for additional padding. Probably not needed.
       int input_fir_pad_size = (d_input_fir.ntaps() - 1) / 2;
