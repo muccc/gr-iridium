@@ -31,6 +31,16 @@ t0 = time.time()
 sample_rate = None
 offline = False
 
+sample_formats = {
+    'float':  'cf32_le',
+    'fc32':   'cf32_le',
+    'cfile':  'cf32_le',
+    'sc16':   'ci16_le',
+    'hackrf': 'ci8',
+    'sc8':    'ci8',
+    'rtl':    'cu8',
+}
+
 def print_stats(tb):
     global last_print, queue_len_max, out_count, in_count
     global drop_count, drop_count_total, in_ok_count, out_ok_count, sample_count_total
@@ -261,13 +271,14 @@ if __name__ == "__main__":
             print("For more documentation check: https://github.com/muccc/gr-iridium/", file=sys.stderr)
             exit(-1)
 
+    # check filename extension for sample format
+    extension = os.path.splitext(filename)[-1][1:]
+    if fmt is None and (extension in sample_formats or extension in sample_formats.values()):
+        fmt=extension
+
     # compatibility mappings
-    if fmt=='float':  fmt='cf32_le'
-    if fmt=='fc32':   fmt='cf32_le'
-    if fmt=='sc16':   fmt='ci16_le'
-    if fmt=='hackrf': fmt='ci8'
-    if fmt=='sc8':    fmt='ci8'
-    if fmt=='rtl':    fmt='cu8'
+    if fmt in sample_formats:
+        fmt=sample_formats[fmt]
 
     if file_info is None and offline:
         file_info=filename
