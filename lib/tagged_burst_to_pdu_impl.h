@@ -30,14 +30,13 @@ namespace gr {
         uint64_t id;
         double offset;
         float magnitude;
+        float relative_frequency;
         float center_frequency;
         float sample_rate;
         uint64_t timestamp;
         float noise;
         size_t len;
         gr_complex * data;
-        gr_complex phase_incr;
-        gr_complex phase;
     };
 
     class tagged_burst_to_pdu_impl : public tagged_burst_to_pdu
