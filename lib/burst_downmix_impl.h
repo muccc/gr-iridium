@@ -26,6 +26,8 @@
 
 #include <iridium/burst_downmix.h>
 
+#include <volk/volk_alloc.hh>
+
 namespace gr {
   namespace iridium {
 
@@ -66,8 +68,8 @@ namespace gr {
       filter::kernel::fir_filter_ccf d_rrc_fir;
       filter::kernel::fir_filter_ccf d_rc_fir;
 
-      std::vector<gr_complex> d_dl_preamble_reversed_conj;
-      std::vector<gr_complex> d_ul_preamble_reversed_conj;
+      volk::vector<gr_complex> d_dl_preamble_reversed_conj;
+      volk::vector<gr_complex> d_ul_preamble_reversed_conj;
 
       blocks::rotator d_r;
       gr::fft::fft_complex d_cfo_est_fft;
@@ -80,7 +82,7 @@ namespace gr {
       void update_buffer_sizes(size_t burst_size);
       void initialize_cfo_est_fft(void);
       void initialize_correlation_filter(void);
-      std::vector<gr_complex> generate_sync_word(::iridium::direction direction);
+      volk::vector<gr_complex> generate_sync_word(::iridium::direction direction);
       int fft_shift_index(int index, int fft_size);
       int fft_unshift_index(int index, int fft_size);
       float interpolate(float alpha, float beta, float gamma);
