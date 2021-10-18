@@ -201,7 +201,7 @@ namespace gr {
         }
     }
 
-    std::vector<gr_complex> burst_downmix_impl::generate_sync_word(::iridium::direction direction)
+    volk::vector<gr_complex> burst_downmix_impl::generate_sync_word(::iridium::direction direction)
     {
       gr_complex s1 = gr_complex(-1, -1);
       gr_complex s0 = -s1;
@@ -224,7 +224,7 @@ namespace gr {
       }
 
 #if 1
-      std::vector<gr_complex> sync_word_padded;
+      volk::vector<gr_complex> sync_word_padded;
       std::vector<gr_complex> padding;
       for(i = 0; i < d_output_samples_per_symbol - 1; i++) {
         padding.push_back(0);
@@ -266,7 +266,7 @@ namespace gr {
 
 #if 1
       int half_rc_size = (d_rc_fir.ntaps() - 1) / 2;
-      std::vector<gr_complex> tmp(sync_word_padded);
+      volk::vector<gr_complex> tmp(sync_word_padded);
 
       for(i = 0; i < half_rc_size; i++) {
         tmp.push_back(0);
