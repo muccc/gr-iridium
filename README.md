@@ -157,7 +157,7 @@ If not specified otherwise, `iridium-extractor` tries to use the file extension 
 This option has no effect while directly reading from an SDR.
 
 #### `-q`: Queue Length
-For each channel (by default there is one unless specified with `-D` ), a queue is filled with samples where the detector has detected activity. By default each queue is 500 frames long. You can tweak the length of the queue(s) with this option.
+For each channel (by default there is one channel, unless specified with `-D` ), a queue is filled with samples where the detector has detected activity. By default each queue is 500 frames long. You can tweak the length of the queue(s) with this option.
 
 #### `--debug-id`: Output debug information for a specific burst
 Each burst which is detected gets assigned an id. It appears in the output data as `I:xxxxxxxxxxx` for bursts which were decoded into frames.
@@ -198,7 +198,7 @@ During normal operation `iridium-extractor` will output a status line once per s
 |  1|time         |Current time in seconds (unix time)|
 |  2|input        |number of "bursts" detected in the last second|
 |  3|input average|average of `2` since program start|
-|  4|queue max    |High-water mark the sum of the queue size(s) in the last second (see `-q`)|
+|  4|queue max    |High-water mark of the sum of the queue size(s) in the last second (see `-q`)|
 |  5|in ok%       |Percentage of bursts with at least one ok frame relative to `2`|
 |  6|out          |Number of "frames" after `--multi-frame` splitting|
 |  7|ok%          |Percentage of "ok" frames(`8`) relative to `2` |
@@ -219,7 +219,9 @@ All columns here have the same content as in SDR/live mode, except
 
 |Column|Mnemonic|Explanation|
 |-|-|-|
-|  2|sample rate rate|Processing speed relative to recorded sample rate in the last second (values below 100% indicate live processing would not work)|
+|  2|sample rate rate|Processing speed relative to recorded sample rate in the last second|
+
+If this value is consistently lower than 100% it is likely that you would loose/drop bursts in SDR/live mode.
 
 ### Bits Output
 During normal operation `iridium-extractor` will output one line of bits per "ok" frame on `stdout`. Usually `stdout` should be redirected to a file. By convention this file should have the extension `.bits`.
