@@ -59,16 +59,19 @@ void frame_sorter_cpp_impl::handler(const pmt::pmt_t& msg)
     }
 
 
-    const auto [it2, success] = frames.insert({f, msg});
-    if(!success) {
+    // The not allowed in C++14:
+    //const auto [it2, success] = frames.insert({f, msg});
+    const std::pair<std::_Rb_tree_iterator<std::pair<const gr::iridium::frame, std::shared_ptr<pmt::pmt_base> > >, bool> result = frames.insert({f, msg});
+
+    if(!result.second) {
         int confidence = pmt::to_long(pmt::dict_ref(meta, pmt::mp("confidence"), pmt::PMT_NIL));
 
-        pmt::pmt_t meta_old = pmt::car(it2->second);
+        pmt::pmt_t meta_old = pmt::car(result.first->second);
         int confidence_old = pmt::to_long(pmt::dict_ref(meta_old, pmt::mp("confidence"), pmt::PMT_NIL));
 
         if(confidence > confidence_old) {
             // insert_or_assign with it2 as a hint would be nice but is C++17
-            frames.erase(it2);
+            frames.erase(result.first);
             frames.insert({f, msg});
         }
     }
