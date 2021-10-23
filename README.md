@@ -48,6 +48,11 @@ The following commands are examples how to use the `iridium-extractor` tool. To 
 
 This will capture the complete Iridium band using a connected HackRF and demodulate detected bursts into frames. It uses decimation to keep up if there are many bursts at the same time.
 
+### Online (with external tool)
+`hackrf_transfer -f 1626000000 -s 10000000 -r - | iridium-extractor -c 1626000000 -r 10000000 -f hackrf -`
+
+You can also pipe a raw sample stream into `iridium-extractor`. This may be useful if your SDR is not supported or if you stream samples from another computer via TCP (e.g. with `rtl_tcp`).
+
 ### Offline (raw capture)
 `iridium-extractor -c 1626000000 -r 2000000 -f float name-f1.626000e+09-s2.000000e+06-t20160401000000.cfile > output.bits`
 
@@ -63,26 +68,51 @@ Command line options `-c`, `-r` and `-f` can be used to override the SigMF infor
 ## Extracting Iridium Frames From Raw Data
 To capture and demodulate Iridium frames use `iridium-extractor`. You can either process a file offline or stream data into the tool.
 
-The extractor can read a configuration file. It also accepts arguments from the command line.
+The extractor can talk directly to an SDR with the help of [SoapySDR](https://github.com/pothosware/SoapySDR) or [OsmoSDR](https://osmocom.org/projects/gr-osmosdr/wiki). This is enabled via a configuration file.
+
 The `examples/` directory contains example configuration files for common use cases.
 
-Some options are only available via the configuration file, others are only available via the command line. If no configuration file is used, a file name can be provided to read samples from a file. If no file is specified, samples are read from stdin.
+If no configuration file is used, a file name can be provided to read samples from a file. If no file is specified, samples are read from `stdin`.
 
 ### Configuration File
 Configuration files need to have a `.conf` file extension.
-The configuration file is grouped into sections. Each section starts with a `[section-name]` line.
+The configuration file should contain one section and start with a corresponding `[section-name]` line.
 
 ### `osmosdr-source` Section
-If this section is present an `osmosdr-source` is instantiated
+If this section is present an OsmoSDR source is instantiated.
 
-| Option Name      | Description                                |
-|------------------|--------------------------------------------|
-| `sample_rate`    | Sample rate at which the source should run |
-| `center_freq`    | Center frequency for the source in Hz      |
-| `gain`           | (RF)-Gain in dB                            |
-| `if_gain`        | IF-Gain in dB                              |
-| `bb_gain`        | BB-Gain in dB                              |
-| `bandwidth`      | Base band filter bandwidth in Hz           |
+The following options are available in this section:
+
+| Option Name      | Required | Description                                |
+|------------------|----------|--------------------------------------------|
+| `device_args`    | No       | Device options passed onto osomosdr<sup>[1](#dev)</sup>|
+| `sample_rate`    | Yes      | Sample rate at which the source should run |
+| `center_freq`    | Yes      | Center frequency for the source in Hz      |
+| `gain`           | No       | (RF)-Gain in dB                            |
+| `if_gain`        | No       | IF-Gain in dB                              |
+| `bb_gain`        | No       | BB-Gain in dB                              |
+| `bandwidth`      | No       | Base band filter bandwidth in Hz           |
+| `antenna`        | No       | Antenna port to use                        |
+
+<a name="dev">1</a>: Mostly used to enable bias tee - check files under `examples/`
+
+### `soapy-source` Section
+If this section is present a SoapySDR source is instantiated.
+
+The following options are available in this section:
+
+| Option Name      | Required | Description                                |
+|------------------|----------|--------------------------------------------|
+| `driver`         | Yes      | Soapy driver to be used<sup>[1](#factories)</sup>        |
+| `sample_rate`    | Yes      | Sample rate at which the source should run |
+| `center_freq`    | Yes      | Center frequency for the source in Hz      |
+| `bandwidth`      | No       | Base band filter bandwidth in Hz           |
+| `antenna`        | No       | Which antenna port should be used          |
+| `gain`           | No       | (RF)-Gain in dB                            |
+| `*_gain`         | No       | set specific Gain in dB<sup>[2](#gain)</sup>             |
+
+<a name="factories">1</a>: Run `SoapySDRUtil --info |grep factories` to see available drivers on your system
+<a name="gain">2</a>: Check the output of `SoapySDRUtil --probe` to find valid gain names for your SDR. Gain names are usually different between OsmoSDR and SoapySDR.
 
 ### Command Line Options
 Command line options can be used instead of a configuration file. If a configuration file is also specified, command line options take precedence.
@@ -123,6 +153,8 @@ The following 4 formats are supported for sample input. For ease of use the name
 | `cf32_le` | complex float (GNURadio, `uhd_rx_cfile`)           | `float` , `fc32`, `cfile` |
 
 If not specified otherwise, `iridium-extractor` tries to use the file extension to identify the format.
+
+This option has no effect while directly reading from an SDR.
 
 #### `-q`: Queue Length
 For each channel (by default there is one unless specified with `-D` ), a queue is filled with samples where the detector has detected activity. By default each queue is 500 frames long. You can tweak the length of the queue(s) with this option.
