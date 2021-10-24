@@ -50,7 +50,7 @@ void frame_sorter_cpp_impl::handler(const pmt::pmt_t& msg)
     auto it = frames.begin();
 
     while(it != frames.end()) {
-        if(it->first.timestamp < f.timestamp - 1000000000) {
+        if(it->first.timestamp < f.timestamp - 2000000000) {
             message_port_pub(pmt::mp("pdus"), it->second);
             it = frames.erase(it);
         } else {
