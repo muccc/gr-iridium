@@ -57,7 +57,7 @@ class frame_sorter(gr.sync_block):
         remove_index = None
         for idx, message in enumerate(self._messages):
             ts_delta = timestamp - message.timestamp
-            if ts_delta > 1e9:
+            if ts_delta > 2e9:
                 self.message_port_pub(gr.pmt.intern('pdus'), message.pmt)
                 remove_count += 1
             elif abs(ts_delta) <= 1000:
