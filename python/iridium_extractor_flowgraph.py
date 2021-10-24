@@ -127,10 +127,10 @@ class FlowGraph(gr.top_block):
             else:
                 source = osmosdr.source()
 
-            source.set_time_now(osmosdr.time_spec_t.get_system_time())
-
             source.set_sample_rate(self._input_sample_rate)
             source.set_center_freq(self._center_frequency, 0)
+
+            source.set_time_now(osmosdr.time_spec_t.get_system_time())
 
             if 'gain' in d:
                 gain = int(d['gain'])
