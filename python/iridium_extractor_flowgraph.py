@@ -327,7 +327,7 @@ class FlowGraph(gr.top_block):
         if raw_capture_filename:
             multi = blocks.multiply_const_cc(32768)
             converter = blocks.complex_to_interleaved_short()
-            raw_sink = blocks.file_sink(itemsize=gr.sizeof_short, filename=raw_capture_filename)
+            raw_sink = blocks.file_sink(itemsize=gr.sizeof_short, filename=raw_capture_filename+'.sigmf-data')
             tb.connect(source, multi, converter, raw_sink)
 
             # Enable the following if not fast enough

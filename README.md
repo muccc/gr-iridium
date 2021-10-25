@@ -188,6 +188,15 @@ how much stronger a signal needs to be over the noise floor to attempt to extrac
 
 Default value is `18`. Values lower than `16` are rarely useful, as the QPSK decoder will produce too many bit errors.
 
+#### `--raw-capture`: Copy raw samples to file
+write a copy of the samples to a SigMF recording.
+
+The parameter specifies the path & basename of the SigMF files.
+
+This is mostly useful for debugging when using SDR mode to process live data.
+
+The samples will be written in `ci16_le` format.
+
 ### Interactive Output
 During normal operation `iridium-extractor` will output a status line once per second on `stderr`.
 #### SDR / live mode

@@ -312,6 +312,32 @@ if __name__ == "__main__":
             print("/tmp/signals directory missing!", file=sys.stderr)
             exit(1)
 
+    if raw_capture_filename is not None:
+        import json
+        import datetime
+        data={
+            'global': {
+                'core:datatype': 'ci16_le',
+                'core:description': 'iridium-extractor capture via '+os.path.basename(filename),
+                'core:recorder': 'iridium-extractor',
+                "core:num_channels": 1,
+                'core:sample_rate': sample_rate,
+                'core:version': '1.0.0'
+            },
+            'captures': [
+            {
+                'core:datetime': datetime.datetime.utcnow().replace(microsecond=0).isoformat()+'Z',
+                'core:frequency': center,
+                'core:sample_start': 0
+            }
+            ]
+        }
+
+        if cfg['source'] == 'soapy':
+            data['global']['core:hw']=cfg['soapy-source']['driver']
+
+        with open(raw_capture_filename+'.sigmf-meta', 'w') as outfile:
+            json.dump(data, outfile, indent=4)
 
     tb = iridium.iridium_extractor_flowgraph.FlowGraph(center_frequency=center, sample_rate=sample_rate, decimation=decimation, 
             filename=filename, sample_format=fmt,
