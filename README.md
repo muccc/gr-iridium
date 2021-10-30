@@ -111,8 +111,9 @@ The following options are available in this section:
 | `gain`           | No       | (RF)-Gain in dB                            |
 | `*_gain`         | No       | set specific Gain in dB<sup>[2](#gain)</sup>             |
 
-<a name="factories">1</a>: Run `SoapySDRUtil --info |grep factories` to see available drivers on your system
-<a name="gain">2</a>: Check the output of `SoapySDRUtil --probe` to find valid gain names for your SDR. Gain names are usually different between OsmoSDR and SoapySDR.
+<small><a name="factories">1</a>: Run `SoapySDRUtil --info |grep factories` to see available drivers on your system.</small>
+
+<small><a name="gain">2</a>: Check the output of `SoapySDRUtil --probe` to find valid gain names for your SDR. Gain names are usually different between OsmoSDR and SoapySDR.</small>
 
 ### Command Line Options
 Command line options can be used instead of a configuration file. If a configuration file is also specified, command line options take precedence.
@@ -231,7 +232,7 @@ During normal operation `iridium-extractor` will output one line of bits per "ok
 |Column|Example|Explanation|
 |-|-|-|
 |  1|RAW:          |Indicates that this is an unprocessed output from `iridium-extractor` |
-|  2|prbs15-2M-20dB|File info - see `--file-info` command line option|
+|  2|prbs15-2M-20dB|File info - see `--file-info` command line option[^fileinfo]|
 |  3|0000599.9996  |Time in ms since start of recording/extraction[^time]. This is derived from sample counting and will drift depending on your SDR clock accuracy (and also when dropping samples)|
 |  4|1622000000    |Frequency in Hz at which this "frame" was detected|
 |  5|N:32.12-80.05 |Relative Magnitude of the detected "burst" (≥ `--db`) and average Noise/Hz at that time/frequency in dBFS|
@@ -241,6 +242,7 @@ During normal operation `iridium-extractor` will output one line of bits per "ok
 |  9|179           |Length of the signal in symbols (i.e. `len(bits)/2`)|
 | 10|...           |Raw bits[^bits]|
 
+[^fileinfo]: In live mode: `i-<timestamp>-t1` whereas `timestamp` is a unix `time_t` representing the start of the recording.
 [^time]: Time in `3` is defined as the middle of the first symbol of the 12-symbol BPSK Iridium sync word.
 [^id]: Last digit identifies the sub-frame of a burst (always `0` unless in `--multi-frame` mode).
 [^signal]: Due to historic reasons column `8` is not in dB. Convert do dBFS via `20*log10(_value_)`.
