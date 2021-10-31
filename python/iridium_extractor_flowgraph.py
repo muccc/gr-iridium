@@ -173,6 +173,17 @@ class FlowGraph(gr.top_block):
             else:
                 print("Warning: Setting antenna to", source.get_antenna(0), file=sys.stderr)
 
+            if 'clock_source' in d:
+                source.set_clock_source(d['clock_source'], 0)
+
+            if 'time_source' in d:
+                source.set_time_source(d['time_source'], 0)
+                while (time.time() % 1) < 0.4 or (time.time() % 1) > 0.6:
+                    pass
+                t = time.time()
+                source.set_time_next_pps(osmosdr.time_spec_t(int(t) + 1))
+                time.sleep(1)
+
             #source.set_freq_corr($corr0, 0)
             #source.set_dc_offset_mode($dc_offset_mode0, 0)
             #source.set_iq_balance_mode($iq_balance_mode0, 0)
