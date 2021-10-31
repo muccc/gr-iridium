@@ -639,7 +639,7 @@ namespace gr {
         write_data_c(d_tmp_b + uw_start, frame_size, (char *)"signal-filtered-deci-cut-start-shift-rrc-rotate-cut", sub_id);
       }
 
-      timestamp += start * 1e9 / sample_rate;
+      timestamp += start * 1000000000ULL / (int)sample_rate;
       /*
        * Done :)
        */
@@ -737,7 +737,7 @@ namespace gr {
 #else
       burst_size = (burst_size - d_input_fir.ntaps() + 1) / decimation;
 
-      timestamp += d_input_fir.ntaps() / 2 * 1e9 / sample_rate;
+      timestamp += d_input_fir.ntaps() / 2 * 1000000000ULL / (int)sample_rate;
 #endif
 
       d_input_fir.filterNdec(d_frame, d_tmp_a, burst_size, decimation);
