@@ -12,6 +12,7 @@ from gnuradio import blocks
 
 import sys
 import math
+import time
 
 import numpy as np
 
@@ -130,7 +131,10 @@ class FlowGraph(gr.top_block):
             source.set_sample_rate(self._input_sample_rate)
             source.set_center_freq(self._center_frequency, 0)
 
-            source.set_time_now(osmosdr.time_spec_t.get_system_time())
+            # Set a rough time estimate for potential rx_time tags from USRP devices
+            # This prevents the output from having bogous time stamps if no GPSDO is available
+            t0 = time.time()
+            source.set_time_now(osmosdr.time_spec_t(int(t0), t0 - int(t0)))
 
             if 'gain' in d:
                 gain = int(d['gain'])
