@@ -346,7 +346,7 @@ namespace gr {
 
 
         const uint64_t offset = b.start - d_last_rx_time_offset;
-        const uint64_t timestamp = d_last_rx_time_timestamp + offset * 1e9 / d_sample_rate;
+        const uint64_t timestamp = d_last_rx_time_timestamp + (offset * 1000000000ULL) / d_sample_rate;
 
         pmt::pmt_t value = pmt::make_dict();
         value = pmt::dict_add(value, pmt::mp("id"), pmt::from_uint64(b.id));
@@ -416,7 +416,7 @@ namespace gr {
       if(d_last_rx_time_timestamp == 0 && !d_offline) {
         struct timeval time_now{};
         gettimeofday(&time_now, nullptr);
-        d_last_rx_time_timestamp = time_now.tv_sec * 1e9 + time_now.tv_usec * 1e3;
+        d_last_rx_time_timestamp = time_now.tv_sec * 1000000000ULL + time_now.tv_usec * 1000;
       }
 
       std::vector<tag_t> rx_time_tags;
@@ -431,7 +431,7 @@ namespace gr {
         const uint64_t seconds = pmt::to_uint64(pmt::tuple_ref(value, 0));
         const double seconds_fraction = pmt::to_double(pmt::tuple_ref(value, 1));
 
-        d_last_rx_time_timestamp = seconds * 1e9 + seconds_fraction * 1e9;
+        d_last_rx_time_timestamp = seconds * 1000000000ULL + (uint64_t)(seconds_fraction * 1000000000ULL);
       }
 
       for(int i = 0; i < noutput_items; i += d_fft_size) {
