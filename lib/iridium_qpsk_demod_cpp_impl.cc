@@ -332,7 +332,7 @@ namespace gr {
       uint64_t timestamp = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("timestamp"), pmt::PMT_NIL));
 
       int sps = sample_rate / 25000;
-      timestamp += uw_start * 1e9 / sample_rate;
+      timestamp += uw_start * 1000000000ULL / (int)sample_rate;
 
       update_buffer_sizes(burst_size);
 
