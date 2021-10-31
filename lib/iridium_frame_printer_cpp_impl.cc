@@ -72,8 +72,8 @@ void iridium_frame_printer_cpp_impl::handler(const pmt::pmt_t& msg)
     int n_symbols = pmt::to_long(pmt::dict_ref(meta, pmt::mp("n_symbols"), pmt::PMT_NIL));
 
     if(d_file_info == "") {
-        d_t0 = (timestamp / 1000000000) * 1000000000;
-        d_file_info = "i-" + std::to_string(d_t0/1000000000) + "-t1";
+        d_t0 = (timestamp / 1000000000ULL) * 1000000000ULL;
+        d_file_info = "i-" + std::to_string(d_t0/1000000000ULL) + "-t1";
     }
 
     std::cout << "RAW: " << d_file_info << " ";

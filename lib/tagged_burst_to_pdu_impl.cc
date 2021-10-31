@@ -153,7 +153,7 @@ namespace gr {
           sample_rate = sample_rate * d_relative_sample_rate;
           relative_frequency = (relative_frequency - d_relative_center_frequency) / d_relative_sample_rate;
 
-          timestamp += d_sample_offset * 1e9 / sample_rate;
+          timestamp += d_sample_offset * 1000000000ULL / sample_rate;
 
           burst_data burst = {id, (double)tag.offset, magnitude, relative_frequency,
             center_frequency, sample_rate, timestamp, noise, 0};
