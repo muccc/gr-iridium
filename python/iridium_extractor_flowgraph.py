@@ -174,9 +174,11 @@ class FlowGraph(gr.top_block):
                 print("Warning: Setting antenna to", source.get_antenna(0), file=sys.stderr)
 
             if 'clock_source' in d:
+                print("Setting clock source to:", d['clock_source'], file=sys.stderr)
                 source.set_clock_source(d['clock_source'], 0)
 
             if 'time_source' in d:
+                print("Setting time source to:", d['time_source'], file=sys.stderr)
                 source.set_time_source(d['time_source'], 0)
                 while (time.time() % 1) < 0.4 or (time.time() % 1) > 0.6:
                     pass
