@@ -292,6 +292,9 @@ if __name__ == "__main__":
     if sample_rate == None:
         print("Sample rate missing!", file=sys.stderr)
         exit(1)
+    if sample_rate % 100000:
+        print("Sample rate must be divisible by 100000!", file=sys.stderr)
+        exit(1)
     if center == None:
         print("Need to specify center frequency!", file=sys.stderr)
         exit(1)
