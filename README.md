@@ -86,7 +86,7 @@ The following options are available in this section:
 | Option Name      | Required | Description                                |
 |------------------|----------|--------------------------------------------|
 | `device_args`    | No       | Device options passed onto osomosdr<sup>[1](#dev)</sup>|
-| `sample_rate`    | Yes      | Sample rate at which the source should run |
+| `sample_rate`    | Yes      | Sample rate at which the source should run. Must be divisible by 100000. |
 | `center_freq`    | Yes      | Center frequency for the source in Hz      |
 | `gain`           | No       | (RF)-Gain in dB                            |
 | `if_gain`        | No       | IF-Gain in dB                              |
@@ -104,7 +104,7 @@ The following options are available in this section:
 | Option Name      | Required | Description                                |
 |------------------|----------|--------------------------------------------|
 | `driver`         | Yes      | Soapy driver to be used<sup>[1](#factories)</sup>        |
-| `sample_rate`    | Yes      | Sample rate at which the source should run |
+| `sample_rate`    | Yes      | Sample rate at which the source should run. Must be divisible by 100000. |
 | `center_freq`    | Yes      | Center frequency for the source in Hz      |
 | `bandwidth`      | No       | Base band filter bandwidth in Hz           |
 | `antenna`        | No       | Which antenna port should be used          |
@@ -142,7 +142,7 @@ This value is limited to even values and the sample rate divided by decimation m
 The center frequency for the source or the file in Hz.
 
 #### `-r`: Sample Rate
-The sample rate of the source or the file.
+The sample rate of the source or the file. Must be divisible by 100000.
 
 #### `-f`: Input File Format
 The following 4 formats are supported for sample input. For ease of use the names in the alias column can also be used.
