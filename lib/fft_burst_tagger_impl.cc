@@ -346,7 +346,11 @@ namespace gr {
 
 
         const uint64_t offset = b.start - d_last_rx_time_offset;
-        const uint64_t timestamp = d_last_rx_time_timestamp + (offset * 1000000000ULL) / d_sample_rate;
+
+        // Convert the offset in samples into a timestamp in nanoseconds.
+        // offset * 1000000000 can become larger than 2**64, so we need to scale it
+        // together with the sample rate. This means the sample rate must be a multiple of 100000
+        const uint64_t timestamp = d_last_rx_time_timestamp + (offset * (1000000000ULL / 100000)) / (d_sample_rate / 100000);
 
         pmt::pmt_t value = pmt::make_dict();
         value = pmt::dict_add(value, pmt::mp("id"), pmt::from_uint64(b.id));
