@@ -325,6 +325,83 @@ class FlowGraph(gr.top_block):
 
             source = zeromq.sub_source(gr.sizeof_gr_complex, 1, d['address'], timeout, pass_tags, high_water_mark, '')
 
+        elif config['source'] == 'uhd':
+            d = config["uhd-source"]
+
+            from gnuradio import uhd
+
+            dev_addr = ""
+            if "device_addr" in d:
+                dev_addr = d['device_addr']
+            dev_args = d['device_args']
+
+            cpu_format = 'fc32'
+            wire_format = 'sc16'
+            stream_args = ""
+
+            stream_args = uhd.stream_args(cpu_format, wire_format, args=stream_args)
+            source = uhd.usrp_source(dev_addr + "," + dev_args, stream_args)
+
+            source.set_samp_rate(self._input_sample_rate)
+            source.set_center_freq(self._center_frequency)
+
+            if 'gain' in d:
+                gain = int(d['gain'])
+                source.set_gain(gain, 0)
+                print("Gain:", source.get_gain(0), '(Requested %d)' % gain, file=sys.stderr)
+
+            if 'bandwidth' in d:
+                bandwidth = int(d['bandwidth'])
+                source.set_bandwidth(bandwidth, 0)
+                print("Bandwidth:", source.get_bandwidth(0), '(Requested %d)' % bandwidth, file=sys.stderr)
+            else:
+                source.set_bandwidth(0)
+                print("Warning: Setting bandwidth to", source.get_bandwidth(0), file=sys.stderr)
+
+            if 'antenna' in d:
+                antenna = d['antenna']
+                source.set_antenna(antenna, 0)
+                print("Antenna:", source.get_antenna(0), '(Requested %s)' % antenna, file=sys.stderr)
+            else:
+                print("Warning: Setting antenna to", source.get_antenna(0), file=sys.stderr)
+
+            source.set_clock_source("gpsdo", 0)
+            source.set_time_source("gpsdo", 0)
+
+            print("mboard sensors:", source.get_mboard_sensor_names(0), file=sys.stderr)
+
+            print("Waiting for ref_locked...", file=sys.stderr)
+            while True:
+                ref_locked = source.get_mboard_sensor("ref_locked", 0)
+                if ref_locked.to_bool():
+                    break
+                time.sleep(1)
+            print("ref_locked!", file=sys.stderr)
+
+            for sensor in source.get_mboard_sensor_names(0):
+                print(sensor, source.get_mboard_sensor(sensor, 0))
+
+            print("Waiting for gps_locked...", file=sys.stderr)
+            while True:
+                print(source.get_mboard_sensor("gps_servo", 0))
+                ref_locked = source.get_mboard_sensor("gps_locked", 0)
+                if ref_locked.to_bool():
+                    break
+                time.sleep(1)
+            print("gps_locked!", file=sys.stderr)
+
+            gps_time = uhd.time_spec_t(source.get_mboard_sensor("gps_time").to_int())
+            source.set_time_next_pps(gps_time + 1)
+            print("Next PPS at", gps_time.get_real_secs(), file=sys.stderr)
+
+            time.sleep(2)
+
+            gps_time = uhd.time_spec_t(source.get_mboard_sensor("gps_time").to_int())
+            print("GPSDO time:", gps_time.get_real_secs(), file=sys.stderr)
+            print("USRP  time:", source.get_time_last_pps(0).get_real_secs(), file=sys.stderr)
+
+            self.source = source
+
         else:
             if sample_format == "cu8":
                 converter = iridium.iuchar_to_complex()

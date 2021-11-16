@@ -184,6 +184,10 @@ if __name__ == "__main__":
             d=cfg['zeromq-sub-source']
             cfg['source']='zeromq-sub'
             offline = False
+        elif 'uhd-source' in cfg:
+            d=cfg['uhd-source']
+            cfg['source']='uhd'
+            offline = False
         else:
             print("Unsupported .conf file format", file=sys.stderr)
             exit(1)
