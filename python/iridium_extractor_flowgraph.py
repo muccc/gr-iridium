@@ -365,7 +365,6 @@ class FlowGraph(gr.top_block):
             else:
                 print("Warning: Setting antenna to", source.get_antenna(0), file=sys.stderr)
 
-
             print("mboard sensors:", source.get_mboard_sensor_names(0), file=sys.stderr)
             #for sensor in source.get_mboard_sensor_names(0):
             #    print(sensor, source.get_mboard_sensor(sensor, 0))
@@ -391,31 +390,47 @@ class FlowGraph(gr.top_block):
             if time_source in gpsdo_sources or clock_source in gpsdo_sources:
                 print("Waiting for gps_locked...", file=sys.stderr)
                 while True:
-                    ref_locked = False
-                    if d['time_source'] == "jacksonlabs":
-                        servo = source.get_mboard_sensor("gps_servo", 0)
-                        # See https://lists.ettus.com/empathy/thread/6ZOCFQSKLHSG2IH3ID7XPWVKHVHZXPBP
-                        ref_locked = str(servo).split()[8] == "6"
-                    else:
-                        ref_locked = source.get_mboard_sensor("gps_locked", 0).to_bool()
-                    if ref_locked:
-                        break
-                    time.sleep(1)
-                print("gps_locked!", file=sys.stderr)
+                    try:
+                        if d['time_source'] == "jacksonlabs":
+                            servo = source.get_mboard_sensor("gps_servo", 0)
+                            # See https://lists.ettus.com/empathy/thread/6ZOCFQSKLHSG2IH3ID7XPWVKHVHZXPBP
+                            gps_locked = str(servo).split()[8] == "6"
+                        else:
+                            gps_locked = source.get_mboard_sensor("gps_locked", 0).to_bool()
 
+                        if gps_locked:
+                            break
+                    except ValueError as e:
+                        print(e, file=sys.stderr)
+                        pass
+                    time.sleep(1)
+
+                print("gps_locked!", file=sys.stderr)
 
             if clock_source:
                 print("Waiting for ref_locked...", file=sys.stderr)
                 while True:
-                    ref_locked = source.get_mboard_sensor("ref_locked", 0)
-                    if ref_locked.to_bool():
-                        break
+                    try:
+                        ref_locked = source.get_mboard_sensor("ref_locked", 0)
+                        if ref_locked.to_bool():
+                            break
+                    except ValueError as e:
+                        print(e, file=sys.stderr)
+                        pass
                     time.sleep(1)
                 print("ref_locked!", file=sys.stderr)
 
             if time_source:
                 if time_source in gpsdo_sources:
-                    gps_time = uhd.time_spec_t(source.get_mboard_sensor("gps_time").to_int())
+                    while True:
+                        try:
+                            gps_time = uhd.time_spec_t(source.get_mboard_sensor("gps_time").to_int())
+                            break
+                        except ValueError as e:
+                            print(e, file=sys.stderr)
+                            pass
+                        time.sleep(1)
+
                     next_pps_time = gps_time + 1
                 else:
                     system_time = uhd.time_spec_t(int(time.time()))
