@@ -365,40 +365,70 @@ class FlowGraph(gr.top_block):
             else:
                 print("Warning: Setting antenna to", source.get_antenna(0), file=sys.stderr)
 
-            source.set_clock_source("gpsdo", 0)
-            source.set_time_source("gpsdo", 0)
 
             print("mboard sensors:", source.get_mboard_sensor_names(0), file=sys.stderr)
+            #for sensor in source.get_mboard_sensor_names(0):
+            #    print(sensor, source.get_mboard_sensor(sensor, 0))
 
-            print("Waiting for ref_locked...", file=sys.stderr)
-            while True:
-                ref_locked = source.get_mboard_sensor("ref_locked", 0)
-                if ref_locked.to_bool():
-                    break
-                time.sleep(1)
-            print("ref_locked!", file=sys.stderr)
+            gpsdo_sources = ('gpsdo', 'jacksonlabs')
 
-            for sensor in source.get_mboard_sensor_names(0):
-                print(sensor, source.get_mboard_sensor(sensor, 0))
+            time_source = None
+            if 'time_source' in d:
+                time_source = d['time_source']
+                if time_source in gpsdo_sources:
+                    source.set_time_source("gpsdo", 0)
+                else:
+                    source.set_time_source(time_source, 0)
 
-            print("Waiting for gps_locked...", file=sys.stderr)
-            while True:
-                print(source.get_mboard_sensor("gps_servo", 0))
-                ref_locked = source.get_mboard_sensor("gps_locked", 0)
-                if ref_locked.to_bool():
-                    break
-                time.sleep(1)
-            print("gps_locked!", file=sys.stderr)
+            clock_source = None
+            if 'clock_source' in d:
+                clock_source = d['time_source']
+                if clock_source in gpsdo_sources:
+                    source.set_clock_source("gpsdo", 0)
+                else:
+                    source.set_clock_source(clock_source, 0)
 
-            gps_time = uhd.time_spec_t(source.get_mboard_sensor("gps_time").to_int())
-            source.set_time_next_pps(gps_time + 1)
-            print("Next PPS at", gps_time.get_real_secs(), file=sys.stderr)
+            if time_source in gpsdo_sources or clock_source in gpsdo_sources:
+                print("Waiting for gps_locked...", file=sys.stderr)
+                while True:
+                    ref_locked = False
+                    if d['time_source'] == "jacksonlabs":
+                        servo = source.get_mboard_sensor("gps_servo", 0)
+                        # See https://lists.ettus.com/empathy/thread/6ZOCFQSKLHSG2IH3ID7XPWVKHVHZXPBP
+                        ref_locked = str(servo).split()[8] == "6"
+                    else:
+                        ref_locked = source.get_mboard_sensor("gps_locked", 0).to_bool()
+                    if ref_locked:
+                        break
+                    time.sleep(1)
+                print("gps_locked!", file=sys.stderr)
 
-            time.sleep(2)
 
-            gps_time = uhd.time_spec_t(source.get_mboard_sensor("gps_time").to_int())
-            print("GPSDO time:", gps_time.get_real_secs(), file=sys.stderr)
-            print("USRP  time:", source.get_time_last_pps(0).get_real_secs(), file=sys.stderr)
+            if clock_source:
+                print("Waiting for ref_locked...", file=sys.stderr)
+                while True:
+                    ref_locked = source.get_mboard_sensor("ref_locked", 0)
+                    if ref_locked.to_bool():
+                        break
+                    time.sleep(1)
+                print("ref_locked!", file=sys.stderr)
+
+            if time_source:
+                if time_source in gpsdo_sources:
+                    gps_time = uhd.time_spec_t(source.get_mboard_sensor("gps_time").to_int())
+                    next_pps_time = gps_time + 1
+                else:
+                    system_time = uhd.time_spec_t(int(time.time()))
+                    next_pps_time = system_time + 1
+
+                source.set_time_next_pps(next_pps_time)
+                print("Next PPS at", next_pps_time.get_real_secs(), file=sys.stderr)
+
+                print("Sleeping 2 seconds...", file=sys.stderr)
+                time.sleep(2)
+
+                # TODO: Check result for plausibility
+                print("USRP  time:", source.get_time_last_pps(0).get_real_secs(), file=sys.stderr)
 
             self.source = source
 
