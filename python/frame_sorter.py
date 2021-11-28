@@ -60,7 +60,7 @@ class frame_sorter(gr.sync_block):
             if ts_delta > 2e9:
                 self.message_port_pub(gr.pmt.intern('pdus'), message.pmt)
                 remove_count += 1
-            elif abs(ts_delta) <= 1000:
+            elif abs(ts_delta) <= 1000000:
                 if abs(message.center_frequency - center_frequency) < 10000:
                     if message.confidence < confidence:
                         remove_index = idx
