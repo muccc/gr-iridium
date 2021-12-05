@@ -247,3 +247,11 @@ During normal operation `iridium-extractor` will output one line of bits per "ok
 [^id]: Last digit identifies the sub-frame of a burst (always `0` unless in `--multi-frame` mode).
 [^signal]: Due to historic reasons column `8` is not in dB. Convert do dBFS via `20*log10(_value_)`.
 [^bits]: Due to historic reasons the bits in column `10` are symbol-wise reversed to how they would normally be presented.
+
+## Citations
+
+ - Accessing the RF Spectrum with GNU Radio: https://www.osti.gov/servlets/purl/1639511
+ - PAST-AI: Physical-layer Authentication of Satellite Transmitters via Deep Learning: https://arxiv.org/pdf/2010.05470.pdf
+ - Hacker-Attacks Against Satellites - An Evaluation of Space Law in Regard to the Nature of Hacker-Attacks: https://www.researchgate.net/publication/353846410_Hacker-Attacks_Against_Satellites_An_Evaluation_of_Space_Law_in_Regard_to_the_Nature_of_Hacker-Attacks
+ - GNSS Spoofing Detection via Opportunistic IRIDIUM Signals - https://arxiv.org/pdf/2006.10284.pdf
+ - The GR PDU Utilities: https://www.osti.gov/servlets/purl/1641974
