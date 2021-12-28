@@ -148,8 +148,8 @@ The sample rate of the source or the file. Must be divisible by 100000.
 The following 4 formats are supported for sample input. For ease of use the names in the alias column can also be used.
 | Format    | File Format                                        | Alias            |
 |-----------|----------------------------------------------------|------------------|
-| `ci8`     | complex uint8 (RTLSDR)                             | `rtl`            |
-| `cu8`     | complex int8 (hackrf, rad1o with hackrf-transfer)  | `hackrf`         |
+| `cu8`     | complex uint8 (RTLSDR)                             | `rtl`            |
+| `ci8`     | complex int8 (hackrf, rad1o with hackrf-transfer)  | `hackrf`         |
 | `ci16_le` | complex int16 (USRP with specrec from gr-analysis) | `sc16`           |
 | `cf32_le` | complex float (GNURadio, `uhd_rx_cfile`)           | `float` , `fc32`, `cfile` |
 
