@@ -19,7 +19,7 @@ namespace iridium {
  * \ingroup iridium
  *
  */
-class IRIDIUM_API frame_sorter_cpp : virtual public gr::sync_block
+class IRIDIUM_API frame_sorter_cpp : virtual public gr::block
 {
 public:
     typedef std::shared_ptr<frame_sorter_cpp> sptr;

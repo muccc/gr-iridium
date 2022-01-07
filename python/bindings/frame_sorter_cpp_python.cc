@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Free Software Foundation, Inc.
+ * Copyright 2022 Free Software Foundation, Inc.
  *
  * This file is part of GNU Radio
  *
@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(frame_sorter_cpp.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(b3acea83275fffd18efa3e43a99ce3f1)                     */
+/* BINDTOOL_HEADER_FILE_HASH(411bad03e53d0de92a3d280c0c712643)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -30,10 +30,10 @@ namespace py = pybind11;
 void bind_frame_sorter_cpp(py::module& m)
 {
 
-    using frame_sorter_cpp    = gr::iridium::frame_sorter_cpp;
+    using frame_sorter_cpp    = ::gr::iridium::frame_sorter_cpp;
 
 
-    py::class_<frame_sorter_cpp, gr::sync_block, gr::block, gr::basic_block,
+    py::class_<frame_sorter_cpp, gr::block, gr::basic_block,
         std::shared_ptr<frame_sorter_cpp>>(m, "frame_sorter_cpp", D(frame_sorter_cpp))
 
         .def(py::init(&frame_sorter_cpp::make),

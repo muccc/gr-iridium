@@ -21,7 +21,7 @@ frame_sorter_cpp::sptr frame_sorter_cpp::make()
  * The private constructor
  */
 frame_sorter_cpp_impl::frame_sorter_cpp_impl()
-    : gr::sync_block("frame_sorter_cpp",
+    : gr::block("frame_sorter_cpp",
               gr::io_signature::make(0, 0, 0),
               gr::io_signature::make(0, 0, 0))
 {
@@ -89,13 +89,6 @@ bool frame_sorter_cpp_impl::stop()
     // Signal end of messages
     message_port_pub(pmt::mp("pdus"), pmt::PMT_EOF);
     return true;
-}
-
-int frame_sorter_cpp_impl::work(int noutput_items,
-                                gr_vector_const_void_star& input_items,
-                                gr_vector_void_star& output_items)
-{
-    return 0;
 }
 
 } /* namespace iridium */
