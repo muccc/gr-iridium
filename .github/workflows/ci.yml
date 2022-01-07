@@ -28,6 +28,10 @@ jobs:
          cd build
          sudo make install
          sudo ldconfig
+      - name: Unit Tests
+        run: |
+         cd build
+         make test
       - name: Demod PRBS15 SigMF
         run: |
          iridium-extractor test-data/prbs15-2M-20dB.sigmf-meta |grep ^RAW > prbs15-2M-20dB.bits
