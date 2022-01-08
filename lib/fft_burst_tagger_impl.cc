@@ -38,7 +38,7 @@ namespace gr {
   namespace iridium {
 
     fft_burst_tagger::sptr
-    fft_burst_tagger::make(float center_frequency, int fft_size, int sample_rate,
+    fft_burst_tagger::make(double center_frequency, int fft_size, int sample_rate,
                             int burst_pre_len, int burst_post_len, int burst_width,
                             int max_bursts, float threshold, int history_size,
                             bool offline, bool debug)
@@ -53,7 +53,7 @@ namespace gr {
     /*
      * The private constructor
      */
-    fft_burst_tagger_impl::fft_burst_tagger_impl(float center_frequency, int fft_size, int sample_rate,
+    fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency, int fft_size, int sample_rate,
                         int burst_pre_len, int burst_post_len, int burst_width,
                         int max_bursts, float threshold, int history_size,
                         bool offline, bool debug)
@@ -356,7 +356,7 @@ namespace gr {
         pmt::pmt_t value = pmt::make_dict();
         value = pmt::dict_add(value, pmt::mp("id"), pmt::from_uint64(b.id));
         value = pmt::dict_add(value, pmt::mp("relative_frequency"), pmt::from_float(relative_frequency));
-        value = pmt::dict_add(value, pmt::mp("center_frequency"), pmt::from_float(d_center_frequency));
+        value = pmt::dict_add(value, pmt::mp("center_frequency"), pmt::from_double(d_center_frequency));
         value = pmt::dict_add(value, pmt::mp("magnitude"), pmt::from_float(b.magnitude));
         value = pmt::dict_add(value, pmt::mp("sample_rate"), pmt::from_float(d_sample_rate));
         value = pmt::dict_add(value, pmt::mp("timestamp"), pmt::from_uint64(timestamp));
