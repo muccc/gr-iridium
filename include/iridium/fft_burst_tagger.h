@@ -45,7 +45,7 @@ namespace gr {
        * class. iridium::fft_burst_tagger::make is the public interface for
        * creating new instances.
        */
-      static sptr make(float center_frequency, int fft_size, int sample_rate,
+      static sptr make(double center_frequency, int fft_size, int sample_rate,
                             int burst_pre_len, int burst_post_len,
                             int burst_width, int max_bursts=0, float threshold=7,
                             int history_size=512,

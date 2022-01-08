@@ -141,7 +141,7 @@ namespace gr {
         if(d_lower_border < relative_frequency && relative_frequency <= d_upper_border) {
           uint64_t id = pmt::to_uint64(pmt::dict_ref(tag.value, pmt::mp("id"), pmt::PMT_NIL));
           float magnitude = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("magnitude"), pmt::PMT_NIL));
-          float center_frequency = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("center_frequency"), pmt::PMT_NIL));
+          double center_frequency = pmt::to_double(pmt::dict_ref(tag.value, pmt::mp("center_frequency"), pmt::PMT_NIL));
           float sample_rate = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("sample_rate"), pmt::PMT_NIL));
           float relative_frequency = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("relative_frequency"), pmt::PMT_NIL));
           uint64_t timestamp = pmt::to_uint64(pmt::dict_ref(tag.value, pmt::mp("timestamp"), pmt::PMT_NIL));

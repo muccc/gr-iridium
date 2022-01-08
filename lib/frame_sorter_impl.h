@@ -16,7 +16,7 @@ namespace iridium {
 class frame {
 public:
     double timestamp;
-    float center_frequency;
+    double center_frequency;
 
     friend bool operator<(const frame& l, const frame& r)
     {
