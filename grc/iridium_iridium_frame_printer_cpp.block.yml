@@ -4,7 +4,7 @@ category: '[Iridium]'
 
 templates:
   imports: import iridium
-  make: iridium.iridium_frame_printer_cpp()
+  make: iridium.iridium_frame_printer_cpp("")
 inputs:
 -   domain: message
     id: pdus
