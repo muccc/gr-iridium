@@ -167,8 +167,8 @@ blocks:
     coordinate: [208, 91]
     rotation: 0
     state: enabled
-- name: iridium_iridium_qpsk_demod_0
-  id: iridium_iridium_qpsk_demod
+- name: iridium_iridium_qpsk_demod_cpp_0
+  id: iridium_iridium_qpsk_demod_cpp
   parameters:
     affinity: ''
     alias: ''
@@ -506,7 +506,7 @@ connections:
 - [blocks_file_source_0, '0', blocks_throttle_0, '0']
 - [blocks_throttle_0, '0', iridium_fft_burst_tagger_0, '0']
 - [iridium_burst_downmix_0, burst_handled, iridium_tagged_burst_to_pdu_0, burst_handled]
-- [iridium_burst_downmix_0, cpdus, iridium_iridium_qpsk_demod_0, cpdus]
+- [iridium_burst_downmix_0, cpdus, iridium_iridium_qpsk_demod_cpp_0, cpdus]
 - [iridium_burst_downmix_0, cpdus, qtgui_freq_sink_x_0, in]
 - [iridium_burst_downmix_0, cpdus, qtgui_waterfall_sink_x_0_0, in]
 - [iridium_fft_burst_tagger_0, '0', iridium_tagged_burst_to_pdu_0, '0']
