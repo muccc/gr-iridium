@@ -31,7 +31,7 @@ namespace gr {
         double offset;
         float magnitude;
         float relative_frequency;
-        float center_frequency;
+        double center_frequency;
         float sample_rate;
         uint64_t timestamp;
         float noise;
