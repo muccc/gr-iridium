@@ -10,12 +10,9 @@ install(FILES
     iridium_iuchar_to_complex.block.yml
     iridium_tagged_burst_to_pdu.block.yml
     iridium_burst_downmix.block.yml
-    iridium_iridium-qpsk-demod.block.yml
     iridium_pdu_null_sink.block.yml
     iridium_iridium_qpsk_demod_cpp.block.yml
     iridium_pdu_round_robin.block.yml
-    iridium_iridium_frame_printer.block.yml
-    iridium_frame_sorter.block.yml
     iridium_frame_sorter_cpp.block.yml
     iridium_iridium_frame_printer_cpp.block.yml DESTINATION share/gnuradio/grc/blocks
 )
