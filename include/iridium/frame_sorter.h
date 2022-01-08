@@ -19,17 +19,17 @@ namespace iridium {
  * \ingroup iridium
  *
  */
-class IRIDIUM_API frame_sorter_cpp : virtual public gr::block
+class IRIDIUM_API frame_sorter : virtual public gr::block
 {
 public:
-    typedef std::shared_ptr<frame_sorter_cpp> sptr;
+    typedef std::shared_ptr<frame_sorter> sptr;
 
     /*!
-     * \brief Return a shared_ptr to a new instance of iridium::frame_sorter_cpp.
+     * \brief Return a shared_ptr to a new instance of iridium::frame_sorter.
      *
-     * To avoid accidental use of raw pointers, iridium::frame_sorter_cpp's
+     * To avoid accidental use of raw pointers, iridium::frame_sorter's
      * constructor is in a private implementation
-     * class. iridium::frame_sorter_cpp::make is the public interface for
+     * class. iridium::frame_sorter::make is the public interface for
      * creating new instances.
      */
     static sptr make();

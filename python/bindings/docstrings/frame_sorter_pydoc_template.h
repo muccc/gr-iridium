@@ -16,12 +16,12 @@
 
 
  
- static const char *__doc_gr_iridium_frame_sorter_cpp = R"doc()doc";
+ static const char *__doc_gr_iridium_frame_sorter = R"doc()doc";
 
 
- static const char *__doc_gr_iridium_frame_sorter_cpp_frame_sorter_cpp = R"doc()doc";
+ static const char *__doc_gr_iridium_frame_sorter_frame_sorter = R"doc()doc";
 
 
- static const char *__doc_gr_iridium_frame_sorter_cpp_make = R"doc()doc";
+ static const char *__doc_gr_iridium_frame_sorter_make = R"doc()doc";
 
   

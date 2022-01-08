@@ -8,7 +8,7 @@
 #ifndef INCLUDED_IRIDIUM_FRAME_SORTER_CPP_IMPL_H
 #define INCLUDED_IRIDIUM_FRAME_SORTER_CPP_IMPL_H
 
-#include <iridium/frame_sorter_cpp.h>
+#include <iridium/frame_sorter.h>
 
 namespace gr {
 namespace iridium {
@@ -31,7 +31,7 @@ public:
 };
 
 
-class frame_sorter_cpp_impl : public frame_sorter_cpp
+class frame_sorter_impl : public frame_sorter
 {
 private:
     std::map<frame, pmt::pmt_t> frames;
@@ -40,8 +40,8 @@ private:
 
 
 public:
-    frame_sorter_cpp_impl();
-    ~frame_sorter_cpp_impl();
+    frame_sorter_impl();
+    ~frame_sorter_impl();
 
     bool stop();
 

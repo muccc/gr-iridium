@@ -23,13 +23,13 @@ namespace py = pybind11;
 // BINDING_FUNCTION_PROTOTYPES(
     void bind_burst_downmix(py::module& m);
     void bind_fft_burst_tagger(py::module& m);
-    void bind_iridium_qpsk_demod_cpp(py::module& m);
+    void bind_iridium_qpsk_demod(py::module& m);
     void bind_iuchar_to_complex(py::module& m);
     void bind_pdu_null_sink(py::module& m);
     void bind_pdu_round_robin(py::module& m);
     void bind_tagged_burst_to_pdu(py::module& m);
-    void bind_frame_sorter_cpp(py::module& m);
-    void bind_iridium_frame_printer_cpp(py::module& m);
+    void bind_frame_sorter(py::module& m);
+    void bind_iridium_frame_printer(py::module& m);
 // ) END BINDING_FUNCTION_PROTOTYPES
 
 
@@ -60,12 +60,12 @@ PYBIND11_MODULE(iridium_python, m)
     // BINDING_FUNCTION_CALLS(
     bind_burst_downmix(m);
     bind_fft_burst_tagger(m);
-    bind_iridium_qpsk_demod_cpp(m);
+    bind_iridium_qpsk_demod(m);
     bind_iuchar_to_complex(m);
     bind_pdu_null_sink(m);
     bind_pdu_round_robin(m);
     bind_tagged_burst_to_pdu(m);
-    bind_frame_sorter_cpp(m);
-    bind_iridium_frame_printer_cpp(m);
+    bind_frame_sorter(m);
+    bind_iridium_frame_printer(m);
     // ) END BINDING_FUNCTION_CALLS
 }

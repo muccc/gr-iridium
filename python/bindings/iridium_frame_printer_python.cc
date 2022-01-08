@@ -13,8 +13,8 @@
 /* If manual edits are made, the following tags should be modified accordingly.    */
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
-/* BINDTOOL_HEADER_FILE(frame_sorter.h)                                            */
-/* BINDTOOL_HEADER_FILE_HASH(411bad03e53d0de92a3d280c0c712643)                     */
+/* BINDTOOL_HEADER_FILE(iridium_frame_printer.h)                                        */
+/* BINDTOOL_HEADER_FILE_HASH(9d52d9abc70376ca3fed66a2c658fae1)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -23,21 +23,22 @@
 
 namespace py = pybind11;
 
-#include <iridium/frame_sorter.h>
+#include <iridium/iridium_frame_printer.h>
 // pydoc.h is automatically generated in the build directory
-#include <frame_sorter_pydoc.h>
+#include <iridium_frame_printer_pydoc.h>
 
-void bind_frame_sorter(py::module& m)
+void bind_iridium_frame_printer(py::module& m)
 {
 
-    using frame_sorter    = ::gr::iridium::frame_sorter;
+    using iridium_frame_printer    = ::gr::iridium::iridium_frame_printer;
 
 
-    py::class_<frame_sorter, gr::block, gr::basic_block,
-        std::shared_ptr<frame_sorter>>(m, "frame_sorter", D(frame_sorter))
+    py::class_<iridium_frame_printer, gr::sync_block, gr::block, gr::basic_block,
+        std::shared_ptr<iridium_frame_printer>>(m, "iridium_frame_printer", D(iridium_frame_printer))
 
-        .def(py::init(&frame_sorter::make),
-           D(frame_sorter,make)
+        .def(py::init(&iridium_frame_printer::make),
+           py::arg("file_info"),
+           D(iridium_frame_printer,make)
         )
         
 

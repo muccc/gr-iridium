@@ -8,12 +8,12 @@
 #ifndef INCLUDED_IRIDIUM_IRIDIUM_FRAME_PRINTER_CPP_IMPL_H
 #define INCLUDED_IRIDIUM_IRIDIUM_FRAME_PRINTER_CPP_IMPL_H
 
-#include <iridium/iridium_frame_printer_cpp.h>
+#include <iridium/iridium_frame_printer.h>
 
 namespace gr {
 namespace iridium {
 
-class iridium_frame_printer_cpp_impl : public iridium_frame_printer_cpp
+class iridium_frame_printer_impl : public iridium_frame_printer
 {
 private:
     std::string d_file_info;
@@ -23,8 +23,8 @@ private:
     void handle_msg_sys(const pmt::pmt_t& msg);
 
 public:
-    iridium_frame_printer_cpp_impl(std::string file_info);
-    ~iridium_frame_printer_cpp_impl();
+    iridium_frame_printer_impl(std::string file_info);
+    ~iridium_frame_printer_impl();
 
     // Where all the action really happens
     int work(int noutput_items,

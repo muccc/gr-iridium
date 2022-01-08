@@ -1,16 +1,11 @@
-id: iridium_frame_sorter_cpp
-label: frame_sorter_cpp
+id: iridium_iridium_frame_printer
+label: iridium_frame_printer
 category: '[Iridium]'
 
 templates:
   imports: import iridium
-  make: iridium.frame_sorter_cpp()
-
+  make: iridium.iridium_frame_printer("")
 inputs:
--   domain: message
-    id: pdus
-
-outputs:
 -   domain: message
     id: pdus
 

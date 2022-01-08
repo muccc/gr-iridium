@@ -32,17 +32,17 @@ namespace gr {
      * \ingroup iridium
      *
      */
-    class IRIDIUM_API iridium_qpsk_demod_cpp : virtual public gr::sync_block
+    class IRIDIUM_API iridium_qpsk_demod : virtual public gr::sync_block
     {
      public:
-      typedef std::shared_ptr<iridium_qpsk_demod_cpp> sptr;
+      typedef std::shared_ptr<iridium_qpsk_demod> sptr;
 
       /*!
-       * \brief Return a shared_ptr to a new instance of iridium::iridium_qpsk_demod_cpp.
+       * \brief Return a shared_ptr to a new instance of iridium::iridium_qpsk_demod.
        *
-       * To avoid accidental use of raw pointers, iridium::iridium_qpsk_demod_cpp's
+       * To avoid accidental use of raw pointers, iridium::iridium_qpsk_demod's
        * constructor is in a private implementation
-       * class. iridium::iridium_qpsk_demod_cpp::make is the public interface for
+       * class. iridium::iridium_qpsk_demod::make is the public interface for
        * creating new instances.
        */
       static sptr make(int n_channels);

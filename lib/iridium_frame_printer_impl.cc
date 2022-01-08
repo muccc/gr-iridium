@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "iridium_frame_printer_cpp_impl.h"
+#include "iridium_frame_printer_impl.h"
 #include <gnuradio/io_signature.h>
 
 #include "iridium.h"
@@ -17,17 +17,17 @@ using boost::format;
 namespace gr {
 namespace iridium {
 
-iridium_frame_printer_cpp::sptr iridium_frame_printer_cpp::make(std::string file_info)
+iridium_frame_printer::sptr iridium_frame_printer::make(std::string file_info)
 {
-    return gnuradio::make_block_sptr<iridium_frame_printer_cpp_impl>(file_info);
+    return gnuradio::make_block_sptr<iridium_frame_printer_impl>(file_info);
 }
 
 
 /*
  * The private constructor
  */
-iridium_frame_printer_cpp_impl::iridium_frame_printer_cpp_impl(std::string file_info)
-    : gr::sync_block("iridium_frame_printer_cpp",
+iridium_frame_printer_impl::iridium_frame_printer_impl(std::string file_info)
+    : gr::sync_block("iridium_frame_printer",
                      gr::io_signature::make(0, 0, 0),
                      gr::io_signature::make(0, 0, 0)),
       d_file_info(file_info),
@@ -44,14 +44,14 @@ iridium_frame_printer_cpp_impl::iridium_frame_printer_cpp_impl(std::string file_
 /*
  * Our virtual destructor.
  */
-iridium_frame_printer_cpp_impl::~iridium_frame_printer_cpp_impl() {}
+iridium_frame_printer_impl::~iridium_frame_printer_impl() {}
 
-void iridium_frame_printer_cpp_impl::handle_msg_sys(const pmt::pmt_t& msg)
+void iridium_frame_printer_impl::handle_msg_sys(const pmt::pmt_t& msg)
 {
     // ignore system message(s)
 }
 
-void iridium_frame_printer_cpp_impl::handler(const pmt::pmt_t& msg)
+void iridium_frame_printer_impl::handler(const pmt::pmt_t& msg)
 {
     if(msg == pmt::PMT_EOF) {
         // pass EOF to (original) system handler
@@ -94,7 +94,7 @@ void iridium_frame_printer_cpp_impl::handler(const pmt::pmt_t& msg)
     std::cout << std::endl;
 }
 
-int iridium_frame_printer_cpp_impl::work(int noutput_items,
+int iridium_frame_printer_impl::work(int noutput_items,
                                          gr_vector_const_void_star& input_items,
                                          gr_vector_void_star& output_items)
 {

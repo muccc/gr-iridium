@@ -319,9 +319,9 @@ class FlowGraph(gr.top_block):
         start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, self._burst_sample_rate, 5e3/2, 10e3/2, 60)
         #print len(start_finder_filter)
 
-        self._iridium_qpsk_demod = iridium.iridium_qpsk_demod_cpp(self._channels)
-        self._frame_sorter = iridium.frame_sorter_cpp()
-        self._iridium_frame_printer = iridium.iridium_frame_printer_cpp(file_info)
+        self._iridium_qpsk_demod = iridium.iridium_qpsk_demod(self._channels)
+        self._frame_sorter = iridium.frame_sorter()
+        self._iridium_frame_printer = iridium.iridium_frame_printer(file_info)
 
         if raw_capture_filename:
             multi = blocks.multiply_const_cc(32768)

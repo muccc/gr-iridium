@@ -16,8 +16,8 @@ install(FILES
     tagged_burst_to_pdu.h
     burst_downmix.h
     pdu_null_sink.h
-    iridium_qpsk_demod_cpp.h
+    iridium_qpsk_demod.h
     pdu_round_robin.h
-    frame_sorter_cpp.h
-    iridium_frame_printer_cpp.h DESTINATION include/iridium
+    frame_sorter.h
+    iridium_frame_printer.h DESTINATION include/iridium
 )
