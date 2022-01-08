@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2022 gr-testmod author.
+# Copyright 2022 gr-iridium authors.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
