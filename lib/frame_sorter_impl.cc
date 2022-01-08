@@ -44,7 +44,7 @@ void frame_sorter_impl::handler(const pmt::pmt_t& msg)
     frame f;
 
     f.timestamp = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("timestamp"), pmt::PMT_NIL));
-    f.center_frequency = pmt::to_float(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
+    f.center_frequency = pmt::to_double(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
 
 
     auto it = frames.begin();
