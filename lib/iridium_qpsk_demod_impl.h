@@ -21,12 +21,12 @@
 #ifndef INCLUDED_IRIDIUM_IRIDIUM_QPSK_DEMOD_CPP_IMPL_H
 #define INCLUDED_IRIDIUM_IRIDIUM_QPSK_DEMOD_CPP_IMPL_H
 
-#include <iridium/iridium_qpsk_demod_cpp.h>
+#include <iridium/iridium_qpsk_demod.h>
 
 namespace gr {
   namespace iridium {
 
-    class iridium_qpsk_demod_cpp_impl : public iridium_qpsk_demod_cpp
+    class iridium_qpsk_demod_impl : public iridium_qpsk_demod
     {
      private:
       size_t d_max_burst_size;
@@ -53,8 +53,8 @@ namespace gr {
       void decode_deqpsk(int * demodulated_burst, size_t n_symbols);
       void map_symbols_to_bits(const int * demodulated_burst, size_t n_symbols, std::vector<uint8_t> &bits);
      public:
-      iridium_qpsk_demod_cpp_impl(int n_channels);
-      ~iridium_qpsk_demod_cpp_impl();
+      iridium_qpsk_demod_impl(int n_channels);
+      ~iridium_qpsk_demod_impl();
 
       uint64_t get_n_handled_bursts();
       uint64_t get_n_access_ok_bursts();

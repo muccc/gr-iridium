@@ -11,15 +11,15 @@ from gnuradio import blocks
 import pmt
 
 try:
-    from iridium import frame_sorter_cpp
+    from iridium import frame_sorter
 except ImportError:
     import os
     import sys
     dirname, filename = os.path.split(os.path.abspath(__file__))
     sys.path.append(os.path.join(dirname, "bindings"))
-    from iridium import frame_sorter_cpp
+    from iridium import frame_sorter
 
-class qa_frame_sorter_cpp(gr_unittest.TestCase):
+class qa_frame_sorter(gr_unittest.TestCase):
 
     FLUSH_TIMEOUT = 2*10**9 + 1
     SECOND = 1*10**9
@@ -27,7 +27,7 @@ class qa_frame_sorter_cpp(gr_unittest.TestCase):
     def setUp(self):
         self.tb = gr.top_block()
         self.max_timestamp = 0
-        self.sorter = frame_sorter_cpp()
+        self.sorter = frame_sorter()
         self.d1 = blocks.message_debug()
         self.tb.msg_connect((self.sorter, 'pdus'), (self.d1, 'store'))
         self.tb.start()
@@ -38,7 +38,7 @@ class qa_frame_sorter_cpp(gr_unittest.TestCase):
         self.tb = None
 
     def test_instance(self):
-        instance = frame_sorter_cpp()
+        instance = frame_sorter()
 
     def send_frame(self, timestamp, center_frequency, confidence):
         msg_meta = pmt.dict_add(pmt.make_dict(), pmt.intern('timestamp'), pmt.from_uint64(timestamp))
@@ -134,4 +134,4 @@ class qa_frame_sorter_cpp(gr_unittest.TestCase):
             ])
 
 if __name__ == '__main__':
-    gr_unittest.run(qa_frame_sorter_cpp)
+    gr_unittest.run(qa_frame_sorter)

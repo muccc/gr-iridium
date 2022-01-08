@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Free Software Foundation, Inc.
+ * Copyright 2022 Free Software Foundation, Inc.
  *
  * This file is part of GNU Radio
  *
@@ -13,8 +13,8 @@
 /* If manual edits are made, the following tags should be modified accordingly.    */
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
-/* BINDTOOL_HEADER_FILE(iridium_frame_printer_cpp.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(0c4f8e4401794ae4ea53418bd9e60783)                     */
+/* BINDTOOL_HEADER_FILE(frame_sorter.h)                                        */
+/* BINDTOOL_HEADER_FILE_HASH(54f410371253bad52f6350f1c42777b0)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -23,22 +23,21 @@
 
 namespace py = pybind11;
 
-#include <iridium/iridium_frame_printer_cpp.h>
+#include <iridium/frame_sorter.h>
 // pydoc.h is automatically generated in the build directory
-#include <iridium_frame_printer_cpp_pydoc.h>
+#include <frame_sorter_pydoc.h>
 
-void bind_iridium_frame_printer_cpp(py::module& m)
+void bind_frame_sorter(py::module& m)
 {
 
-    using iridium_frame_printer_cpp    = ::gr::iridium::iridium_frame_printer_cpp;
+    using frame_sorter    = ::gr::iridium::frame_sorter;
 
 
-    py::class_<iridium_frame_printer_cpp, gr::sync_block, gr::block, gr::basic_block,
-        std::shared_ptr<iridium_frame_printer_cpp>>(m, "iridium_frame_printer_cpp", D(iridium_frame_printer_cpp))
+    py::class_<frame_sorter, gr::block, gr::basic_block,
+        std::shared_ptr<frame_sorter>>(m, "frame_sorter", D(frame_sorter))
 
-        .def(py::init(&iridium_frame_printer_cpp::make),
-           py::arg("file_info"),
-           D(iridium_frame_printer_cpp,make)
+        .def(py::init(&frame_sorter::make),
+           D(frame_sorter,make)
         )
         
 

@@ -17,10 +17,10 @@ list(APPEND iridium_sources
     tagged_burst_to_pdu_impl.cc
     burst_downmix_impl.cc
     pdu_null_sink_impl.cc
-    iridium_qpsk_demod_cpp_impl.cc
+    iridium_qpsk_demod_impl.cc
     pdu_round_robin_impl.cc
-    frame_sorter_cpp_impl.cc
-    iridium_frame_printer_cpp_impl.cc
+    frame_sorter_impl.cc
+    iridium_frame_printer_impl.cc
 )
 
 set(iridium_sources "${iridium_sources}" PARENT_SCOPE)

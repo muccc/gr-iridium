@@ -5,23 +5,23 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "frame_sorter_cpp_impl.h"
+#include "frame_sorter_impl.h"
 #include <gnuradio/io_signature.h>
 
 namespace gr {
 namespace iridium {
 
-frame_sorter_cpp::sptr frame_sorter_cpp::make()
+frame_sorter::sptr frame_sorter::make()
 {
-    return gnuradio::make_block_sptr<frame_sorter_cpp_impl>();
+    return gnuradio::make_block_sptr<frame_sorter_impl>();
 }
 
 
 /*
  * The private constructor
  */
-frame_sorter_cpp_impl::frame_sorter_cpp_impl()
-    : gr::block("frame_sorter_cpp",
+frame_sorter_impl::frame_sorter_impl()
+    : gr::block("frame_sorter",
               gr::io_signature::make(0, 0, 0),
               gr::io_signature::make(0, 0, 0))
 {
@@ -34,9 +34,9 @@ frame_sorter_cpp_impl::frame_sorter_cpp_impl()
 /*
  * Our virtual destructor.
  */
-frame_sorter_cpp_impl::~frame_sorter_cpp_impl() {}
+frame_sorter_impl::~frame_sorter_impl() {}
 
-void frame_sorter_cpp_impl::handler(const pmt::pmt_t& msg)
+void frame_sorter_impl::handler(const pmt::pmt_t& msg)
 {
     pmt::pmt_t symbols = pmt::cdr(msg);
     pmt::pmt_t meta = pmt::car(msg);
@@ -77,7 +77,7 @@ void frame_sorter_cpp_impl::handler(const pmt::pmt_t& msg)
     }
 }
 
-bool frame_sorter_cpp_impl::stop()
+bool frame_sorter_impl::stop()
 {
     // Flush remaining messages
     auto it = frames.begin();

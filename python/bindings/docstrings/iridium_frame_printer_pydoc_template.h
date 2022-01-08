@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Free Software Foundation, Inc.
+ * Copyright 2022 Free Software Foundation, Inc.
  *
  * This file is part of GNU Radio
  *
@@ -16,12 +16,12 @@
 
 
  
- static const char *__doc_gr_iridium_iridium_frame_printer_cpp = R"doc()doc";
+ static const char *__doc_gr_iridium_iridium_frame_printer = R"doc()doc";
 
 
- static const char *__doc_gr_iridium_iridium_frame_printer_cpp_iridium_frame_printer_cpp = R"doc()doc";
+ static const char *__doc_gr_iridium_iridium_frame_printer_iridium_frame_printer = R"doc()doc";
 
 
- static const char *__doc_gr_iridium_iridium_frame_printer_cpp_make = R"doc()doc";
+ static const char *__doc_gr_iridium_iridium_frame_printer_make = R"doc()doc";
 
   

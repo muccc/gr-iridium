@@ -25,7 +25,7 @@
 #include "iridium.h"
 
 #include <gnuradio/io_signature.h>
-#include "iridium_qpsk_demod_cpp_impl.h"
+#include "iridium_qpsk_demod_impl.h"
 #include <volk/volk.h>
 #include <gnuradio/math.h>
 #include <stdio.h>
@@ -33,19 +33,19 @@
 namespace gr {
   namespace iridium {
 
-    iridium_qpsk_demod_cpp::sptr
-    iridium_qpsk_demod_cpp::make(int n_channels)
+    iridium_qpsk_demod::sptr
+    iridium_qpsk_demod::make(int n_channels)
     {
       return gnuradio::get_initial_sptr
-        (new iridium_qpsk_demod_cpp_impl(n_channels));
+        (new iridium_qpsk_demod_impl(n_channels));
     }
 
 
     /*
      * The private constructor
      */
-    iridium_qpsk_demod_cpp_impl::iridium_qpsk_demod_cpp_impl(int n_channels)
-      : gr::sync_block("iridium_qpsk_demod_cpp",
+    iridium_qpsk_demod_impl::iridium_qpsk_demod_impl(int n_channels)
+      : gr::sync_block("iridium_qpsk_demod",
               gr::io_signature::make(0, 0, 0),
               gr::io_signature::make(0, 0, 0)),
         d_max_burst_size(0),
@@ -78,7 +78,7 @@ namespace gr {
     /*
      * Our virtual destructor.
      */
-    iridium_qpsk_demod_cpp_impl::~iridium_qpsk_demod_cpp_impl()
+    iridium_qpsk_demod_impl::~iridium_qpsk_demod_impl()
     {
       if(d_magnitude_f) {
         volk_free(d_magnitude_f);
@@ -97,7 +97,7 @@ namespace gr {
       }
     }
 
-    void iridium_qpsk_demod_cpp_impl::update_buffer_sizes(size_t burst_size)
+    void iridium_qpsk_demod_impl::update_buffer_sizes(size_t burst_size)
     {
       if(burst_size > d_max_burst_size) {
         d_max_burst_size = burst_size;
@@ -125,7 +125,7 @@ namespace gr {
       }
     }
 
-    int iridium_qpsk_demod_cpp_impl::decimate(const gr_complex * in, int size, int sps, gr_complex * out)
+    int iridium_qpsk_demod_impl::decimate(const gr_complex * in, int size, int sps, gr_complex * out)
     {
       int i, j;
       for(i = 0, j = 0; i < size; i += sps) {
@@ -137,7 +137,7 @@ namespace gr {
     /*
      * Taken from synchronizer_v4_impl.cc of gr-burst
      */
-    void iridium_qpsk_demod_cpp_impl::qpskFirstOrderPLL(const gr_complex* x, int size, float alpha, gr_complex* y)
+    void iridium_qpsk_demod_impl::qpskFirstOrderPLL(const gr_complex* x, int size, float alpha, gr_complex* y)
     {
       gr_complex phiHat = gr_complex(1,0);
       gr_complex xHat, er, phiHatT;
@@ -170,7 +170,7 @@ namespace gr {
 
 
     size_t
-    iridium_qpsk_demod_cpp_impl::demod_qpsk(const gr_complex *burst, size_t n_symbols, int * out, float * level, int * confidence)
+    iridium_qpsk_demod_impl::demod_qpsk(const gr_complex *burst, size_t n_symbols, int * out, float * level, int * confidence)
     {
       int index;
       float sum = 0;
@@ -219,7 +219,7 @@ namespace gr {
     }
 
     void
-    iridium_qpsk_demod_cpp_impl::decode_deqpsk(int * demodulated_burst, size_t n_symbols)
+    iridium_qpsk_demod_impl::decode_deqpsk(int * demodulated_burst, size_t n_symbols)
     {
       unsigned int old_sym = 0;
       int bits;
@@ -245,7 +245,7 @@ namespace gr {
     }
 
     void
-    iridium_qpsk_demod_cpp_impl::map_symbols_to_bits(const int * demodulated_burst, size_t n_symbols, std::vector<uint8_t> &bits)
+    iridium_qpsk_demod_impl::map_symbols_to_bits(const int * demodulated_burst, size_t n_symbols, std::vector<uint8_t> &bits)
     {
       int i;
 
@@ -267,7 +267,7 @@ namespace gr {
     }
 
     bool
-    iridium_qpsk_demod_cpp_impl::check_sync_word(int * demodulated_burst, size_t n_symbols, ::iridium::direction direction)
+    iridium_qpsk_demod_impl::check_sync_word(int * demodulated_burst, size_t n_symbols, ::iridium::direction direction)
     {
       if(n_symbols < ::iridium::UW_LENGTH) {
         return false;
@@ -298,25 +298,25 @@ namespace gr {
     }
 
     uint64_t
-    iridium_qpsk_demod_cpp_impl::get_n_handled_bursts()
+    iridium_qpsk_demod_impl::get_n_handled_bursts()
     {
       return d_n_handled_bursts;
     }
 
     uint64_t
-    iridium_qpsk_demod_cpp_impl::get_n_access_ok_bursts()
+    iridium_qpsk_demod_impl::get_n_access_ok_bursts()
     {
       return d_n_access_ok_bursts;
     }
 
     uint64_t
-    iridium_qpsk_demod_cpp_impl::get_n_access_ok_sub_bursts()
+    iridium_qpsk_demod_impl::get_n_access_ok_sub_bursts()
     {
       return d_n_access_ok_sub_bursts;
     }
 
     void
-    iridium_qpsk_demod_cpp_impl::handler(int channel, pmt::pmt_t msg)
+    iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
     {
       pmt::pmt_t samples = pmt::cdr(msg);
       size_t burst_size = pmt::length(samples);
@@ -395,7 +395,7 @@ namespace gr {
     }
 
     int
-    iridium_qpsk_demod_cpp_impl::work(int noutput_items,
+    iridium_qpsk_demod_impl::work(int noutput_items,
         gr_vector_const_void_star &input_items,
         gr_vector_void_star &output_items)
     {
