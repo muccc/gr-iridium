@@ -32,6 +32,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>
+#include <chrono>
 
 namespace gr {
   namespace iridium {
@@ -418,9 +419,9 @@ namespace gr {
       assert(noutput_items % d_fft_size == 0);
 
       if(d_last_rx_time_timestamp == 0 && !d_offline) {
-        struct timeval time_now{};
-        gettimeofday(&time_now, nullptr);
-        d_last_rx_time_timestamp = time_now.tv_sec * 1000000000ULL + time_now.tv_usec * 1000;
+        d_last_rx_time_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::high_resolution_clock::now().time_since_epoch())
+            .count();
       }
 
       std::vector<tag_t> rx_time_tags;
