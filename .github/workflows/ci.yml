@@ -17,7 +17,7 @@ jobs:
          sudo add-apt-repository ppa:gnuradio/gnuradio-releases
          sudo apt update
          sudo apt install gnuradio-dev
-         sudo apt install cmake libsndfile-dev
+         sudo apt install cmake libsndfile-dev libspdlog-dev
          sudo apt install -y --allow-downgrades pybind11-dev=2.4.3-2build2
       - name: Build
         run: |
