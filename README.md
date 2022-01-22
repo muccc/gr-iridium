@@ -37,8 +37,8 @@ sudo make install
 sudo ldconfig
 ```
 
-### GNURadio 3.9 on Ubuntu or Debian
-The recommened GNURadio version to use gr-iridium with is 3.9. If you use Ubuntu or Debian our recommended way to install GNURadio is to use PyBOMBS as described here: https://github.com/Sec42/sec-gr/. Please expect trouble if you install GNURadio 3.9 any other way.
+### GNURadio on Ubuntu or Debian
+The recommened GNURadio versions to use gr-iridium with are 3.9 and 3.10. If you use Ubuntu or Debian our recommended way to install GNURadio is to use PyBOMBS as described here: https://github.com/Sec42/sec-gr/. Please expect trouble if you install GNURadio any other way.
 
 ## Usage examples
 The following commands are examples how to use the `iridium-extractor` tool. To further parse the demodulated frames have a look at the [iridium-toolkit](https://github.com/muccc/iridium-toolkit). It provides scripts to extract meaningful information.
