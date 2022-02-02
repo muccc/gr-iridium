@@ -6,19 +6,22 @@ on:
   pull_request:
 
 jobs:
-  gr-3-9-ppa:
+  gr-ppa:
     name: Ubuntu 20.04 + GNURadio PPA
     runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        ppa: [gnuradio/gnuradio-releases, gnuradio/gnuradio-releases-3.9]
     steps:
       - uses: actions/checkout@v2
 
       - name: Install GNURadio
         run: |
-         sudo add-apt-repository ppa:gnuradio/gnuradio-releases
+         sudo add-apt-repository ppa:${{matrix.ppa}}
          sudo apt update
          sudo apt install gnuradio-dev
          sudo apt install cmake libsndfile-dev libspdlog-dev
-         sudo apt install -y --allow-downgrades pybind11-dev=2.4.3-2build2
+         sudo apt install pybind11-dev
       - name: Build
         run: |
          cmake -B build
