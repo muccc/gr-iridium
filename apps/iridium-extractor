@@ -218,6 +218,20 @@ if __name__ == "__main__":
         cfg['object'] = tar.extractfile(tardata)
         del cfg['file']
 
+    if fmt == 'wav' or (fmt is None and filename.lower().endswith(".wav")):
+        import wave
+        wav = wave.open(filename)
+        if wav.getnchannels()!=2:
+            raise TypeError("wav file must have 2 channels")
+        if wav.getsampwidth()==2:
+            fmt = 'ci16_le'
+        else:
+            raise TypeError("unknown wav format")
+        sample_rate = wav.getframerate()
+        cfg['source'] = 'object'
+        cfg['object'] = wav.getfp()
+        del cfg['file']
+
     if sigmf is not None:
         try:
             sample_rate = int(sigmf['global']['core:sample_rate'])
