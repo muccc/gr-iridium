@@ -58,6 +58,11 @@ You can also pipe a raw sample stream into `iridium-extractor`. This may be usef
 
 This processes the file in offline mode and supplies the needed options via the command line.
 
+### Offline (wav file)
+`iridium-extractor -c 1622000000 baseband.wav > output.bits`
+
+A 2-channel 16bit wav file is also accepted as input.  Command line option `-r` can be used to override the sample rate.
+
 ###  Offline (SigMF)
  `iridium-extractor --multi-frame recording-test.sigmf-data > output.bits`
 
