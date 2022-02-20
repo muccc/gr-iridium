@@ -134,8 +134,7 @@ class FlowGraph(gr.top_block):
 
             # Set a rough time estimate for potential rx_time tags from USRP devices
             # This prevents the output from having bogous time stamps if no GPSDO is available
-            t0 = time.time()
-            source.set_time_now(osmosdr.time_spec_t(int(t0), t0 - int(t0)))
+            source.set_time_now(osmosdr.time_spec_t(time.time()))
 
             if 'gain' in d:
                 gain = int(d['gain'])
