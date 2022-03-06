@@ -180,6 +180,10 @@ if __name__ == "__main__":
             d=cfg['soapy-source']
             cfg['source']='soapy'
             offline = False
+        elif 'zeromq-sub-source' in cfg:
+            d=cfg['zeromq-sub-source']
+            cfg['source']='zeromq-sub'
+            offline = False
         else:
             print("Unsupported .conf file format", file=sys.stderr)
             exit(1)
