@@ -972,7 +972,7 @@ blocks:
 - name: zeromq_pub_sink_0
   id: zeromq_pub_sink
   parameters:
-    address: tcp://0.0.0.0:2323
+    address: tcp://0.0.0.0:5000
     affinity: ''
     alias: ''
     comment: ''
