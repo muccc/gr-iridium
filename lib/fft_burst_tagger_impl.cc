@@ -103,7 +103,6 @@ namespace gr {
 
         d_baseline_history_f = (float *)volk_malloc(sizeof(float) * d_fft_size * d_history_size, volk_get_alignment());
         d_baseline_sum_f = (float *)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
-        d_magnitude_f = (float *)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
         d_magnitude_shifted_f = (float *)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
         d_relative_magnitude_f = (float *)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
         d_burst_mask_f = (float *)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
@@ -111,7 +110,6 @@ namespace gr {
 
         memset(d_baseline_history_f, 0, sizeof(float) * d_fft_size * d_history_size);
         memset(d_baseline_sum_f, 0, sizeof(float) * d_fft_size);
-        memset(d_magnitude_f, 0, sizeof(float) * d_fft_size);
         memset(d_magnitude_shifted_f, 0, sizeof(float) * d_fft_size);
         memset(d_relative_magnitude_f, 0, sizeof(float) * d_fft_size);
 
@@ -444,9 +442,8 @@ namespace gr {
 
         volk_32fc_32f_multiply_32fc(d_fft->get_inbuf(), &in[i], d_window_f, d_fft_size);
         d_fft->execute();
-        volk_32fc_magnitude_squared_32f(d_magnitude_f, d_fft->get_outbuf(), d_fft_size);
-        memcpy(&d_magnitude_shifted_f[0], &d_magnitude_f[d_fft_size/2], sizeof(float) * d_fft_size/2);
-        memcpy(&d_magnitude_shifted_f[d_fft_size/2], &d_magnitude_f[0], sizeof(float) * d_fft_size/2);
+        volk_32fc_magnitude_squared_32f(&d_magnitude_shifted_f[0], &d_fft->get_outbuf()[d_fft_size/2], d_fft_size/2);
+        volk_32fc_magnitude_squared_32f(&d_magnitude_shifted_f[d_fft_size/2], &d_fft->get_outbuf()[0], d_fft_size/2);
 
         if(update_filters_pre()) {
           update_bursts();
