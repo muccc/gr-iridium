@@ -65,7 +65,6 @@ namespace gr {
       uint64_t d_last_rx_time_timestamp;
 
       float * d_window_f;
-      float * d_magnitude_f;
       float * d_magnitude_shifted_f;
       float * d_baseline_sum_f;
       float * d_baseline_history_f;
