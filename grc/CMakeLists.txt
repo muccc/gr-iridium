@@ -14,5 +14,6 @@ install(FILES
     iridium_iridium_qpsk_demod.block.yml
     iridium_pdu_round_robin.block.yml
     iridium_frame_sorter.block.yml
-    iridium_iridium_frame_printer.block.yml DESTINATION share/gnuradio/grc/blocks
+    iridium_iridium_frame_printer.block.yml
+    iridium_fft_channelizer.block.yml DESTINATION share/gnuradio/grc/blocks
 )

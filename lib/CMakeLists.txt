@@ -21,6 +21,7 @@ list(APPEND iridium_sources
     pdu_round_robin_impl.cc
     frame_sorter_impl.cc
     iridium_frame_printer_impl.cc
+    fft_channelizer_impl.cc
 )
 
 set(iridium_sources "${iridium_sources}" PARENT_SCOPE)

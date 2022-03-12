@@ -19,5 +19,6 @@ install(FILES
     iridium_qpsk_demod.h
     pdu_round_robin.h
     frame_sorter.h
-    iridium_frame_printer.h DESTINATION include/iridium
+    iridium_frame_printer.h
+    fft_channelizer.h DESTINATION include/iridium
 )
