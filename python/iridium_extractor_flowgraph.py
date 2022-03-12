@@ -15,6 +15,8 @@ import time
 
 import numpy as np
 
+USE_FFT_CHANNELIZER = 1
+
 class FlowGraph(gr.top_block):
     def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, burst_width=40e3, offline=False, max_queue_len=500,
             handle_multiple_frames_per_burst=False, raw_capture_filename=None, debug_id=None, max_bursts=0, verbose=False, file_info="", samples_per_symbol=10, config={}):
@@ -44,7 +46,7 @@ class FlowGraph(gr.top_block):
         tb = self
 
         if decimation > 1:
-            self._use_pfb = True
+            self._use_channelizer = True
 
             # We will set up a filter bank with an odd number of outputs and
             # and an over sampling ratio to still get the desired decimation.
@@ -57,55 +59,59 @@ class FlowGraph(gr.top_block):
                 raise RuntimeError("The desired decimation must be 1 or an even number")
 
             self._channels = decimation + 1
-            self._pfb_over_sample_ratio = self._channels / (self._channels - 1.)
-            pfb_output_sample_rate = int(round(float(self._input_sample_rate) / self._channels * self._pfb_over_sample_ratio))
-            assert pfb_output_sample_rate == self._input_sample_rate / decimation
-            assert pfb_output_sample_rate % self._burst_sample_rate == 0
+            self._channelizer_over_sample_ratio = self._channels / (self._channels - 1.)
+            channelizer_output_sample_rate = int(round(float(self._input_sample_rate) / self._channels * self._channelizer_over_sample_ratio))
+            assert channelizer_output_sample_rate == self._input_sample_rate / decimation
+            assert channelizer_output_sample_rate % self._burst_sample_rate == 0
+
+            self._channel_sample_rate = channelizer_output_sample_rate
+
+            if USE_FFT_CHANNELIZER:
+                self._channelizer_delay = 0
+            else:
+                # The over sampled region of the FIR filter contains half of the signal width and
+                # the transition region of the FIR filter.
+                # The bandwidth is simply increased by the signal width.
+                # A signal which has its center frequency directly on the border of
+                # two channels will reconstruct correctly on both channels.
+                self._fir_bw = (self._input_sample_rate / self._channels + self._burst_width) / 2
+
+                # The remaining bandwidth inside the over sampled region is used to
+                # contain the transition region of the filter.
+                # It can be multiplied by two as it is allowed to continue into the
+                # transition region of the neighboring channel.
+                # Some details can be found here: https://youtu.be/6ngYp8W-AX0?t=2289
+                self._fir_tw = (channelizer_output_sample_rate / 2 - self._fir_bw) * 2
+
+                # Real world data shows only a minor degradation in performance when
+                # doubling the transition width.
+                self._fir_tw *= 2
+
+                # If the over sampling ratio is not large enough, there is not
+                # enough room to construct a transition region.
+                if self._fir_tw < 0:
+                    raise RuntimeError("PFB over sampling ratio not enough to create a working FIR filter")
+
+                self._pfb_fir_filter = gnuradio.filter.firdes.low_pass_2(1, self._input_sample_rate, self._fir_bw, self._fir_tw, 60)
+
+                # If the transition width approaches 0, the filter size goes up significantly.
+                if len(self._pfb_fir_filter) > 300:
+                    print("Warning: The PFB FIR filter has an abnormal large number of taps:", len(self._pfb_fir_filter), file=sys.stderr)
+                    print("Consider reducing the decimation factor", file=sys.stderr)
 
 
-            # The over sampled region of the FIR filter contains half of the signal width and
-            # the transition region of the FIR filter.
-            # The bandwidth is simply increased by the signal width.
-            # A signal which has its center frequency directly on the border of
-            # two channels will reconstruct correctly on both channels.
-            self._fir_bw = (self._input_sample_rate / self._channels + self._burst_width) / 2
+                pfb_input_delay = (len(self._pfb_fir_filter) + 1) // 2 - self._channels / self._channelizer_over_sample_ratio
+                self._channelizer_delay = pfb_input_delay / decimation
 
-            # The remaining bandwidth inside the over sampled region is used to
-            # contain the transition region of the filter.
-            # It can be multiplied by two as it is allowed to continue into the
-            # transition region of the neighboring channel.
-            # Some details can be found here: https://youtu.be/6ngYp8W-AX0?t=2289
-            self._fir_tw = (pfb_output_sample_rate / 2 - self._fir_bw) * 2
-
-            # Real world data shows only a minor degradation in performance when
-            # doubling the transition width.
-            self._fir_tw *= 2
-
-            # If the over sampling ratio is not large enough, there is not
-            # enough room to construct a transition region.
-            if self._fir_tw < 0:
-                raise RuntimeError("PFB over sampling ratio not enough to create a working FIR filter")
-
-            self._pfb_fir_filter = gnuradio.filter.firdes.low_pass_2(1, self._input_sample_rate, self._fir_bw, self._fir_tw, 60)
-
-            # If the transition width approaches 0, the filter size goes up significantly.
-            if len(self._pfb_fir_filter) > 300:
-                print("Warning: The PFB FIR filter has an abnormal large number of taps:", len(self._pfb_fir_filter), file=sys.stderr)
-                print("Consider reducing the decimation factor", file=sys.stderr)
-
-
-            pfb_input_delay = (len(self._pfb_fir_filter) + 1) // 2 - self._channels / self._pfb_over_sample_ratio
-            self._pfb_delay = pfb_input_delay / decimation
-            self._channel_sample_rate = pfb_output_sample_rate
-            if self._verbose:
-                print("self._channels", self._channels, file=sys.stderr)
-                print("len(self._pfb_fir_filter)", len(self._pfb_fir_filter), file=sys.stderr)
-                print("self._pfb_over_sample_ratio", self._pfb_over_sample_ratio, file=sys.stderr)
-                print("self._fir_bw", self._fir_bw, file=sys.stderr)
-                print("self._fir_tw", self._fir_tw, file=sys.stderr)
-                print("self._channel_sample_rate", self._channel_sample_rate, file=sys.stderr)
+                if self._verbose:
+                    print("self._channels", self._channels, file=sys.stderr)
+                    print("len(self._pfb_fir_filter)", len(self._pfb_fir_filter), file=sys.stderr)
+                    print("self._channelizer_over_sample_ratio", self._channelizer_over_sample_ratio, file=sys.stderr)
+                    print("self._fir_bw", self._fir_bw, file=sys.stderr)
+                    print("self._fir_tw", self._fir_tw, file=sys.stderr)
+                    print("self._channel_sample_rate", self._channel_sample_rate, file=sys.stderr)
         else:
-            self._use_pfb = False
+            self._use_channelizer = False
             self._channel_sample_rate = self._input_sample_rate
             self._channels = 1
 
@@ -340,7 +346,7 @@ class FlowGraph(gr.top_block):
 
         tb.connect(source, self._fft_burst_tagger)
 
-        if self._use_pfb:
+        if self._use_channelizer:
             self._burst_to_pdu_converters = []
             self._burst_downmixers = []
             sinks = []
@@ -349,12 +355,18 @@ class FlowGraph(gr.top_block):
                 center = channel if channel <= self._channels / 2 else (channel - self._channels)
 
                 # Second and third parameters tell the block where after the PFB it sits.
-                relative_center = center / float(self._channels)
+
+                if USE_FFT_CHANNELIZER:
+                    channel_spacing = (1 - 1 / decimation) / decimation
+                    relative_center = channel_spacing * (channel - decimation / 2)
+                else:
+                    relative_center = center / float(self._channels)
+
                 relative_span = 1. / self._channels
-                relative_sample_rate = relative_span * self._pfb_over_sample_ratio
+                relative_sample_rate = relative_span * self._channelizer_over_sample_ratio
                 burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len,
                                             relative_center, relative_span, relative_sample_rate,
-                                            -self._pfb_delay,
+                                            -self._channelizer_delay,
                                             self._max_queue_len, not self._offline)
                 burst_downmixer = iridium.burst_downmix(self._burst_sample_rate,
                                     int(0.007 * self._burst_sample_rate), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
@@ -364,17 +376,20 @@ class FlowGraph(gr.top_block):
                 self._burst_downmixers.append(burst_downmixer)
                 self._burst_to_pdu_converters.append(burst_to_pdu_converter)
 
-            #pfb_debug_sinks = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
-            pfb_debug_sinks = None
+            #channelizer_debug_sinks = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
+            channelizer_debug_sinks = None
 
-            pfb = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._pfb_over_sample_ratio)
+            if USE_FFT_CHANNELIZER:
+                channelizer = iridium.fft_channelizer(1024, self._channels - 1);
+            else:
+                channelizer = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._channelizer_over_sample_ratio)
 
-            tb.connect(self._fft_burst_tagger, pfb)
+            tb.connect(self._fft_burst_tagger, channelizer)
 
             for i in range(self._channels):
-                tb.connect((pfb, i), self._burst_to_pdu_converters[i])
-                if pfb_debug_sinks:
-                    tb.connect((pfb, i), pfb_debug_sinks[i])
+                tb.connect((channelizer, i), self._burst_to_pdu_converters[i])
+                if channelizer_debug_sinks:
+                    tb.connect((channelizer, i), channelizer_debug_sinks[i])
 
                 tb.msg_connect((self._burst_to_pdu_converters[i], 'cpdus'), (self._burst_downmixers[i], 'cpdus'))
                 tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (self._burst_to_pdu_converters[i], 'burst_handled'))

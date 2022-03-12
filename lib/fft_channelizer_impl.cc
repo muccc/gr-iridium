@@ -3,6 +3,13 @@
  * Copyright 2022 gr-iridium author.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * Many of this is following directly what is presented
+ * here: https://media.ccc.de/v/gpn18-15-channelizing-with-gnuradio
+ *
+ * No special windowing is performed. This leads to a lot of noise
+ * in the output. First tests indicate no significant drop in
+ * overall performance though.
  */
 
 #include "fft_channelizer_impl.h"
@@ -44,15 +51,24 @@ fft_channelizer_impl::fft_channelizer_impl(int fft_size, int decimation)
 {
     // FFT size and decimation must be a power of two so the output sizes are
     // also a power of two.
-    assert(is_powerof2(d_fft_size));
-    assert(is_powerof2(d_decimation));
+    if(!is_powerof2(d_fft_size)) {
+        throw std::runtime_error("FFT size must be a power of two");
+    }
+
+    if(!is_powerof2(d_decimation)) {
+        throw std::runtime_error("Decimation must be a power of two");
+    }
 
     // Make sure the output channels are aligned to integer bins of the input FFT.
     // E.g. fft size of 1024 and decimation of 16 work, but decimation of 32 does not.
-    assert((d_fft_size - d_ifft_size) % d_decimation == 0);
+    if((d_fft_size - d_ifft_size) % d_decimation != 0) {
+        throw std::runtime_error("FFT size and decimation can not be matched.");
+    }
 
     // Make sure we don't have phase shifts between two iterations.
-    assert(d_output_step % d_inverse_overlap == 0);
+    if(d_output_step % d_inverse_overlap != 0) {
+        throw std::runtime_error("FFT size and decimation can not be matched.");
+    }
 
     set_output_multiple(d_ifft_size - d_ifft_size / d_inverse_overlap);
 
@@ -90,8 +106,6 @@ int fft_channelizer_impl::work(int noutput_items,
                                gr_vector_void_star& output_items)
 {
     const input_type* in = reinterpret_cast<const input_type*>(input_items[0]);
-
-    assert(noutput_items % d_ifft_size == 0);
 
     int ninput_items = noutput_items * d_decimation;
 
