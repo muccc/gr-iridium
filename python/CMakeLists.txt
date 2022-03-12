@@ -45,3 +45,4 @@ include(GrTest)
 
 set(GR_TEST_TARGET_DEPS gnuradio-iridium)
 GR_ADD_TEST(qa_frame_sorter ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_frame_sorter.py)
+GR_ADD_TEST(qa_fft_channelizer ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_fft_channelizer.py)

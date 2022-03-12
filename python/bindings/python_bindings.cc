@@ -30,6 +30,7 @@ namespace py = pybind11;
     void bind_tagged_burst_to_pdu(py::module& m);
     void bind_frame_sorter(py::module& m);
     void bind_iridium_frame_printer(py::module& m);
+    void bind_fft_channelizer(py::module& m);
 // ) END BINDING_FUNCTION_PROTOTYPES
 
 
@@ -67,5 +68,6 @@ PYBIND11_MODULE(iridium_python, m)
     bind_tagged_burst_to_pdu(m);
     bind_frame_sorter(m);
     bind_iridium_frame_printer(m);
+    bind_fft_channelizer(m);
     // ) END BINDING_FUNCTION_CALLS
 }

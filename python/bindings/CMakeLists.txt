@@ -37,7 +37,8 @@ list(APPEND iridium_python_files
     pdu_round_robin_python.cc
     tagged_burst_to_pdu_python.cc
     frame_sorter_python.cc
-    iridium_frame_printer_python.cc python_bindings.cc)
+    iridium_frame_printer_python.cc
+    fft_channelizer_python.cc python_bindings.cc)
 
 GR_PYBIND_MAKE_OOT(iridium 
    ../..
