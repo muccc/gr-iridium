@@ -9,6 +9,7 @@
 #define INCLUDED_IRIDIUM_FFT_CHANNELIZER_IMPL_H
 
 #include <iridium/fft_channelizer.h>
+#include <gnuradio/fft/fft.h>
 
 namespace gr {
 namespace iridium {
@@ -16,7 +17,14 @@ namespace iridium {
 class fft_channelizer_impl : public fft_channelizer
 {
 private:
-    // Nothing to declare in this block.
+      const int d_fft_size;
+      const int d_ifft_size;
+      const int d_inverse_overlap;
+      const int d_output_step;
+      const int d_decimation;
+
+      gr::fft::fft_complex_fwd          d_fft;
+      gr::fft::fft_complex_rev          d_ifft;
 
 public:
     fft_channelizer_impl(int fft_size, int decimation);
