@@ -312,6 +312,7 @@ class FlowGraph(gr.top_block):
                                 history_size=512,
                                 offline=self._offline,
                                 debug=self._verbose)
+        self._fft_burst_tagger.set_min_output_buffer(1024*64)
 
         # Initial filter to filter the detected bursts. Runs at burst_sample_rate. Used to decimate the signal.
         input_filter = gnuradio.filter.firdes.low_pass_2(1, self._channel_sample_rate, self._burst_width/2, self._burst_width, 40)
