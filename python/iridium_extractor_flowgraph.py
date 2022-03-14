@@ -197,7 +197,11 @@ class FlowGraph(gr.top_block):
         elif config['source'] == 'soapy':
             d = config["soapy-source"]
 
-            from gnuradio import soapy
+            try:
+                from gnuradio import soapy
+            except ImportError:
+                raise ImportError("gr-soapy not found. Make sure you are running GNURadio >= 3.9.2.0")
+
             if 'driver' not in d:
                 print("No driver specified for soapy", file=sys.stderr)
                 print("Run 'SoapySDRUtil -i' to see available drivers(factories)", file=sys.stderr)
