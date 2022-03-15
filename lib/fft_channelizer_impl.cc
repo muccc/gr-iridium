@@ -74,6 +74,8 @@ fft_channelizer_impl::fft_channelizer_impl(int fft_size, int decimation)
 
     // We want to keep the last 1/d_inverse_overlap block in the history buffer
     set_history(d_fft_size / d_inverse_overlap + 1);
+
+    d_out = (fftwf_complex *)volk_malloc(d_fft_size * sizeof(fftwf_complex), volk_get_alignment());
 }
 
 /*
@@ -113,8 +115,21 @@ int fft_channelizer_impl::work(int noutput_items,
     // this for the overlap of the FFT.
     for(int i = 0; i < ninput_items; i += d_fft_size - d_fft_size / d_inverse_overlap) {
         // Initial forward FFT. No window is applied.
+#if 0
+        fftwf_complex * fft_in = (fftwf_complex*)&in[i];
+        auto it = d_fft_plans.find(fft_in);
+
+        if(it == d_fft_plans.end()) {
+            fftwf_plan plan = fftwf_plan_dft_1d(d_fft_size, fft_in, d_out, FFTW_FORWARD, FFTW_MEASURE);
+            d_fft_plans.insert({fft_in, plan});
+            fftwf_execute(plan);
+        } else {
+            fftwf_execute(it->second);
+        }
+#else
         memcpy(d_fft.get_inbuf(), &in[i], d_fft_size * sizeof(gr_complex));
         d_fft.execute();
+#endif
 
         // Cycle through each output and perform the smaller reverse FFT at the appropriate
         // location of the larger forward FFTs output.
