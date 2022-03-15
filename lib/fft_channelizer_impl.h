@@ -10,6 +10,7 @@
 
 #include <iridium/fft_channelizer.h>
 #include <gnuradio/fft/fft.h>
+#include <fftw3.h>
 
 namespace gr {
 namespace iridium {
@@ -22,6 +23,8 @@ private:
       const int d_inverse_overlap;
       const int d_output_step;
       const int d_decimation;
+      fftwf_complex * d_out;
+      std::map<fftwf_complex*, fftwf_plan> d_fft_plans;
 
       gr::fft::fft_complex_fwd          d_fft;
       gr::fft::fft_complex_rev          d_ifft;
