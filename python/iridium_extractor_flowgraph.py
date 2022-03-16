@@ -359,11 +359,13 @@ class FlowGraph(gr.top_block):
                 if USE_FFT_CHANNELIZER:
                     channel_spacing = (1 - 1 / decimation) / decimation
                     relative_center = channel_spacing * (channel - decimation / 2)
+                    relative_span = 1. / decimation
+                    relative_sample_rate = 1. / decimation
                 else:
                     relative_center = center / float(self._channels)
+                    relative_span = 1. / self._channels
+                    relative_sample_rate = relative_span * self._channelizer_over_sample_ratio
 
-                relative_span = 1. / self._channels
-                relative_sample_rate = relative_span * self._channelizer_over_sample_ratio
                 burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len,
                                             relative_center, relative_span, relative_sample_rate,
                                             -self._channelizer_delay,
