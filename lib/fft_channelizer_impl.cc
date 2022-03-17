@@ -76,7 +76,7 @@ fft_channelizer_impl::fft_channelizer_impl(int fft_size, int decimation, bool ac
         throw std::runtime_error("FFT size and decimation can not be matched.");
     }
 
-    set_output_multiple(d_ifft_size - d_ifft_size / d_inverse_overlap);
+    //set_output_multiple(d_ifft_size - d_ifft_size / d_inverse_overlap);
 
     // We want to keep the last 1/d_inverse_overlap block in the history buffer
     set_history(d_fft_size / d_inverse_overlap + 1);
@@ -210,14 +210,20 @@ int fft_channelizer_impl::work(int noutput_items,
                                gr_vector_void_star& output_items)
 {
     const input_type* in = reinterpret_cast<const input_type*>(input_items[0]);
+    int produced = 0;
 
     int ninput_items = noutput_items * d_decimation;
 
     // GNURadio supplies us with some history in the front of the buffer. We use
     // this for the overlap of the FFT.
-    for(int i = 0; i < ninput_items; i += d_fft_size - d_fft_size / d_inverse_overlap) {
-        std::vector<tag_t> new_bursts;
 
+    int input_step = d_fft_size - d_fft_size / d_inverse_overlap;
+    int output_step = d_ifft_size - d_ifft_size / d_inverse_overlap;
+    //for(int i = 0; i < ninput_items; i += d_fft_size - d_fft_size / d_inverse_overlap) {
+    for (int i = 0; produced + output_step <= noutput_items; i += input_step) {
+        produced += output_step;
+
+        std::vector<tag_t> new_bursts;
         // TODO: there are two options here and one is correct...
         get_tags_in_window(new_bursts, 0, i, i + d_fft_size - d_fft_size / d_inverse_overlap, pmt::mp("new_burst"));
 
@@ -307,7 +313,7 @@ int fft_channelizer_impl::work(int noutput_items,
     }
 
     // Tell runtime system how many output items we produced.
-    return noutput_items;
+    return produced;
 }
 
 } /* namespace iridium */
