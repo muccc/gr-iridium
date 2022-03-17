@@ -366,35 +366,38 @@ class FlowGraph(gr.top_block):
                     relative_span = 1. / self._channels
                     relative_sample_rate = relative_span * self._channelizer_over_sample_ratio
 
-                burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len,
-                                            relative_center, relative_span, relative_sample_rate,
-                                            -self._channelizer_delay,
-                                            self._max_queue_len, not self._offline)
+                #burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len,
+                #                            relative_center, relative_span, relative_sample_rate,
+                #                            -self._channelizer_delay,
+                #                            self._max_queue_len, not self._offline)
                 burst_downmixer = iridium.burst_downmix(self._burst_sample_rate,
                                     int(0.007 * self._burst_sample_rate), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
 
                 if debug_id is not None: burst_downmixer.debug_id(debug_id)
 
                 self._burst_downmixers.append(burst_downmixer)
-                self._burst_to_pdu_converters.append(burst_to_pdu_converter)
+                #self._burst_to_pdu_converters.append(burst_to_pdu_converter)
 
             #channelizer_debug_sinks = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
             channelizer_debug_sinks = None
 
             if USE_FFT_CHANNELIZER:
-                channelizer = iridium.fft_channelizer(1024, self._channels - 1);
+                channelizer = iridium.fft_channelizer(1024, self._channels - 1, False, self._channels);
             else:
                 channelizer = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._channelizer_over_sample_ratio)
 
             tb.connect(self._fft_burst_tagger, channelizer)
 
             for i in range(self._channels):
-                tb.connect((channelizer, i), self._burst_to_pdu_converters[i])
+                #tb.connect((channelizer, i), self._burst_to_pdu_converters[i])
                 if channelizer_debug_sinks:
                     tb.connect((channelizer, i), channelizer_debug_sinks[i])
 
-                tb.msg_connect((self._burst_to_pdu_converters[i], 'cpdus'), (self._burst_downmixers[i], 'cpdus'))
-                tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (self._burst_to_pdu_converters[i], 'burst_handled'))
+                #tb.msg_connect((self._burst_to_pdu_converters[i], 'cpdus'), (self._burst_downmixers[i], 'cpdus'))
+                #tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (self._burst_to_pdu_converters[i], 'burst_handled'))
+
+                tb.msg_connect((channelizer, 'cpdus%d'%i), (self._burst_downmixers[i], 'cpdus'))
+                tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (channelizer, 'burst_handled'))
 
                 tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus%d' % i))
         else:

@@ -32,7 +32,7 @@ public:
      * class. iridium::fft_channelizer::make is the public interface for
      * creating new instances.
      */
-    static sptr make(int fft_size, int decimation);
+    static sptr make(int fft_size, int decimation, bool activate_streams=true, int pdu_ports=0);
 };
 
 } // namespace iridium

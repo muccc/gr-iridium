@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(fft_channelizer.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(003aa5a39024314963ef3aaf627a87d2)                     */
+/* BINDTOOL_HEADER_FILE_HASH(49d5881b34bd2a86babee2edb5969954)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -30,13 +30,17 @@ namespace py = pybind11;
 void bind_fft_channelizer(py::module& m)
 {
 
-    using fft_channelizer    = gr::iridium::fft_channelizer;
+    using fft_channelizer    = ::gr::iridium::fft_channelizer;
 
 
     py::class_<fft_channelizer, gr::sync_decimator,
         std::shared_ptr<fft_channelizer>>(m, "fft_channelizer", D(fft_channelizer))
 
         .def(py::init(&fft_channelizer::make),
+           py::arg("fft_size"),
+           py::arg("decimation"),
+           py::arg("activate_streams") = true,
+           py::arg("pdu_ports") = 0,
            D(fft_channelizer,make)
         )
         
