@@ -8,7 +8,7 @@
 #ifndef INCLUDED_IRIDIUM_FRAME_SORTER_CPP_H
 #define INCLUDED_IRIDIUM_FRAME_SORTER_CPP_H
 
-#include <gnuradio/sync_block.h>
+#include <gnuradio/block.h>
 #include <iridium/api.h>
 
 namespace gr {

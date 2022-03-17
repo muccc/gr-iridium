@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(iridium_qpsk_demod.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(dbee200c36d7f59945ba949a95432db2)                     */
+/* BINDTOOL_HEADER_FILE_HASH(e006a7c401a8f8c22e8054da4590920a)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -33,7 +33,7 @@ void bind_iridium_qpsk_demod(py::module& m)
     using iridium_qpsk_demod    = ::gr::iridium::iridium_qpsk_demod;
 
 
-    py::class_<iridium_qpsk_demod, gr::sync_block, gr::block, gr::basic_block,
+    py::class_<iridium_qpsk_demod, gr::block, gr::basic_block,
         std::shared_ptr<iridium_qpsk_demod>>(m, "iridium_qpsk_demod", D(iridium_qpsk_demod))
 
         .def(py::init(&iridium_qpsk_demod::make),

@@ -102,7 +102,7 @@ namespace gr {
     burst_downmix_impl::burst_downmix_impl(int output_sample_rate, int search_depth, size_t hard_max_queue_len,
             const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps,
             bool handle_multiple_frames_per_burst)
-      : gr::sync_block("burst_downmix",
+      : gr::block("burst_downmix",
               gr::io_signature::make(0, 0, 0),
               gr::io_signature::make(0, 0, 0)),
               d_output_sample_rate(output_sample_rate),

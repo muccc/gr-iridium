@@ -45,7 +45,7 @@ namespace gr {
      * The private constructor
      */
     iridium_qpsk_demod_impl::iridium_qpsk_demod_impl(int n_channels)
-      : gr::sync_block("iridium_qpsk_demod",
+      : gr::block("iridium_qpsk_demod",
               gr::io_signature::make(0, 0, 0),
               gr::io_signature::make(0, 0, 0)),
         d_max_burst_size(0),
@@ -392,14 +392,6 @@ namespace gr {
       pmt::pmt_t out_msg = pmt::cons(pdu_meta,
           pdu_vector);
       message_port_pub(pmt::mp("pdus"), out_msg);
-    }
-
-    int
-    iridium_qpsk_demod_impl::work(int noutput_items,
-        gr_vector_const_void_star &input_items,
-        gr_vector_void_star &output_items)
-    {
-      return noutput_items;
     }
 
   } /* namespace iridium */

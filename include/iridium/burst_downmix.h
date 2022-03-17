@@ -22,7 +22,7 @@
 #define INCLUDED_IRIDIUM_BURST_DOWNMIX_H
 
 #include <iridium/api.h>
-#include <gnuradio/sync_block.h>
+#include <gnuradio/block.h>
 
 namespace gr {
   namespace iridium {
@@ -32,7 +32,7 @@ namespace gr {
      * \ingroup iridium
      *
      */
-    class IRIDIUM_API burst_downmix : virtual public gr::sync_block
+    class IRIDIUM_API burst_downmix : virtual public gr::block
     {
      public:
       typedef std::shared_ptr<burst_downmix> sptr;

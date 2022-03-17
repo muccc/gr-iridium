@@ -27,7 +27,7 @@ iridium_frame_printer::sptr iridium_frame_printer::make(std::string file_info)
  * The private constructor
  */
 iridium_frame_printer_impl::iridium_frame_printer_impl(std::string file_info)
-    : gr::sync_block("iridium_frame_printer",
+    : gr::block("iridium_frame_printer",
                      gr::io_signature::make(0, 0, 0),
                      gr::io_signature::make(0, 0, 0)),
       d_file_info(file_info),
@@ -92,13 +92,6 @@ void iridium_frame_printer_impl::handler(const pmt::pmt_t& msg)
     }
 
     std::cout << std::endl;
-}
-
-int iridium_frame_printer_impl::work(int noutput_items,
-                                         gr_vector_const_void_star& input_items,
-                                         gr_vector_void_star& output_items)
-{
-    return 0;
 }
 
 } /* namespace iridium */
