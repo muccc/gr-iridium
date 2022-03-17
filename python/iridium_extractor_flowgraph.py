@@ -378,11 +378,17 @@ class FlowGraph(gr.top_block):
                 self._burst_downmixers.append(burst_downmixer)
                 #self._burst_to_pdu_converters.append(burst_to_pdu_converter)
 
+            channelizer_debug_sinks = []
             #channelizer_debug_sinks = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
-            channelizer_debug_sinks = None
 
             if USE_FFT_CHANNELIZER:
-                channelizer = iridium.fft_channelizer(1024, self._channels - 1, False, self._channels);
+                if not channelizer_debug_sinks and self._offline:
+                    # HACK: if there are no stream outputs active GNURadio has issues terminating the
+                    # flowgraph on completion. Connect some dummy sinks to them.
+                    channelizer_debug_sinks = [blocks.null_sink(gr.sizeof_gr_complex) for i in range(self._channels)]
+
+                activate_streams = len(channelizer_debug_sinks) > 0
+                channelizer = iridium.fft_channelizer(1024, self._channels - 1, activate_streams, self._channels);
             else:
                 channelizer = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._channelizer_over_sample_ratio)
 
