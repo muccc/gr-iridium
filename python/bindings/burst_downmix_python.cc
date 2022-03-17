@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Free Software Foundation, Inc.
+ * Copyright 2022 Free Software Foundation, Inc.
  *
  * This file is part of GNU Radio
  *
@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(burst_downmix.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(4bcf3a55a8e6a51c9b1ae7cbca1f55fe)                     */
+/* BINDTOOL_HEADER_FILE_HASH(8dbc8a607bd981f69f0c1a92cf5859ff)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -33,7 +33,7 @@ void bind_burst_downmix(py::module& m)
     using burst_downmix    = ::gr::iridium::burst_downmix;
 
 
-    py::class_<burst_downmix, gr::sync_block, gr::block, gr::basic_block,
+    py::class_<burst_downmix, gr::block, gr::basic_block,
         std::shared_ptr<burst_downmix>>(m, "burst_downmix", D(burst_downmix))
 
         .def(py::init(&burst_downmix::make),

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Free Software Foundation, Inc.
+ * Copyright 2022 Free Software Foundation, Inc.
  *
  * This file is part of GNU Radio
  *
@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(pdu_round_robin.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(d1572aa2a4e29f01e57cbbb27dfdf691)                     */
+/* BINDTOOL_HEADER_FILE_HASH(2ffd0d343693ddbdb9624fad9d665ca5)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -33,7 +33,7 @@ void bind_pdu_round_robin(py::module& m)
     using pdu_round_robin    = ::gr::iridium::pdu_round_robin;
 
 
-    py::class_<pdu_round_robin, gr::sync_block, gr::block, gr::basic_block,
+    py::class_<pdu_round_robin, gr::block, gr::basic_block,
         std::shared_ptr<pdu_round_robin>>(m, "pdu_round_robin", D(pdu_round_robin))
 
         .def(py::init(&pdu_round_robin::make),

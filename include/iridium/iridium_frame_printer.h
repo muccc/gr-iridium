@@ -8,7 +8,7 @@
 #ifndef INCLUDED_IRIDIUM_IRIDIUM_FRAME_PRINTER_CPP_H
 #define INCLUDED_IRIDIUM_IRIDIUM_FRAME_PRINTER_CPP_H
 
-#include <gnuradio/sync_block.h>
+#include <gnuradio/block.h>
 #include <iridium/api.h>
 
 namespace gr {
@@ -19,7 +19,7 @@ namespace iridium {
  * \ingroup iridium
  *
  */
-class IRIDIUM_API iridium_frame_printer : virtual public gr::sync_block
+class IRIDIUM_API iridium_frame_printer : virtual public gr::block
 {
 public:
     typedef std::shared_ptr<iridium_frame_printer> sptr;
