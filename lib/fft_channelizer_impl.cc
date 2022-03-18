@@ -15,6 +15,9 @@
 #include "fft_channelizer_impl.h"
 #include <gnuradio/io_signature.h>
 
+#include <chrono>
+#include <thread>
+
 namespace gr {
 namespace iridium {
 
@@ -24,16 +27,18 @@ constexpr bool is_powerof2(int v) {
 
 using input_type = gr_complex;
 using output_type = gr_complex;
-fft_channelizer::sptr fft_channelizer::make(int fft_size, int decimation, bool activate_streams, int pdu_ports)
+fft_channelizer::sptr fft_channelizer::make(int fft_size, int decimation, bool activate_streams, int pdu_ports, int outstanding_limit, bool drop_overflow)
 {
-    return gnuradio::make_block_sptr<fft_channelizer_impl>(fft_size, decimation, activate_streams, pdu_ports);
+    return gnuradio::make_block_sptr<fft_channelizer_impl>(fft_size, decimation, activate_streams, pdu_ports,
+                                        outstanding_limit, drop_overflow);
 }
 
 
 /*
  * The private constructor
  */
-fft_channelizer_impl::fft_channelizer_impl(int fft_size, int decimation, bool activate_streams, int pdu_ports)
+fft_channelizer_impl::fft_channelizer_impl(int fft_size, int decimation, bool activate_streams, int pdu_ports,
+                                            int outstanding_limit, bool drop_overflow)
     : gr::sync_decimator("fft_channelizer",
                          gr::io_signature::make(
                              1 /* min inputs */, 1 /* max inputs */, sizeof(input_type)),
@@ -53,7 +58,11 @@ fft_channelizer_impl::fft_channelizer_impl(int fft_size, int decimation, bool ac
     d_pdu_ports(pdu_ports),
     d_max_burst_size(1000000),
     d_bursts(decimation+1),
-    d_outstanding(0)
+    d_outstanding_limit(outstanding_limit),
+    d_drop_overflow(drop_overflow),
+    d_max_outstanding(0),
+    d_outstanding(0),
+    d_n_dropped_bursts(0)
 {
     // FFT size and decimation must be a power of two so the output sizes are
     // also a power of two.
@@ -106,7 +115,7 @@ void fft_channelizer_impl::burst_handled(pmt::pmt_t msg)
 
 uint64_t fft_channelizer_impl::get_n_dropped_bursts()
 {
-    return 0;
+    return d_n_dropped_bursts;
 }
 
 int fft_channelizer_impl::get_output_queue_size()
@@ -116,7 +125,9 @@ int fft_channelizer_impl::get_output_queue_size()
 
 int fft_channelizer_impl::get_output_max_queue_size()
 {
-    return d_outstanding;
+    int tmp = d_max_outstanding;
+    d_max_outstanding = 0;
+    return tmp;
 }
 
 int fft_shift(int N, int f)
@@ -201,6 +212,11 @@ void fft_channelizer_impl::append_to_burst(burst_data &burst, const gr_complex *
 
 void fft_channelizer_impl::publish_burst(burst_data &burst)
 {
+    if(d_outstanding >= d_outstanding_limit && d_drop_overflow) {
+        d_n_dropped_bursts++;
+        return;
+    }
+
     pmt::pmt_t d_pdu_meta = pmt::make_dict();
     pmt::pmt_t d_pdu_vector = pmt::init_c32vector(burst.len, burst.data);
 
@@ -214,9 +230,12 @@ void fft_channelizer_impl::publish_burst(burst_data &burst)
 
     pmt::pmt_t msg = pmt::cons(d_pdu_meta,
             d_pdu_vector);
+    message_port_pub(pmt::mp("cpdus0"), msg);
 
     d_outstanding++;
-    message_port_pub(pmt::mp("cpdus0"), msg);
+    if(d_outstanding > d_max_outstanding) {
+        d_max_outstanding = d_outstanding;
+    }
 }
 
 
@@ -227,6 +246,14 @@ int fft_channelizer_impl::work(int noutput_items,
     const input_type* in = reinterpret_cast<const input_type*>(input_items[0]);
 
     int ninput_items = noutput_items * d_decimation;
+
+    if(d_outstanding >= d_outstanding_limit && !d_drop_overflow) {
+        // We need to wait a bit until our queue is not full anymore
+        std::this_thread::sleep_for(std::chrono::microseconds(100000));
+
+        // Tell the scheduler that we have not consumed any input
+        return 0;
+    }
 
     // GNURadio supplies us with some history in the front of the buffer. We use
     // this for the overlap of the FFT.

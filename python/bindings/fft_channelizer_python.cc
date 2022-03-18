@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(fft_channelizer.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(22be479d8fc627b09807de62432ac91d)                     */
+/* BINDTOOL_HEADER_FILE_HASH(93ce1a19b9f6b1f35936452298033ac5)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -39,8 +39,10 @@ void bind_fft_channelizer(py::module& m)
         .def(py::init(&fft_channelizer::make),
            py::arg("fft_size"),
            py::arg("decimation"),
-           py::arg("activate_streams") = true,
-           py::arg("pdu_ports") = 0,
+           py::arg("activate_streams"),
+           py::arg("pdu_ports"),
+           py::arg("outstanding_limit"),
+           py::arg("drop_overflow"),
            D(fft_channelizer,make)
         )
         
