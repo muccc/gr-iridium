@@ -58,10 +58,16 @@ private:
       void append_to_burst(burst_data &burst, const gr_complex * data, size_t n);
       void publish_burst(burst_data &burst);
 
+      const int d_outstanding_limit;
       int d_outstanding;
+      int d_max_outstanding;
+      uint64_t d_n_dropped_bursts;
+      bool d_drop_overflow;
+      //bool d_blocked;
       void burst_handled(pmt::pmt_t msg);
 public:
-    fft_channelizer_impl(int fft_size, int decimation, bool activate_streams, int pdu_ports);
+    fft_channelizer_impl(int fft_size, int decimation, bool activate_streams, int pdu_ports,
+                            int outstanding_limit, bool drop_overflow);
     ~fft_channelizer_impl();
 
     uint64_t get_n_dropped_bursts();
