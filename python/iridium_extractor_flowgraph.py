@@ -2,18 +2,19 @@
 
 import iridium
 
-import scipy.signal
-
-import gnuradio.filter
-
 from gnuradio import gr
 from gnuradio import blocks
+import gnuradio.filter
+
+import scipy.signal
+import numpy as np
 
 import sys
 import math
 import time
+import platform
+import multiprocessing
 
-import numpy as np
 
 
 class FlowGraph(gr.top_block):
@@ -30,10 +31,11 @@ class FlowGraph(gr.top_block):
         self._offline = offline
         self._max_queue_len = max_queue_len
         self._handle_multiple_frames_per_burst = handle_multiple_frames_per_burst
+        self._decimation = decimation
 
         # Sample rate of the bursts exiting the burst downmix block
         self._burst_sample_rate = 25000 * samples_per_symbol
-        if (self._input_sample_rate / decimation) % self._burst_sample_rate != 0:
+        if (self._input_sample_rate / self._decimation) % self._burst_sample_rate != 0:
             raise RuntimeError("Selected sample rate and decimation can not be matched. Please try a different combination. Sample rate divided by decimation must be a multiple of %d." % self._burst_sample_rate)
 
         self._fft_size = 2**round(math.log(self._input_sample_rate / 1000, 2)) # FFT is approx. 1 ms long
@@ -45,7 +47,7 @@ class FlowGraph(gr.top_block):
         # Just to keep the code below a bit more portable
         tb = self
 
-        if decimation > 1:
+        if self._decimation > 1:
             self._use_channelizer = True
 
             # We will set up a filter bank with an odd number of outputs and
@@ -55,24 +57,34 @@ class FlowGraph(gr.top_block):
             # on the border of two channels.
 
             # For this to work the desired decimation must be even.
-            if decimation % 2:
+            if self._decimation % 2:
                 raise RuntimeError("The desired decimation must be 1 or an even number.")
 
-            self._channels = decimation + 1
-            self._channelizer_over_sample_ratio = self._channels / (self._channels - 1.)
-            channelizer_output_sample_rate = int(round(float(self._input_sample_rate) / self._channels * self._channelizer_over_sample_ratio))
-            assert channelizer_output_sample_rate == self._input_sample_rate / decimation
-            assert channelizer_output_sample_rate % self._burst_sample_rate == 0
+            self._channels = self._decimation + 1
 
-            self._channel_sample_rate = channelizer_output_sample_rate
-
-            if decimation >= 8:
-                if 2**int(math.log(decimation, 2)) != decimation:
-                    raise RuntimeError("Decimations >= 8 must be a power of two.")
+            if self._decimation >= 8:
                 self._use_fft_channelizer = True
-                self._channelizer_delay = 0
+
+                if 2**int(math.log(self._decimation, 2)) != self._decimation:
+                    raise RuntimeError("Decimations >= 8 must be a power of two.")
+                self._channel_sample_rate = self._input_sample_rate // self._decimation
+
+                # On low end ARM machines we only create a single burst downmixer to not
+                # overload the CPU. Rather drop bursts than samples.
+                if platform.machine() == 'aarch64' and multiprocessing.cpu_count() == 4:
+                    self._n_burst_downmixers = 1
+                else:
+                    self._n_burst_downmixers = 2
             else:
                 self._use_fft_channelizer = False
+
+                self._n_burst_downmixers = self._channels
+                self._channelizer_over_sample_ratio = self._channels / (self._channels - 1.)
+                channelizer_output_sample_rate = int(round(float(self._input_sample_rate) / self._channels * self._channelizer_over_sample_ratio))
+                self._channel_sample_rate = channelizer_output_sample_rate
+                assert channelizer_output_sample_rate == self._input_sample_rate / self._decimation
+                assert channelizer_output_sample_rate % self._burst_sample_rate == 0
+
                 # The over sampled region of the FIR filter contains half of the signal width and
                 # the transition region of the FIR filter.
                 # The bandwidth is simply increased by the signal width.
@@ -105,7 +117,7 @@ class FlowGraph(gr.top_block):
 
 
                 pfb_input_delay = (len(self._pfb_fir_filter) + 1) // 2 - self._channels / self._channelizer_over_sample_ratio
-                self._channelizer_delay = pfb_input_delay / decimation
+                self._channelizer_delay = pfb_input_delay / self._decimation
 
                 if self._verbose:
                     print("self._channels", self._channels, file=sys.stderr)
@@ -386,7 +398,7 @@ class FlowGraph(gr.top_block):
                     channelizer_debug_sinks = [blocks.null_sink(gr.sizeof_gr_complex) for i in range(self._channels)]
 
                 activate_streams = len(channelizer_debug_sinks) > 0
-                self._channelizer = iridium.fft_channelizer(1024, self._channels - 1, activate_streams, self._channels, self._max_burst_len,
+                self._channelizer = iridium.fft_channelizer(1024, self._channels - 1, activate_streams, self._n_burst_downmixers, self._max_burst_len,
                                                             self._max_queue_len, not self._offline)
             else:
                 self._channelizer = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._channelizer_over_sample_ratio)
@@ -397,6 +409,7 @@ class FlowGraph(gr.top_block):
                 if channelizer_debug_sinks:
                     tb.connect((self._channelizer, i), channelizer_debug_sinks[i])
 
+            for i in range(self._n_burst_downmixers):
                 if self._burst_to_pdu_converters:
                     tb.connect((self._channelizer, i), self._burst_to_pdu_converters[i])
                     tb.msg_connect((self._burst_to_pdu_converters[i], 'cpdus'), (self._burst_downmixers[i], 'cpdus'))

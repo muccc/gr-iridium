@@ -63,8 +63,9 @@ private:
       int d_max_outstanding;
       uint64_t d_n_dropped_bursts;
       bool d_drop_overflow;
-      //bool d_blocked;
       void burst_handled(pmt::pmt_t msg);
+
+      int d_next_pdu_port;
 public:
     fft_channelizer_impl(int fft_size, int decimation, bool activate_streams, int pdu_ports,
                             int max_burst_size, int outstanding_limit, bool drop_overflow);

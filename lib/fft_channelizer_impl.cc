@@ -63,7 +63,8 @@ fft_channelizer_impl::fft_channelizer_impl(int fft_size, int decimation, bool ac
     d_drop_overflow(drop_overflow),
     d_max_outstanding(0),
     d_outstanding(0),
-    d_n_dropped_bursts(0)
+    d_n_dropped_bursts(0),
+    d_next_pdu_port(0)
 {
     // FFT size and decimation must be a power of two so the output sizes are
     // also a power of two.
@@ -231,7 +232,9 @@ void fft_channelizer_impl::publish_burst(burst_data &burst)
 
     pmt::pmt_t msg = pmt::cons(d_pdu_meta,
             d_pdu_vector);
-    message_port_pub(pmt::mp("cpdus0"), msg);
+    message_port_pub(pmt::mp("cpdus" + std::to_string(d_next_pdu_port)), msg);
+
+    d_next_pdu_port = (d_next_pdu_port + 1) % d_pdu_ports;
 
     d_outstanding++;
     if(d_outstanding > d_max_outstanding) {
