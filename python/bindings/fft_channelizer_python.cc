@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(fft_channelizer.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(49d5881b34bd2a86babee2edb5969954)                     */
+/* BINDTOOL_HEADER_FILE_HASH(22be479d8fc627b09807de62432ac91d)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -46,6 +46,24 @@ void bind_fft_channelizer(py::module& m)
         
 
 
+
+
+        
+        .def("get_n_dropped_bursts",&fft_channelizer::get_n_dropped_bursts,       
+            D(fft_channelizer,get_n_dropped_bursts)
+        )
+
+
+        
+        .def("get_output_queue_size",&fft_channelizer::get_output_queue_size,       
+            D(fft_channelizer,get_output_queue_size)
+        )
+
+
+        
+        .def("get_output_max_queue_size",&fft_channelizer::get_output_max_queue_size,       
+            D(fft_channelizer,get_output_max_queue_size)
+        )
 
         ;
 

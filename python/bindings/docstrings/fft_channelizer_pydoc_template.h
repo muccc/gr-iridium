@@ -19,9 +19,21 @@
  static const char *__doc_gr_iridium_fft_channelizer = R"doc()doc";
 
 
- static const char *__doc_gr_iridium_fft_channelizer_fft_channelizer = R"doc()doc";
+ static const char *__doc_gr_iridium_fft_channelizer_fft_channelizer_0 = R"doc()doc";
+
+
+ static const char *__doc_gr_iridium_fft_channelizer_fft_channelizer_1 = R"doc()doc";
 
 
  static const char *__doc_gr_iridium_fft_channelizer_make = R"doc()doc";
+
+
+ static const char *__doc_gr_iridium_fft_channelizer_get_n_dropped_bursts = R"doc()doc";
+
+
+ static const char *__doc_gr_iridium_fft_channelizer_get_output_queue_size = R"doc()doc";
+
+
+ static const char *__doc_gr_iridium_fft_channelizer_get_output_max_queue_size = R"doc()doc";
 
   

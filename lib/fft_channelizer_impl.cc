@@ -104,6 +104,21 @@ void fft_channelizer_impl::burst_handled(pmt::pmt_t msg)
     d_outstanding--;
 }
 
+uint64_t fft_channelizer_impl::get_n_dropped_bursts()
+{
+    return 0;
+}
+
+int fft_channelizer_impl::get_output_queue_size()
+{
+    return d_outstanding;
+}
+
+int fft_channelizer_impl::get_output_max_queue_size()
+{
+    return d_outstanding;
+}
+
 int fft_shift(int N, int f)
 {
     if(f < N / 2) {
