@@ -33,8 +33,11 @@ public:
      * creating new instances.
      */
     static sptr make(int fft_size, int decimation, bool activate_streams=true, int pdu_ports=0);
-};
 
+    virtual uint64_t get_n_dropped_bursts() = 0;
+    virtual int get_output_queue_size() = 0;
+    virtual int get_output_max_queue_size() = 0;
+};
 } // namespace iridium
 } // namespace gr
 

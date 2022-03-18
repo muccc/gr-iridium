@@ -356,21 +356,13 @@ class FlowGraph(gr.top_block):
             sinks = []
 
             for channel in range(self._channels):
-                center = channel if channel <= self._channels / 2 else (channel - self._channels)
-
-                # Second and third parameters tell the block where after the PFB it sits.
-
-                if self._use_fft_channelizer:
-                    channel_spacing = (1 - 1 / decimation) / decimation
-                    relative_center = channel_spacing * (channel - decimation / 2)
-                    relative_span = 1. / decimation
-                    relative_sample_rate = 1. / decimation
-                else:
+                if not self._use_fft_channelizer:
+                    center = channel if channel <= self._channels / 2 else (channel - self._channels)
                     relative_center = center / float(self._channels)
                     relative_span = 1. / self._channels
                     relative_sample_rate = relative_span * self._channelizer_over_sample_ratio
 
-                if not self._use_fft_channelizer:
+                    # Second and third parameters tell the block where after the PFB it sits.
                     burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len,
                                                 relative_center, relative_span, relative_sample_rate,
                                                 -self._channelizer_delay,
@@ -394,23 +386,23 @@ class FlowGraph(gr.top_block):
                     channelizer_debug_sinks = [blocks.null_sink(gr.sizeof_gr_complex) for i in range(self._channels)]
 
                 activate_streams = len(channelizer_debug_sinks) > 0
-                channelizer = iridium.fft_channelizer(1024, self._channels - 1, activate_streams, self._channels);
+                self._channelizer = iridium.fft_channelizer(1024, self._channels - 1, activate_streams, self._channels);
             else:
-                channelizer = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._channelizer_over_sample_ratio)
+                self._channelizer = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._channelizer_over_sample_ratio)
 
-            tb.connect(self._fft_burst_tagger, channelizer)
+            tb.connect(self._fft_burst_tagger, self._channelizer)
 
             for i in range(self._channels):
                 if channelizer_debug_sinks:
-                    tb.connect((channelizer, i), channelizer_debug_sinks[i])
+                    tb.connect((self._channelizer, i), channelizer_debug_sinks[i])
 
-                if self._use_fft_channelizer:
-                    tb.msg_connect((channelizer, 'cpdus%d'%i), (self._burst_downmixers[i], 'cpdus'))
-                    tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (channelizer, 'burst_handled'))
-                else:
-                    tb.connect((channelizer, i), self._burst_to_pdu_converters[i])
+                if self._burst_to_pdu_converters:
+                    tb.connect((self._channelizer, i), self._burst_to_pdu_converters[i])
                     tb.msg_connect((self._burst_to_pdu_converters[i], 'cpdus'), (self._burst_downmixers[i], 'cpdus'))
                     tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (self._burst_to_pdu_converters[i], 'burst_handled'))
+                else:
+                    tb.msg_connect((self._channelizer, 'cpdus%d'%i), (self._burst_downmixers[i], 'cpdus'))
+                    tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (self._channelizer, 'burst_handled'))
 
 
                 tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus%d' % i))
@@ -455,20 +447,29 @@ class FlowGraph(gr.top_block):
 
     def get_queue_size(self):
         size = 0
-        for converter in self._burst_to_pdu_converters:
-            size += converter.get_output_queue_size()
+        if self._burst_to_pdu_converters:
+            for converter in self._burst_to_pdu_converters:
+                size += converter.get_output_queue_size()
+        else:
+            size += self._channelizer.get_output_queue_size()
         return size
 
     def get_max_queue_size(self):
         size = 0
-        for converter in self._burst_to_pdu_converters:
-            size += converter.get_output_max_queue_size()
+        if self._burst_to_pdu_converters:
+            for converter in self._burst_to_pdu_converters:
+                size += converter.get_output_max_queue_size()
+        else:
+            size += self._channelizer.get_output_max_queue_size()
         return size
 
     def get_n_dropped_bursts(self):
         dropped = 0
-        for converter in self._burst_to_pdu_converters:
-            dropped += converter.get_n_dropped_bursts()
+        if self._burst_to_pdu_converters:
+            for converter in self._burst_to_pdu_converters:
+                dropped += converter.get_n_dropped_bursts()
+        else:
+            dropped += self._channelizer.get_n_dropped_bursts()
         for downmix in self._burst_downmixers:
             dropped += downmix.get_n_dropped_bursts()
         return dropped

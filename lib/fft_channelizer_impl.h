@@ -64,6 +64,11 @@ public:
     fft_channelizer_impl(int fft_size, int decimation, bool activate_streams, int pdu_ports);
     ~fft_channelizer_impl();
 
+    uint64_t get_n_dropped_bursts();
+    int get_output_queue_size();
+    int get_output_max_queue_size();
+
+
     // Where all the action really happens
     int work(int noutput_items,
              gr_vector_const_void_star& input_items,
