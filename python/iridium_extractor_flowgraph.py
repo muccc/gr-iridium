@@ -15,7 +15,6 @@ import time
 
 import numpy as np
 
-USE_FFT_CHANNELIZER = 1
 
 class FlowGraph(gr.top_block):
     def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0, burst_width=40e3, offline=False, max_queue_len=500,
@@ -34,7 +33,8 @@ class FlowGraph(gr.top_block):
 
         # Sample rate of the bursts exiting the burst downmix block
         self._burst_sample_rate = 25000 * samples_per_symbol
-        assert (self._input_sample_rate / decimation) % self._burst_sample_rate == 0
+        if (self._input_sample_rate / decimation) % self._burst_sample_rate != 0:
+            raise RuntimeError("Selected sample rate and decimation can not be matched. Please try a different combination. Sample rate divided by decimation must be a multiple of %d." % self._burst_sample_rate)
 
         self._fft_size = 2**round(math.log(self._input_sample_rate / 1000, 2)) # FFT is approx. 1 ms long
         self._burst_pre_len = 2 * self._fft_size
@@ -56,7 +56,7 @@ class FlowGraph(gr.top_block):
 
             # For this to work the desired decimation must be even.
             if decimation % 2:
-                raise RuntimeError("The desired decimation must be 1 or an even number")
+                raise RuntimeError("The desired decimation must be 1 or an even number.")
 
             self._channels = decimation + 1
             self._channelizer_over_sample_ratio = self._channels / (self._channels - 1.)
@@ -66,9 +66,13 @@ class FlowGraph(gr.top_block):
 
             self._channel_sample_rate = channelizer_output_sample_rate
 
-            if USE_FFT_CHANNELIZER:
+            if decimation >= 8:
+                if 2**int(math.log(decimation, 2)) != decimation:
+                    raise RuntimeError("Decimations >= 8 must be a power of two.")
+                self._use_fft_channelizer = True
                 self._channelizer_delay = 0
             else:
+                self._use_fft_channelizer = False
                 # The over sampled region of the FIR filter contains half of the signal width and
                 # the transition region of the FIR filter.
                 # The bandwidth is simply increased by the signal width.
@@ -90,14 +94,14 @@ class FlowGraph(gr.top_block):
                 # If the over sampling ratio is not large enough, there is not
                 # enough room to construct a transition region.
                 if self._fir_tw < 0:
-                    raise RuntimeError("PFB over sampling ratio not enough to create a working FIR filter")
+                    raise RuntimeError("PFB over sampling ratio not enough to create a working FIR filter. Please try a different decimation.")
 
                 self._pfb_fir_filter = gnuradio.filter.firdes.low_pass_2(1, self._input_sample_rate, self._fir_bw, self._fir_tw, 60)
 
                 # If the transition width approaches 0, the filter size goes up significantly.
                 if len(self._pfb_fir_filter) > 300:
                     print("Warning: The PFB FIR filter has an abnormal large number of taps:", len(self._pfb_fir_filter), file=sys.stderr)
-                    print("Consider reducing the decimation factor", file=sys.stderr)
+                    print("Consider reducing the decimation factor or use a decimation >= 8.", file=sys.stderr)
 
 
                 pfb_input_delay = (len(self._pfb_fir_filter) + 1) // 2 - self._channels / self._channelizer_over_sample_ratio
@@ -356,7 +360,7 @@ class FlowGraph(gr.top_block):
 
                 # Second and third parameters tell the block where after the PFB it sits.
 
-                if USE_FFT_CHANNELIZER:
+                if self._use_fft_channelizer:
                     channel_spacing = (1 - 1 / decimation) / decimation
                     relative_center = channel_spacing * (channel - decimation / 2)
                     relative_span = 1. / decimation
@@ -366,22 +370,24 @@ class FlowGraph(gr.top_block):
                     relative_span = 1. / self._channels
                     relative_sample_rate = relative_span * self._channelizer_over_sample_ratio
 
-                #burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len,
-                #                            relative_center, relative_span, relative_sample_rate,
-                #                            -self._channelizer_delay,
-                #                            self._max_queue_len, not self._offline)
+                if not self._use_fft_channelizer:
+                    burst_to_pdu_converter = iridium.tagged_burst_to_pdu(self._max_burst_len,
+                                                relative_center, relative_span, relative_sample_rate,
+                                                -self._channelizer_delay,
+                                                self._max_queue_len, not self._offline)
+                    self._burst_to_pdu_converters.append(burst_to_pdu_converter)
+
                 burst_downmixer = iridium.burst_downmix(self._burst_sample_rate,
                                     int(0.007 * self._burst_sample_rate), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
 
                 if debug_id is not None: burst_downmixer.debug_id(debug_id)
 
                 self._burst_downmixers.append(burst_downmixer)
-                #self._burst_to_pdu_converters.append(burst_to_pdu_converter)
 
             channelizer_debug_sinks = []
             #channelizer_debug_sinks = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
 
-            if USE_FFT_CHANNELIZER:
+            if self._use_fft_channelizer:
                 if not channelizer_debug_sinks and self._offline:
                     # HACK: if there are no stream outputs active GNURadio has issues terminating the
                     # flowgraph on completion. Connect some dummy sinks to them.
@@ -395,15 +401,17 @@ class FlowGraph(gr.top_block):
             tb.connect(self._fft_burst_tagger, channelizer)
 
             for i in range(self._channels):
-                #tb.connect((channelizer, i), self._burst_to_pdu_converters[i])
                 if channelizer_debug_sinks:
                     tb.connect((channelizer, i), channelizer_debug_sinks[i])
 
-                #tb.msg_connect((self._burst_to_pdu_converters[i], 'cpdus'), (self._burst_downmixers[i], 'cpdus'))
-                #tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (self._burst_to_pdu_converters[i], 'burst_handled'))
+                if self._use_fft_channelizer:
+                    tb.msg_connect((channelizer, 'cpdus%d'%i), (self._burst_downmixers[i], 'cpdus'))
+                    tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (channelizer, 'burst_handled'))
+                else:
+                    tb.connect((channelizer, i), self._burst_to_pdu_converters[i])
+                    tb.msg_connect((self._burst_to_pdu_converters[i], 'cpdus'), (self._burst_downmixers[i], 'cpdus'))
+                    tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (self._burst_to_pdu_converters[i], 'burst_handled'))
 
-                tb.msg_connect((channelizer, 'cpdus%d'%i), (self._burst_downmixers[i], 'cpdus'))
-                tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (channelizer, 'burst_handled'))
 
                 tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus%d' % i))
         else:
