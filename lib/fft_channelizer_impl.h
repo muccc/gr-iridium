@@ -67,7 +67,7 @@ private:
       void burst_handled(pmt::pmt_t msg);
 public:
     fft_channelizer_impl(int fft_size, int decimation, bool activate_streams, int pdu_ports,
-                            int outstanding_limit, bool drop_overflow);
+                            int max_burst_size, int outstanding_limit, bool drop_overflow);
     ~fft_channelizer_impl();
 
     uint64_t get_n_dropped_bursts();

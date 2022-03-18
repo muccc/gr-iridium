@@ -27,10 +27,11 @@ constexpr bool is_powerof2(int v) {
 
 using input_type = gr_complex;
 using output_type = gr_complex;
-fft_channelizer::sptr fft_channelizer::make(int fft_size, int decimation, bool activate_streams, int pdu_ports, int outstanding_limit, bool drop_overflow)
+fft_channelizer::sptr fft_channelizer::make(int fft_size, int decimation, bool activate_streams, int pdu_ports,
+                                                int max_burst_size, int outstanding_limit, bool drop_overflow)
 {
     return gnuradio::make_block_sptr<fft_channelizer_impl>(fft_size, decimation, activate_streams, pdu_ports,
-                                        outstanding_limit, drop_overflow);
+                                        max_burst_size, outstanding_limit, drop_overflow);
 }
 
 
@@ -38,7 +39,7 @@ fft_channelizer::sptr fft_channelizer::make(int fft_size, int decimation, bool a
  * The private constructor
  */
 fft_channelizer_impl::fft_channelizer_impl(int fft_size, int decimation, bool activate_streams, int pdu_ports,
-                                            int outstanding_limit, bool drop_overflow)
+                                            int max_burst_size, int outstanding_limit, bool drop_overflow)
     : gr::sync_decimator("fft_channelizer",
                          gr::io_signature::make(
                              1 /* min inputs */, 1 /* max inputs */, sizeof(input_type)),
@@ -56,7 +57,7 @@ fft_channelizer_impl::fft_channelizer_impl(int fft_size, int decimation, bool ac
     d_channels(decimation+1),
     d_channel_active(0),
     d_pdu_ports(pdu_ports),
-    d_max_burst_size(1000000),
+    d_max_burst_size(max_burst_size),
     d_bursts(decimation+1),
     d_outstanding_limit(outstanding_limit),
     d_drop_overflow(drop_overflow),
