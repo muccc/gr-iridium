@@ -193,16 +193,18 @@ class FlowGraph(gr.top_block):
         elif config['source'] == 'soapy':
             d = config["soapy-source"]
 
-            from gnuradio import soapy
+            import soapy
             if 'driver' not in d:
                 print("No driver specified for soapy", file=sys.stderr)
                 print("Run 'SoapySDRUtil -i' to see available drivers(factories)", file=sys.stderr)
                 exit(1)
-            dev = 'driver='+d['driver']
+            dev = 'driver=' + d['driver'].strip("'")
+            if 'device_args' in d:
+                dev += "," + d['device_args'].strip("'")
             stream_args = ''
             tune_args = ['']
             settings = ['']
-            source = soapy.source(dev, "fc32", 1, '', stream_args, tune_args, settings)
+            source = soapy.source(1, dev, stream_args, '', tune_args, settings, self._input_sample_rate, "fc32")
 
             source.set_sample_rate(0, self._input_sample_rate)
             source.set_frequency(0, self._center_frequency)
@@ -224,11 +226,12 @@ class FlowGraph(gr.top_block):
                                 return gain_name
                         return None
 
+                if "get_gain" in dir(source):
                     gain_name = match_gain(gain_option_name, source.list_gains(0))
-
                     if gain_name is not None:
                         source.set_gain(0, gain_name, gain_value)
-                        print(gain_name, "Gain:", source.get_gain(0, gain_name), '(Requested %d)' % gain_value, source.get_gain_range(0, gain_name), file=sys.stderr)
+                        print(gain_name, "Gain:", source.get_gain(0, gain_name), '(Requested %d)' % gain_value,
+                              source.get_gain_range(0, gain_name), file=sys.stderr)
                     else:
                         print("WARNING: Gain", gain_option_name, "not supported by source!", file=sys.stderr)
                         print("Supported gains:", source.list_gains(0), file=sys.stderr)
@@ -236,7 +239,8 @@ class FlowGraph(gr.top_block):
             if 'bandwidth' in d:
                 bandwidth = int(d['bandwidth'])
                 source.set_bandwidth(0, bandwidth)
-                print("Bandwidth:", source.get_bandwidth(0), '(Requested %d)' % bandwidth, file=sys.stderr)
+                if "get_bandwidth" in dir(source):
+                    print("Bandwidth:", source.get_bandwidth(0), '(Requested %d)' % bandwidth, file=sys.stderr)
             else:
                 source.set_bandwidth(0, 0)
                 print("Warning: Setting bandwidth to", source.get_bandwidth(0), file=sys.stderr)
@@ -244,7 +248,10 @@ class FlowGraph(gr.top_block):
             if 'antenna' in d:
                 antenna = d['antenna']
                 source.set_antenna(0, antenna)
-                print("Antenna:", source.get_antenna(0), '(Requested %s)' % antenna, file=sys.stderr)
+                if "get_antennas" in dir(source):
+                    print("Antenna:", source.get_antennas(0), '(Requested %s)' % antenna, file=sys.stderr)
+                else:
+                    print("Antenna:", source.get_antenna(0), '(Requested %s)' % antenna, file=sys.stderr)
             else:
                 print("Warning: Setting antenna to", source.get_antenna(0), file=sys.stderr)
 
