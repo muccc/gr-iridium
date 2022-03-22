@@ -212,9 +212,9 @@ class FlowGraph(gr.top_block):
                 print("No driver specified for soapy", file=sys.stderr)
                 print("Run 'SoapySDRUtil -i' to see available drivers(factories)", file=sys.stderr)
                 exit(1)
-            dev = 'driver='+d['driver'].strip("'")
+            dev = 'driver=' + d['driver'].strip("'")
             if 'device_args' in d:
-                dev+=","+d['device_args'].strip("'")
+                dev += "," + d['device_args'].strip("'")
             stream_args = ''
             tune_args = ['']
             settings = ['']
