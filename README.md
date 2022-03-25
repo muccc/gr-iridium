@@ -1,4 +1,4 @@
-# GNURadio Iridium Out Of Tree Module
+# GNU Radio Iridium Out Of Tree Module
 
 [![CI](https://github.com/muccc/gr-iridium/actions/workflows/ci.yml/badge.svg)](https://github.com/muccc/gr-iridium/actions/workflows/ci.yml)
 
@@ -8,12 +8,12 @@ It provides a sample application which can be used to detect and demodulate data
 
 You should also have a look at the [iridium-toolkit](https://github.com/muccc/iridium-toolkit).
 
-> :warning: **If you want to build for GNURadio 3.8**: Make sure to use the `maint-3.8` branch of this repository (i.e. run `git checkout maint-3.8` before installation). Also make sure to check the README.md from that branch for correct build instructions.
+> :warning: **If you want to build for GNU Radio 3.8**: Make sure to use the `maint-3.8` branch of this repository (i.e. run `git checkout maint-3.8` before installation). Also make sure to check the README.md from that branch for correct build instructions.
 
-> :warning: **If you want to build for GNURadio 3.7**: Make sure to use the `maint-3.7` branch of this repository (i.e. run `git checkout maint-3.7` before installation). Also make sure to check the README.md from that branch for correct build instructions.
+> :warning: **If you want to build for GNU Radio 3.7**: Make sure to use the `maint-3.7` branch of this repository (i.e. run `git checkout maint-3.7` before installation). Also make sure to check the README.md from that branch for correct build instructions.
 
 ## Prerequisites
-A working [GNURadio](https://gnuradio.org) installation with the following components is necessary:
+A working [GNU Radio](https://gnuradio.org) installation with the following components is necessary:
 
  - VOLK
  - FFT
@@ -24,9 +24,9 @@ A working [GNURadio](https://gnuradio.org) installation with the following compo
 No other OOT module is needed.
 
 ## Build & Installation
-If you want to build for GNURadio 3.8, run `git checkout maint-3.8` before installation!
+If you want to build for GNU Radio 3.8, run `git checkout maint-3.8` before installation!
 
-If you want to build for GNURadio 3.7, run `git checkout maint-3.7` before installation!
+If you want to build for GNU Radio 3.7, run `git checkout maint-3.7` before installation!
 
 ```
 mkdir build
@@ -37,8 +37,8 @@ sudo make install
 sudo ldconfig
 ```
 
-### GNURadio on Ubuntu or Debian
-The recommened GNURadio versions to use gr-iridium with are 3.9 and 3.10. If you use Ubuntu or Debian our recommended way to install GNURadio is to use PyBOMBS as described here: https://github.com/Sec42/sec-gr/. Please expect trouble if you install GNURadio any other way.
+### GNU Radio on Ubuntu or Debian
+The recommened GNU Radio versions to use gr-iridium with are 3.9 and 3.10. If you use Ubuntu or Debian our recommended way to install GNU Radio is to use PyBOMBS as described here: https://github.com/Sec42/sec-gr/. Please expect trouble if you install GNU Radio any other way.
 
 ## Usage examples
 The following commands are examples how to use the `iridium-extractor` tool. To further parse the demodulated frames have a look at the [iridium-toolkit](https://github.com/muccc/iridium-toolkit). It provides scripts to extract meaningful information.
@@ -156,7 +156,7 @@ The following 4 formats are supported for sample input. For ease of use the name
 | `cu8`     | complex uint8 (RTLSDR)                             | `rtl`            |
 | `ci8`     | complex int8 (hackrf, rad1o with hackrf-transfer)  | `hackrf`         |
 | `ci16_le` | complex int16 (USRP with specrec from gr-analysis) | `sc16`           |
-| `cf32_le` | complex float (GNURadio, `uhd_rx_cfile`)           | `float` , `fc32`, `cfile` |
+| `cf32_le` | complex float (GNU Radio, `uhd_rx_cfile`)           | `float` , `fc32`, `cfile` |
 
 If not specified otherwise, `iridium-extractor` tries to use the file extension to identify the format.
 
