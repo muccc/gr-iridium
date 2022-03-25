@@ -229,10 +229,23 @@ class FlowGraph(gr.top_block):
                 print("Run 'SoapySDRUtil -i' to see available drivers(factories)", file=sys.stderr)
                 exit(1)
             dev = 'driver='+d['driver']
-            stream_args = ''
-            tune_args = ['']
-            settings = ['']
-            source = soapy.source(dev, "fc32", 1, '', stream_args, tune_args, settings)
+
+            # Strip quotes
+            def sanitize(s):
+                if s.startswith('"') and s.endswith('"'):
+                    return s.strip('""')
+                if s.startswith("'") and s.endswith("'"):
+                    return s.strip("''")
+                return s
+
+            # Remove all outer quotes from the args if they are present in the config
+            dev_args = sanitize(d['dev_args']) if 'dev_args' in d else ''
+            stream_args = sanitize(d['stream_args']) if 'stream_args' in d else ''
+            tune_args = sanitize(d['tune_args']) if 'tune_args' in d else ''
+            other_settings = sanitize(d['other_settings']) if 'other_settings' in d else ''
+
+            # We only support a single channel. Apply tune_args and other_settings to that channel.
+            source = soapy.source(dev, "fc32", 1, dev_args, stream_args, [tune_args], [other_settings])
 
             source.set_sample_rate(0, self._input_sample_rate)
             source.set_frequency(0, self._center_frequency)
