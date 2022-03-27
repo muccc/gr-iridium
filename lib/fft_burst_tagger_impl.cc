@@ -65,6 +65,7 @@ namespace gr {
         d_burst_id(0),
         d_sample_count(0),
         d_n_tagged_bursts(0),
+        d_squelch_count(0),
         d_fft(NULL), d_history_size(history_size), d_peaks(std::vector<peak>()),
         d_bursts(std::vector<burst>()), d_history_primed(false), d_history_index(0),
         d_burst_post_len(burst_post_len), d_debug(debug), d_burst_debug_file(NULL),
@@ -271,6 +272,23 @@ namespace gr {
           }
         }
         d_bursts.clear();
+        update_burst_mask(); 
+
+        d_squelch_count += 3;
+        // If we get too many squelches our noise floor might be significantly off
+        // and the normal adjustments are not good enough.
+        if(d_squelch_count >= 10) {
+            fprintf(stderr, "Resetting noise estimate\n");
+            d_history_index = 0;
+            d_history_primed = 0;
+            memset(d_baseline_history_f, 0, sizeof(float) * d_fft_size * d_history_size);
+            memset(d_baseline_sum_f, 0, sizeof(float) * d_fft_size);
+            d_squelch_count = 0;
+        }
+      } else {
+        if(d_squelch_count) {
+            d_squelch_count--;
+        }
       }
     }
 

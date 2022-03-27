@@ -57,6 +57,7 @@ namespace gr {
       int d_burst_post_len;
       int d_max_bursts;
       int d_sample_rate;
+      int d_squelch_count;
       uint64_t d_index;
       uint64_t d_burst_id;
       uint64_t d_n_tagged_bursts;
