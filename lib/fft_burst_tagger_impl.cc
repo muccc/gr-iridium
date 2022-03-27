@@ -177,7 +177,7 @@ namespace gr {
       return true;
     }
            
-#define HIST(i) (d_baseline_history_f + (i % d_history_size) * d_fft_size)
+#define HIST(i) (d_baseline_history_f + i * d_fft_size)
     void
     fft_burst_tagger_impl::update_filters_post(void)
     {
@@ -191,6 +191,7 @@ namespace gr {
 
         if(d_history_index == d_history_size) {
           d_history_primed = true;
+          d_history_index = 0;
         }
       }
     }
