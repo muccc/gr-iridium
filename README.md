@@ -51,8 +51,9 @@ To our knowledge Iridium is currently using the spectrum between 1.618 GHz and 1
 Many modern SDRs support such a bandwidth with sample rates >= 10 MSPS. RTL-SDR devices do not though and you need to make
 a choice which section of the band you want to listen to. The configurations in the `example/` folder for RTL-SDRs
 include the "Time and Location", "Ring Alert" and "Pager / Global Burst" channels. If you are more interested in
-user payloads you might want to move the center frequency of the RTL-SDR configurations lower to capture more of
-the duplex band.
+user payloads (like ACARS) you might want to move the center frequency of the RTL-SDR configurations to a lower
+frequency (e.g. 1622 MHz) to capture more of the duplex band. You can also experiment with the sample rate and
+for example raise it to 2.5 MSPS or 3.0 MSPS.
 
 If your SDR supports at maximum 8 MSPS you will have to decide if the simplex band is of interest to you or if you
 want to capture the first 500 kHz of the duplex band.
