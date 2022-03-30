@@ -37,6 +37,22 @@ sudo ldconfig
 ## Usage examples
 The following commands are examples how to use the `iridium-extractor` tool. To further parse the demodulated frames have a look at the [iridium-toolkit](https://github.com/muccc/iridium-toolkit). It provides scripts to extract meaningful information.
 
+### SDR Sample Rates and Iridium
+
+![channels](docs/channels.svg)
+
+To our knowledge Iridium is currently using the spectrum between 1.618 GHz and 1.6265 GHz which is a bandwidth of 8.5 MHz.
+Many modern SDRs support such a bandwidth with sample rates >= 10 MSPS. RTL-SDR devices do not though and you need to make
+a choice which section of the band you want to listen to. The configurations in the `example/` folder for RTL-SDRs
+include the "Time and Location", "Ring Alert" and "Pager / Global Burst" channels. If you are more interested in
+user payloads you might want to move the center frequency of the RTL-SDR configurations lower to capture more of
+the duplex band.
+
+If your SDR supports at maximum 8 MSPS you will have to decide if the simplex band is of interest to you or if you
+want to capture the first 500 kHz of the duplex band.
+
+SDRs which support more than 10 MSPS capture the whole used band.
+
 ### Online (with an SDR)
 `iridium-extractor -D 4 examples/hackrf.conf > output.bits`
 
