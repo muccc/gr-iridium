@@ -1,45 +1,62 @@
 id: iridium_fft_channelizer
 label: fft_channelizer
-category: '[iridium]'
+category: '[Iridium]'
 
 templates:
   imports: import iridium
-  make: iridium.fft_channelizer(${fft_size}, ${decimation})
+  make: iridium.fft_channelizer(${fft_size}, ${decimation}, ${activate_streams}, ${pdu_ports}, ${max_burst_size}, ${max_outstanding}, ${drop_overflow})
 
-#  Make one 'parameters' list entry for every parameter you want settable from the GUI.
-#     Keys include:
-#     * id (makes the value accessible as keyname, e.g. in the make entry)
-#     * label (label shown in the GUI)
-#     * dtype (e.g. int, float, complex, byte, short, xxx_vector, ...)
 parameters:
-- id: parametername_replace_me
-  label: FIX ME:
-  dtype: string
-  value: You need to fill in your grc/iridium_fft_channelizer.block.yaml
-#- id: ...
-#  label: ...
-#  dtype: ...
+- id: fft_size
+  label: FFT Size
+  dtype: int
+  default: 1024
+- id: decimation
+  label: Decimation
+  dtype: int
+  default: 8
+- id: activate_streams
+  label: Activate Streams
+  dtype: bool
+  default: False
+- id: pdu_ports
+  label: Number of PDU outputs
+  dtype: int
+  default: 1
+- id: max_burst_size
+  label: Max Burst Size
+  dtype: int
+  default: 100000
+- id: max_outstanding
+  label: Maximum Outstanding Bursts
+  dtype: int
+  default: 500
+- id: drop_overflow
+  label: Drop Overflowing Bursts
+  dtype: bool
+  default: False
 
-#  Make one 'inputs' list entry per input and one 'outputs' list entry per output.
-#  Keys include:
-#      * label (an identifier for the GUI)
-#      * domain (optional - stream or message. Default is stream)
-#      * dtype (e.g. int, float, complex, byte, short, xxx_vector, ...)
-#      * vlen (optional - data stream vector length. Default is 1)
-#      * optional (optional - set to 1 for optional inputs. Default is 0)
 inputs:
-#- label: ...
-#  domain: ...
-#  dtype: ...
-#  vlen: ...
-#  optional: ...
+- label: in
+  domain: stream
+  dtype: complex
 
 outputs:
-#- label: ...
-#  domain: ...
-#  dtype: ...
-#  vlen: ...
-#  optional: ...
+- label: cpdus0
+  domain: message
+  hide: ${pdu_ports != 1}
+- label: cpdus
+  domain: message
+  multiplicity: ${pdu_ports}
+  hide: ${pdu_ports < 2}
+- label: burst_handled
+  domain: message
+  hide: ${pdu_ports == 0}
+- label: out
+  domain: stream
+  dtype: complex
+  multiplicity: ${decimation + 1}
+  hide: ${activate_streams == False}
 
 #  'file_format' specifies the version of the GRC yml format used in the file
 #  and should usually not be changed.
