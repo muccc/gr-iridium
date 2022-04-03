@@ -412,7 +412,7 @@ class FlowGraph(gr.top_block):
 
                 activate_streams = len(channelizer_debug_sinks) > 0
                 self._channelizer = iridium.fft_channelizer(1024, self._channels - 1, activate_streams, self._n_burst_downmixers, self._max_burst_len,
-                                                            self._max_queue_len, not self._offline)
+                                                            self._max_queue_len * self._n_burst_downmixers, not self._offline)
             else:
                 self._channelizer = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._channelizer_over_sample_ratio)
 
