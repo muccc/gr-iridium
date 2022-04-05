@@ -107,12 +107,11 @@ The following options are available in this section:
 
 | Option Name      | Required | Description                                |
 |------------------|----------|--------------------------------------------|
-| `device_args`    | No       | Device options passed onto osomosdr<sup>[1](#dev)</sup>|
+| `device_args`    | No       | Device arguments passed onto osomosdr<sup>[1](#dev)</sup>|
 | `sample_rate`    | Yes      | Sample rate at which the source should run. Must be divisible by 100000. |
 | `center_freq`    | Yes      | Center frequency for the source in Hz      |
 | `gain`           | No       | (RF)-Gain in dB                            |
-| `if_gain`        | No       | IF-Gain in dB                              |
-| `bb_gain`        | No       | BB-Gain in dB                              |
+| `*_gain`         | No       | set specific Gain in dB (e.g. IF, BB, VGA1) |
 | `bandwidth`      | No       | Base band filter bandwidth in Hz           |
 | `antenna`        | No       | Antenna port to use                        |
 
@@ -126,16 +125,21 @@ The following options are available in this section:
 | Option Name      | Required | Description                                |
 |------------------|----------|--------------------------------------------|
 | `driver`         | Yes      | Soapy driver to be used<sup>[1](#factories)</sup>        |
+| `dev_args`       | No       | Device arguments passed onto SoapySDR<sup>[2](#dev)</sup>|
+| `stream_args`    | No       | Stream arguments passed onto SoapySDR via gr-soapy<sup>[3](#args)</sup>      |
+| `tune_args`      | No       | Tune arguments passed onto SoapySDR via gr-soapy<sup>[3](#args)</sup>        |
+| `other_settings` | No       | "Other settings" parameter passed onto SoapySDR via gr-soapy<sup>[3](#args)</sup>        |
 | `sample_rate`    | Yes      | Sample rate at which the source should run. Must be divisible by 100000. |
 | `center_freq`    | Yes      | Center frequency for the source in Hz      |
 | `bandwidth`      | No       | Base band filter bandwidth in Hz           |
 | `antenna`        | No       | Which antenna port should be used          |
 | `gain`           | No       | (RF)-Gain in dB                            |
-| `*_gain`         | No       | set specific Gain in dB<sup>[2](#gain)</sup>             |
+| `*_gain`         | No       | set specific Gain in dB<sup>[4](#gain)</sup> |
 
 <small><a name="factories">1</a>: Run `SoapySDRUtil --info |grep factories` to see available drivers on your system.</small>
-
-<small><a name="gain">2</a>: Check the output of `SoapySDRUtil --probe` to find valid gain names for your SDR. Gain names are usually different between OsmoSDR and SoapySDR.</small>
+<small><a name="dev">2</a>: Mostly used to enable an integrated bias tee - check files under `examples/`.</small>
+<small><a name="args">3</a>: These arguments are highly device specific. You might find hints in `examples/` or your SDR's SoapySDR driver. </small>
+<small><a name="gain">4</a>: Check the output of `SoapySDRUtil --probe` to find valid gain names for your SDR. Gain names are usually different between OsmoSDR and SoapySDR.</small>
 
 ### Command Line Options
 Command line options can be used instead of a configuration file. If a configuration file is also specified, command line options take precedence.

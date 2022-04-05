@@ -239,7 +239,13 @@ class FlowGraph(gr.top_block):
                 return s
 
             # Remove all outer quotes from the args if they are present in the config
-            dev_args = sanitize(d['dev_args']) if 'dev_args' in d else ''
+            if 'device_args' in d:
+                dev_args = sanitize(d['device_args'])
+            elif 'dev_args' in d:
+                dev_args = sanitize(d['dev_args'])
+            else:
+                dev_args = ''
+
             stream_args = sanitize(d['stream_args']) if 'stream_args' in d else ''
             tune_args = sanitize(d['tune_args']) if 'tune_args' in d else ''
             other_settings = sanitize(d['other_settings']) if 'other_settings' in d else ''
