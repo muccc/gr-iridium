@@ -83,7 +83,7 @@ A 2-channel 16bit wav file is also accepted as input.  Command line option `-r` 
 ###  Offline (SigMF)
  `iridium-extractor recording-test.sigmf-data > output.bits`
 
-`iridium-extractor`  supports both [SigMF](https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/sigmf-spec.md) files (`.sigmf-meta` / `.sigmf-data`) as well as [SiMF archives](https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/sigmf-spec.md#sigmf-archives) (`.sigmf`).
+`iridium-extractor`  supports both [SigMF](https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/sigmf-spec.md) files (`.sigmf-meta` / `.sigmf-data`) as well as [SigMF archives](https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/sigmf-spec.md#sigmf-archives) (`.sigmf`).
 
 Command line options `-c`, `-r` and `-f` can be used to override the SigMF information.
 
@@ -141,6 +141,20 @@ The following options are available in this section:
 <small><a name="args">3</a>: These arguments are highly device specific. You might find hints in `examples/` or your SDR's SoapySDR driver. </small>
 <small><a name="gain">4</a>: Check the output of `SoapySDRUtil --probe` to find valid gain names for your SDR. Gain names are usually different between OsmoSDR and SoapySDR.</small>
 
+### `demodulator` Section
+The optional `demodulator` section can be used to influence the demodulator behavior.
+
+| Option Name          | Required | Description                                |
+|----------------------|----------|--------------------------------------------|
+| `samples_per_symbol` | No       | Modifies the number of samples per symbol after down-mixing. Default is 10. Lower values decrease CPU/memory requirements and offer more flexibility for SDR sample rates. Higher values might demodulate a few more burst. |
+| `decimation`         | No       | See `--decimation` in the section below.   |
+
+The `samples_per_symbol` option is useful if you are running on a constraint system like a single
+board ARM computer (e.g. a Raspberry Pi). It also allows you to use sample rates which are not a
+multiple of 250000 samples per second. E.g. a setting of 5 samples per symbol allows your SDRs sample
+rate to be a multiple of 25000 * 5 = 125000 samples per second. A setting of 8 allows the sample rate
+to be a multiple of 200000 samples per second which for example works out well with 3.2 MSPS RTL-SDRs.
+
 ### Command Line Options
 Command line options can be used instead of a configuration file. If a configuration file is also specified, command line options take precedence.
 
@@ -174,7 +188,7 @@ The sample rate of the source or the file. Must be divisible by 100000.
 The following 4 formats are supported for sample input. For ease of use the names in the alias column can also be used.
 | Format    | File Format                                        | Alias            |
 |-----------|----------------------------------------------------|------------------|
-| `cu8`     | complex uint8 (RTLSDR)                             | `rtl`            |
+| `cu8`     | complex uint8 (RTL-SDR)                            | `rtl`            |
 | `ci8`     | complex int8 (hackrf, rad1o with hackrf-transfer)  | `hackrf`         |
 | `ci16_le` | complex int16 (USRP with specrec from gr-analysis) | `sc16`           |
 | `cf32_le` | complex float (GNU Radio, `uhd_rx_cfile`)           | `float` , `fc32`, `cfile` |

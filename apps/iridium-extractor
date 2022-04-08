@@ -187,11 +187,15 @@ if __name__ == "__main__":
         sample_rate = int(d['sample_rate'])
         center = int(d['center_freq'])
 
-        if 'samples_per_symbol' in d:
-            samples_per_symbol = int(d['samples_per_symbol'])
 
-        if 'decimation' in d:
-            decimation = int(d['decimation'])
+        if 'demodulator' in config:
+            d = config['demodulator']
+
+            if 'samples_per_symbol' in d:
+                samples_per_symbol = int(d['samples_per_symbol'])
+
+            if 'decimation' in d:
+                decimation = int(d['decimation'])
 
         fmt = 'float'
 
