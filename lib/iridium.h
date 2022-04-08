@@ -2,9 +2,9 @@
 namespace iridium {
 
 enum class direction {
-  UNDEF = 0,
-  DOWNLINK = 1,
-  UPLINK = 2,
+    UNDEF = 0,
+    DOWNLINK = 1,
+    UPLINK = 2,
 };
 
 const int SYMBOLS_PER_SECOND = 25000;
@@ -21,7 +21,7 @@ const int MAX_FRAME_LENGTH_NORMAL = 191;
 const int MIN_FRAME_LENGTH_SIMPLEX = 80; // Single page IRA
 const int MAX_FRAME_LENGTH_SIMPLEX = 444;
 
-const int UW_DL[] = {0, 2, 2, 2, 2, 0, 0, 0, 2, 0, 0, 2};
-const int UW_UL[] = {2, 2, 0, 0, 0, 2, 0, 0, 2, 0, 2, 2};
+const int UW_DL[] = { 0, 2, 2, 2, 2, 0, 0, 0, 2, 0, 0, 2 };
+const int UW_UL[] = { 2, 2, 0, 0, 0, 2, 0, 0, 2, 0, 2, 2 };
 
-}
+} // namespace iridium

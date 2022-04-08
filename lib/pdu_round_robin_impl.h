@@ -24,26 +24,25 @@
 #include <iridium/pdu_round_robin.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
 
-    class pdu_round_robin_impl : public pdu_round_robin
-    {
-     private:
-      int d_next_port;
-      void handler(pmt::pmt_t msg);
+class pdu_round_robin_impl : public pdu_round_robin
+{
+private:
+    int d_next_port;
+    void handler(pmt::pmt_t msg);
 
-     public:
-      pdu_round_robin_impl(int output_count);
-      ~pdu_round_robin_impl();
+public:
+    pdu_round_robin_impl(int output_count);
+    ~pdu_round_robin_impl();
 
-      // Where all the action really happens
-      int work(int noutput_items,
-         gr_vector_const_void_star &input_items,
-         gr_vector_void_star &output_items);
-    };
+    // Where all the action really happens
+    int work(int noutput_items,
+             gr_vector_const_void_star& input_items,
+             gr_vector_void_star& output_items);
+};
 
-  } // namespace iridium
+} // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_PDU_ROUND_ROBIN_IMPL_H */
-

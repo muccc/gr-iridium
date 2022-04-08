@@ -22,52 +22,44 @@
 #include "config.h"
 #endif
 
-#include <gnuradio/io_signature.h>
 #include "pdu_null_sink_impl.h"
+#include <gnuradio/io_signature.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
 
-    pdu_null_sink::sptr
-    pdu_null_sink::make()
-    {
-      return gnuradio::get_initial_sptr
-        (new pdu_null_sink_impl());
-    }
+pdu_null_sink::sptr pdu_null_sink::make()
+{
+    return gnuradio::get_initial_sptr(new pdu_null_sink_impl());
+}
 
 
-    /*
-     * The private constructor
-     */
-    pdu_null_sink_impl::pdu_null_sink_impl()
-      : gr::sync_block("pdu_null_sink",
-              gr::io_signature::make(0, 0, 0),
-              gr::io_signature::make(0, 0, 0))
-    {
-      message_port_register_in(pmt::mp("pdus"));
-      set_msg_handler(pmt::mp("pdus"), [this](pmt::pmt_t msg) { this->handler(msg); });
-    }
+/*
+ * The private constructor
+ */
+pdu_null_sink_impl::pdu_null_sink_impl()
+    : gr::sync_block("pdu_null_sink",
+                     gr::io_signature::make(0, 0, 0),
+                     gr::io_signature::make(0, 0, 0))
+{
+    message_port_register_in(pmt::mp("pdus"));
+    set_msg_handler(pmt::mp("pdus"), [this](pmt::pmt_t msg) { this->handler(msg); });
+}
 
-    /*
-     * Our virtual destructor.
-     */
-    pdu_null_sink_impl::~pdu_null_sink_impl()
-    {
-    }
+/*
+ * Our virtual destructor.
+ */
+pdu_null_sink_impl::~pdu_null_sink_impl() {}
 
-    void pdu_null_sink_impl::handler(pmt::pmt_t msg)
-    {
-    }
+void pdu_null_sink_impl::handler(pmt::pmt_t msg) {}
 
-    int
-    pdu_null_sink_impl::work(int noutput_items,
-        gr_vector_const_void_star &input_items,
-        gr_vector_void_star &output_items)
-    {
-      // Tell runtime system how many output items we produced.
-      return noutput_items;
-    }
+int pdu_null_sink_impl::work(int noutput_items,
+                             gr_vector_const_void_star& input_items,
+                             gr_vector_void_star& output_items)
+{
+    // Tell runtime system how many output items we produced.
+    return noutput_items;
+}
 
-  } /* namespace iridium */
+} /* namespace iridium */
 } /* namespace gr */
-

@@ -24,70 +24,72 @@
 #include <iridium/tagged_burst_to_pdu.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
 
-    struct burst_data {
-        uint64_t id;
-        double offset;
-        float magnitude;
-        float relative_frequency;
-        double center_frequency;
-        float sample_rate;
-        uint64_t timestamp;
-        float noise;
-        size_t len;
-        gr_complex * data;
-    };
+struct burst_data {
+    uint64_t id;
+    double offset;
+    float magnitude;
+    float relative_frequency;
+    double center_frequency;
+    float sample_rate;
+    uint64_t timestamp;
+    float noise;
+    size_t len;
+    gr_complex* data;
+};
 
-    class tagged_burst_to_pdu_impl : public tagged_burst_to_pdu
-    {
-     private:
-       bool d_debug;
-       float d_relative_center_frequency;
-       float d_relative_span;
-       float d_relative_sample_rate;
-       double d_sample_offset;
-       int d_max_burst_size;
-       int d_outstanding;
-       int d_max_outstanding;
-       int d_outstanding_limit;
-       uint64_t d_n_dropped_bursts;
-       bool d_drop_overflow;
-       bool d_blocked;
+class tagged_burst_to_pdu_impl : public tagged_burst_to_pdu
+{
+private:
+    bool d_debug;
+    float d_relative_center_frequency;
+    float d_relative_span;
+    float d_relative_sample_rate;
+    double d_sample_offset;
+    int d_max_burst_size;
+    int d_outstanding;
+    int d_max_outstanding;
+    int d_outstanding_limit;
+    uint64_t d_n_dropped_bursts;
+    bool d_drop_overflow;
+    bool d_blocked;
 
-       float d_lower_border;
-       float d_upper_border;
+    float d_lower_border;
+    float d_upper_border;
 
-       std::map<uint64_t, burst_data> d_bursts;
+    std::map<uint64_t, burst_data> d_bursts;
 
-       void append_to_burst(burst_data &burst, const gr_complex * data, size_t n);
-       void publish_burst(burst_data &burst);
+    void append_to_burst(burst_data& burst, const gr_complex* data, size_t n);
+    void publish_burst(burst_data& burst);
 
-       void create_new_bursts(int noutput_items,
-                const gr_complex * in);
-       void publish_and_remove_old_bursts(int noutput_items, const gr_complex * in);
-       void update_current_bursts(int noutput_items, const gr_complex * in);
+    void create_new_bursts(int noutput_items, const gr_complex* in);
+    void publish_and_remove_old_bursts(int noutput_items, const gr_complex* in);
+    void update_current_bursts(int noutput_items, const gr_complex* in);
 
-       int get_output_queue_size();
-       int get_output_max_queue_size();
-       void burst_handled(pmt::pmt_t msg);
-     public:
-      tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency,
-                                float relative_span, float d_relative_sample_rate,
-                                double sample_offset,
-                                int outstanding_limit, bool drop_overflow);
-      ~tagged_burst_to_pdu_impl();
+    int get_output_queue_size();
+    int get_output_max_queue_size();
+    void burst_handled(pmt::pmt_t msg);
 
-      uint64_t get_n_dropped_bursts();
+public:
+    tagged_burst_to_pdu_impl(int max_burst_size,
+                             float relative_center_frequency,
+                             float relative_span,
+                             float d_relative_sample_rate,
+                             double sample_offset,
+                             int outstanding_limit,
+                             bool drop_overflow);
+    ~tagged_burst_to_pdu_impl();
 
-      // Where all the action really happens
-      int work(int noutput_items,
-         gr_vector_const_void_star &input_items,
-         gr_vector_void_star &output_items);
-    };
+    uint64_t get_n_dropped_bursts();
 
-  } // namespace iridium
+    // Where all the action really happens
+    int work(int noutput_items,
+             gr_vector_const_void_star& input_items,
+             gr_vector_void_star& output_items);
+};
+
+} // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_TAGGED_BURST_TO_PDU_IMPL_H */
-

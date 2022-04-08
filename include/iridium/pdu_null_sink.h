@@ -21,35 +21,34 @@
 #ifndef INCLUDED_IRIDIUM_PDU_NULL_SINK_H
 #define INCLUDED_IRIDIUM_PDU_NULL_SINK_H
 
-#include <iridium/api.h>
 #include <gnuradio/sync_block.h>
+#include <iridium/api.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
+
+/*!
+ * \brief <+description of block+>
+ * \ingroup iridium
+ *
+ */
+class IRIDIUM_API pdu_null_sink : virtual public gr::sync_block
+{
+public:
+    typedef std::shared_ptr<pdu_null_sink> sptr;
 
     /*!
-     * \brief <+description of block+>
-     * \ingroup iridium
+     * \brief Return a shared_ptr to a new instance of iridium::pdu_null_sink.
      *
+     * To avoid accidental use of raw pointers, iridium::pdu_null_sink's
+     * constructor is in a private implementation
+     * class. iridium::pdu_null_sink::make is the public interface for
+     * creating new instances.
      */
-    class IRIDIUM_API pdu_null_sink : virtual public gr::sync_block
-    {
-     public:
-      typedef std::shared_ptr<pdu_null_sink> sptr;
+    static sptr make();
+};
 
-      /*!
-       * \brief Return a shared_ptr to a new instance of iridium::pdu_null_sink.
-       *
-       * To avoid accidental use of raw pointers, iridium::pdu_null_sink's
-       * constructor is in a private implementation
-       * class. iridium::pdu_null_sink::make is the public interface for
-       * creating new instances.
-       */
-      static sptr make();
-    };
-
-  } // namespace iridium
+} // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_PDU_NULL_SINK_H */
-

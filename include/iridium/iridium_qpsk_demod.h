@@ -21,39 +21,38 @@
 #ifndef INCLUDED_IRIDIUM_IRIDIUM_QPSK_DEMOD_CPP_H
 #define INCLUDED_IRIDIUM_IRIDIUM_QPSK_DEMOD_CPP_H
 
-#include <iridium/api.h>
 #include <gnuradio/block.h>
+#include <iridium/api.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
+
+/*!
+ * \brief <+description of block+>
+ * \ingroup iridium
+ *
+ */
+class IRIDIUM_API iridium_qpsk_demod : virtual public gr::block
+{
+public:
+    typedef std::shared_ptr<iridium_qpsk_demod> sptr;
 
     /*!
-     * \brief <+description of block+>
-     * \ingroup iridium
+     * \brief Return a shared_ptr to a new instance of iridium::iridium_qpsk_demod.
      *
+     * To avoid accidental use of raw pointers, iridium::iridium_qpsk_demod's
+     * constructor is in a private implementation
+     * class. iridium::iridium_qpsk_demod::make is the public interface for
+     * creating new instances.
      */
-    class IRIDIUM_API iridium_qpsk_demod : virtual public gr::block
-    {
-     public:
-      typedef std::shared_ptr<iridium_qpsk_demod> sptr;
+    static sptr make(int n_channels);
 
-      /*!
-       * \brief Return a shared_ptr to a new instance of iridium::iridium_qpsk_demod.
-       *
-       * To avoid accidental use of raw pointers, iridium::iridium_qpsk_demod's
-       * constructor is in a private implementation
-       * class. iridium::iridium_qpsk_demod::make is the public interface for
-       * creating new instances.
-       */
-      static sptr make(int n_channels);
+    virtual uint64_t get_n_handled_bursts() = 0;
+    virtual uint64_t get_n_access_ok_bursts() = 0;
+    virtual uint64_t get_n_access_ok_sub_bursts() = 0;
+};
 
-      virtual uint64_t get_n_handled_bursts() = 0;
-      virtual uint64_t get_n_access_ok_bursts() = 0;
-      virtual uint64_t get_n_access_ok_sub_bursts() = 0;
-    };
-
-  } // namespace iridium
+} // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_IRIDIUM_QPSK_DEMOD_CPP_H */
-

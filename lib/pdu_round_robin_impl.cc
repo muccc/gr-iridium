@@ -22,54 +22,49 @@
 #include "config.h"
 #endif
 
-#include <gnuradio/io_signature.h>
 #include "pdu_round_robin_impl.h"
+#include <gnuradio/io_signature.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
 
-    pdu_round_robin::sptr
-    pdu_round_robin::make(int output_count)
-    {
-      return gnuradio::get_initial_sptr
-        (new pdu_round_robin_impl(output_count));
-    }
+pdu_round_robin::sptr pdu_round_robin::make(int output_count)
+{
+    return gnuradio::get_initial_sptr(new pdu_round_robin_impl(output_count));
+}
 
 
-    /*
-     * The private constructor
-     */
-    pdu_round_robin_impl::pdu_round_robin_impl(int output_count)
-      : gr::block("pdu_round_robin",
-              gr::io_signature::make(0, 0, 0),
-              gr::io_signature::make(0, 0, 0)),
-        d_next_port(0)
-    {
-      message_port_register_in(pmt::mp("in"));
-      message_port_register_out(pmt::mp("out_0"));
-      message_port_register_out(pmt::mp("out_1"));
+/*
+ * The private constructor
+ */
+pdu_round_robin_impl::pdu_round_robin_impl(int output_count)
+    : gr::block("pdu_round_robin",
+                gr::io_signature::make(0, 0, 0),
+                gr::io_signature::make(0, 0, 0)),
+      d_next_port(0)
+{
+    message_port_register_in(pmt::mp("in"));
+    message_port_register_out(pmt::mp("out_0"));
+    message_port_register_out(pmt::mp("out_1"));
 
-      set_msg_handler(pmt::mp("in"), [this](pmt::pmt_t msg) { this->handler(msg); });
-    }
+    set_msg_handler(pmt::mp("in"), [this](pmt::pmt_t msg) { this->handler(msg); });
+}
 
-    /*
-     * Our virtual destructor.
-     */
-    pdu_round_robin_impl::~pdu_round_robin_impl()
-    {
-    }
+/*
+ * Our virtual destructor.
+ */
+pdu_round_robin_impl::~pdu_round_robin_impl() {}
 
-    void pdu_round_robin_impl::handler(pmt::pmt_t msg)
-    {
-      if(d_next_port == 0) {
+void pdu_round_robin_impl::handler(pmt::pmt_t msg)
+{
+    if (d_next_port == 0) {
         d_next_port = 1;
         message_port_pub(pmt::mp("out_0"), msg);
-      } else {
+    } else {
         d_next_port = 0;
         message_port_pub(pmt::mp("out_1"), msg);
-      }
     }
+}
 
-  } /* namespace iridium */
+} /* namespace iridium */
 } /* namespace gr */
-
