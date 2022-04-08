@@ -24,27 +24,26 @@
 #include <iridium/pdu_null_sink.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
 
-    class pdu_null_sink_impl : public pdu_null_sink
-    {
-     private:
-      // Nothing to declare in this block.
+class pdu_null_sink_impl : public pdu_null_sink
+{
+private:
+    // Nothing to declare in this block.
 
-     public:
-      pdu_null_sink_impl();
-      ~pdu_null_sink_impl();
+public:
+    pdu_null_sink_impl();
+    ~pdu_null_sink_impl();
 
-      void handler(pmt::pmt_t msg);
+    void handler(pmt::pmt_t msg);
 
-      // Where all the action really happens
-      int work(int noutput_items,
-         gr_vector_const_void_star &input_items,
-         gr_vector_void_star &output_items);
-    };
+    // Where all the action really happens
+    int work(int noutput_items,
+             gr_vector_const_void_star& input_items,
+             gr_vector_void_star& output_items);
+};
 
-  } // namespace iridium
+} // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_PDU_NULL_SINK_IMPL_H */
-

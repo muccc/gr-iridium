@@ -21,41 +21,43 @@
 #ifndef INCLUDED_IRIDIUM_BURST_DOWNMIX_H
 #define INCLUDED_IRIDIUM_BURST_DOWNMIX_H
 
-#include <iridium/api.h>
 #include <gnuradio/block.h>
+#include <iridium/api.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
+
+/*!
+ * \brief <+description of block+>
+ * \ingroup iridium
+ *
+ */
+class IRIDIUM_API burst_downmix : virtual public gr::block
+{
+public:
+    typedef std::shared_ptr<burst_downmix> sptr;
 
     /*!
-     * \brief <+description of block+>
-     * \ingroup iridium
+     * \brief Return a shared_ptr to a new instance of iridium::burst_downmix.
      *
+     * To avoid accidental use of raw pointers, iridium::burst_downmix's
+     * constructor is in a private implementation
+     * class. iridium::burst_downmix::make is the public interface for
+     * creating new instances.
      */
-    class IRIDIUM_API burst_downmix : virtual public gr::block
-    {
-     public:
-      typedef std::shared_ptr<burst_downmix> sptr;
+    static sptr make(int output_sample_rate,
+                     int search_depth,
+                     size_t hard_max_queue_len,
+                     const std::vector<float>& input_taps,
+                     const std::vector<float>& start_finder_taps,
+                     bool handle_multiple_frames_per_burst);
 
-      /*!
-       * \brief Return a shared_ptr to a new instance of iridium::burst_downmix.
-       *
-       * To avoid accidental use of raw pointers, iridium::burst_downmix's
-       * constructor is in a private implementation
-       * class. iridium::burst_downmix::make is the public interface for
-       * creating new instances.
-       */
-      static sptr make(int output_sample_rate, int search_depth, size_t hard_max_queue_len,
-            const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps,
-            bool handle_multiple_frames_per_burst);
+    virtual uint64_t get_n_dropped_bursts() = 0;
+    virtual size_t get_input_queue_size() = 0;
+    virtual void debug_id(uint64_t id) = 0;
+};
 
-      virtual uint64_t get_n_dropped_bursts() = 0;
-      virtual size_t get_input_queue_size() = 0;
-      virtual void debug_id(uint64_t id) = 0;
-    };
-
-  } // namespace iridium
+} // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_BURST_DOWNMIX_H */
-

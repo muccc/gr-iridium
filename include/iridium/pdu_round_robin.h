@@ -21,35 +21,34 @@
 #ifndef INCLUDED_IRIDIUM_PDU_ROUND_ROBIN_H
 #define INCLUDED_IRIDIUM_PDU_ROUND_ROBIN_H
 
-#include <iridium/api.h>
 #include <gnuradio/block.h>
+#include <iridium/api.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
+
+/*!
+ * \brief <+description of block+>
+ * \ingroup iridium
+ *
+ */
+class IRIDIUM_API pdu_round_robin : virtual public gr::block
+{
+public:
+    typedef std::shared_ptr<pdu_round_robin> sptr;
 
     /*!
-     * \brief <+description of block+>
-     * \ingroup iridium
+     * \brief Return a shared_ptr to a new instance of iridium::pdu_round_robin.
      *
+     * To avoid accidental use of raw pointers, iridium::pdu_round_robin's
+     * constructor is in a private implementation
+     * class. iridium::pdu_round_robin::make is the public interface for
+     * creating new instances.
      */
-    class IRIDIUM_API pdu_round_robin : virtual public gr::block
-    {
-     public:
-      typedef std::shared_ptr<pdu_round_robin> sptr;
+    static sptr make(int output_count);
+};
 
-      /*!
-       * \brief Return a shared_ptr to a new instance of iridium::pdu_round_robin.
-       *
-       * To avoid accidental use of raw pointers, iridium::pdu_round_robin's
-       * constructor is in a private implementation
-       * class. iridium::pdu_round_robin::make is the public interface for
-       * creating new instances.
-       */
-      static sptr make(int output_count);
-    };
-
-  } // namespace iridium
+} // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_PDU_ROUND_ROBIN_H */
-

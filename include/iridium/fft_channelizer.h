@@ -32,8 +32,13 @@ public:
      * class. iridium::fft_channelizer::make is the public interface for
      * creating new instances.
      */
-    static sptr make(int fft_size, int decimation, bool activate_streams, int pdu_ports,
-                        int max_burst_size, int outstanding_limit, bool drop_overflow);
+    static sptr make(int fft_size,
+                     int decimation,
+                     bool activate_streams,
+                     int pdu_ports,
+                     int max_burst_size,
+                     int outstanding_limit,
+                     bool drop_overflow);
 
     virtual uint64_t get_n_dropped_bursts() = 0;
     virtual int get_output_queue_size() = 0;

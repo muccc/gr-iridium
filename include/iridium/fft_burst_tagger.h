@@ -21,42 +21,47 @@
 #ifndef INCLUDED_IRIDIUM_FFT_BURST_TAGGER_H
 #define INCLUDED_IRIDIUM_FFT_BURST_TAGGER_H
 
-#include <iridium/api.h>
 #include <gnuradio/sync_block.h>
+#include <iridium/api.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
+
+/*!
+ * \brief <+description of block+>
+ * \ingroup iridium
+ *
+ */
+class IRIDIUM_API fft_burst_tagger : virtual public gr::sync_block
+{
+public:
+    typedef std::shared_ptr<fft_burst_tagger> sptr;
 
     /*!
-     * \brief <+description of block+>
-     * \ingroup iridium
+     * \brief Return a shared_ptr to a new instance of iridium::fft_burst_tagger.
      *
+     * To avoid accidental use of raw pointers, iridium::fft_burst_tagger's
+     * constructor is in a private implementation
+     * class. iridium::fft_burst_tagger::make is the public interface for
+     * creating new instances.
      */
-    class IRIDIUM_API fft_burst_tagger : virtual public gr::sync_block
-    {
-     public:
-      typedef std::shared_ptr<fft_burst_tagger> sptr;
+    static sptr make(double center_frequency,
+                     int fft_size,
+                     int sample_rate,
+                     int burst_pre_len,
+                     int burst_post_len,
+                     int burst_width,
+                     int max_bursts = 0,
+                     float threshold = 7,
+                     int history_size = 512,
+                     bool offline = false,
+                     bool debug = false);
 
-      /*!
-       * \brief Return a shared_ptr to a new instance of iridium::fft_burst_tagger.
-       *
-       * To avoid accidental use of raw pointers, iridium::fft_burst_tagger's
-       * constructor is in a private implementation
-       * class. iridium::fft_burst_tagger::make is the public interface for
-       * creating new instances.
-       */
-      static sptr make(double center_frequency, int fft_size, int sample_rate,
-                            int burst_pre_len, int burst_post_len,
-                            int burst_width, int max_bursts=0, float threshold=7,
-                            int history_size=512,
-                            bool offline=false, bool debug=false);
+    virtual uint64_t get_n_tagged_bursts() = 0;
+    virtual uint64_t get_sample_count() = 0;
+};
 
-      virtual uint64_t get_n_tagged_bursts() = 0;
-      virtual uint64_t get_sample_count() = 0;
-    };
-
-  } // namespace iridium
+} // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_FFT_BURST_TAGGER_H */
-

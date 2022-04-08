@@ -24,25 +24,24 @@
 #include <iridium/iuchar_to_complex.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
 
-    class iuchar_to_complex_impl : public iuchar_to_complex
-    {
-     private:
-        std::vector<gr_complex> d_lut;
+class iuchar_to_complex_impl : public iuchar_to_complex
+{
+private:
+    std::vector<gr_complex> d_lut;
 
-     public:
-      iuchar_to_complex_impl();
-      ~iuchar_to_complex_impl();
+public:
+    iuchar_to_complex_impl();
+    ~iuchar_to_complex_impl();
 
-      // Where all the action really happens
-      int work(int noutput_items,
-         gr_vector_const_void_star &input_items,
-         gr_vector_void_star &output_items);
-    };
+    // Where all the action really happens
+    int work(int noutput_items,
+             gr_vector_const_void_star& input_items,
+             gr_vector_void_star& output_items);
+};
 
-  } // namespace iridium
+} // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_IUCHAR_TO_COMPLEX_IMPL_H */
-

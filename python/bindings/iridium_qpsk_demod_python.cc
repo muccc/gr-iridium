@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(iridium_qpsk_demod.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(e006a7c401a8f8c22e8054da4590920a)                     */
+/* BINDTOOL_HEADER_FILE_HASH(a02087d339b0625fcbe45cb37303ab41)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>

@@ -21,35 +21,34 @@
 #ifndef INCLUDED_IRIDIUM_IUCHAR_TO_COMPLEX_H
 #define INCLUDED_IRIDIUM_IUCHAR_TO_COMPLEX_H
 
-#include <iridium/api.h>
 #include <gnuradio/sync_decimator.h>
+#include <iridium/api.h>
 
 namespace gr {
-  namespace iridium {
+namespace iridium {
+
+/*!
+ * \brief <+description of block+>
+ * \ingroup iridium
+ *
+ */
+class IRIDIUM_API iuchar_to_complex : virtual public gr::sync_decimator
+{
+public:
+    typedef std::shared_ptr<iuchar_to_complex> sptr;
 
     /*!
-     * \brief <+description of block+>
-     * \ingroup iridium
+     * \brief Return a shared_ptr to a new instance of iridium::iuchar_to_complex.
      *
+     * To avoid accidental use of raw pointers, iridium::iuchar_to_complex's
+     * constructor is in a private implementation
+     * class. iridium::iuchar_to_complex::make is the public interface for
+     * creating new instances.
      */
-    class IRIDIUM_API iuchar_to_complex : virtual public gr::sync_decimator
-    {
-     public:
-      typedef std::shared_ptr<iuchar_to_complex> sptr;
+    static sptr make();
+};
 
-      /*!
-       * \brief Return a shared_ptr to a new instance of iridium::iuchar_to_complex.
-       *
-       * To avoid accidental use of raw pointers, iridium::iuchar_to_complex's
-       * constructor is in a private implementation
-       * class. iridium::iuchar_to_complex::make is the public interface for
-       * creating new instances.
-       */
-      static sptr make();
-    };
-
-  } // namespace iridium
+} // namespace iridium
 } // namespace gr
 
 #endif /* INCLUDED_IRIDIUM_IUCHAR_TO_COMPLEX_H */
-

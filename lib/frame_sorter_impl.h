@@ -13,20 +13,21 @@
 namespace gr {
 namespace iridium {
 
-class frame {
+class frame
+{
 public:
     double timestamp;
     double center_frequency;
 
     friend bool operator<(const frame& l, const frame& r)
     {
-        if(std::abs(l.timestamp - r.timestamp) < 1000000 &&
-                std::abs(l.center_frequency - r.center_frequency) < 10000) {
+        if (std::abs(l.timestamp - r.timestamp) < 1000000 &&
+            std::abs(l.center_frequency - r.center_frequency) < 10000) {
             return false;
         }
 
-        return std::tie(l.timestamp, l.center_frequency)
-                < std::tie(r.timestamp, r.center_frequency);
+        return std::tie(l.timestamp, l.center_frequency) <
+               std::tie(r.timestamp, r.center_frequency);
     }
 };
 
