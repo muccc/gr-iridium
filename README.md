@@ -81,7 +81,7 @@ This processes the file in offline mode and supplies the needed options via the 
 A 2-channel 16bit wav file is also accepted as input.  Command line option `-r` can be used to override the sample rate.
 
 ###  Offline (SigMF)
- `iridium-extractor --multi-frame recording-test.sigmf-data > output.bits`
+ `iridium-extractor recording-test.sigmf-data > output.bits`
 
 `iridium-extractor`  supports both [SigMF](https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/sigmf-spec.md) files (`.sigmf-meta` / `.sigmf-data`) as well as [SiMF archives](https://github.com/gnuradio/SigMF/blob/sigmf-v1.x/sigmf-spec.md#sigmf-archives) (`.sigmf`).
 
@@ -198,9 +198,6 @@ For example `--debug-id=230` to output debug information for the burst containin
 
 **Note:** Last digit needs to always be `0`
 
-#### `--multi-frame`: Multi Frame
-If enabled, `iridium-extractor` tries to split long detected "bursts" into multiple frames. This uses additional CPU time, but will decode frames otherwise missed.
-
 #### `--file-info`: File Info
 Manually set the file info field (second field) in the output data. If this option is not used, the default will be:
 * basename of the sample source file if available
@@ -236,7 +233,7 @@ During normal operation `iridium-extractor` will output a status line once per s
 |  3|input average|average of `2` since program start|
 |  4|queue max    |High-water mark of the sum of the queue size(s) in the last second (see `-q`)|
 |  5|in ok%       |Percentage of bursts with at least one ok frame relative to `2`|
-|  6|out          |Number of "frames" after `--multi-frame` splitting|
+|  6|out          |Number of "frames" after splitting bursts into frames|
 |  7|ok%          |Percentage of "ok" frames(`8`) relative to `2` |
 |  8|ok           |Number of frames in the last second that could be extracted & demodulated|
 |  9|ok% average  |average of `7` since program start|
@@ -246,7 +243,6 @@ During normal operation `iridium-extractor` will output a status line once per s
 
 During normal operation `drops` should remain `0`, while `queue max` should be in the lower double digits "most" of the time.
 The `input` number is largely dependent on your antenna and will also vary depending on satellite location.
-If `--multi-frame` is not used, the "out" statistics are the same as "in". Minor variations may result due to asynchronous statistic collection.
 
 #### File / offline mode
 `1577922120 | srr: 0.0% | i_avg:   0/s | q_max:    0 | i_ok:   0% | o:    0/s | ok:   0% | ok:   0/s | ok_avg:   0% | ok:          0 | ok_avg:   0/s | d: 0`
@@ -279,7 +275,7 @@ During normal operation `iridium-extractor` will output one line of bits per "ok
 
 [^fileinfo]: In live mode: `i-<timestamp>-t1` whereas `timestamp` is a unix `time_t` representing the start of the recording.
 [^time]: Time in `3` is defined as the middle of the first symbol of the 12-symbol BPSK Iridium sync word.
-[^id]: Last digit identifies the sub-frame of a burst (always `0` unless in `--multi-frame` mode).
+[^id]: Last digit identifies the sub-frame of a burst.
 [^signal]: Due to historic reasons column `8` is not in dB. Convert do dBFS via `20*log10(_value_)`.
 [^bits]: Due to historic reasons the bits in column `10` are symbol-wise reversed to how they would normally be presented.
 

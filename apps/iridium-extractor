@@ -146,7 +146,7 @@ if __name__ == "__main__":
     decimation = 1
     samples_per_symbol = 10
     raw_capture_filename = None
-    handle_multiple_frames_per_burst = False
+    handle_multiple_frames_per_burst = True
     debug_id = None
     file_info = ""
     cfg = {}
@@ -192,9 +192,6 @@ if __name__ == "__main__":
 
         if 'decimation' in d:
             decimation = int(d['decimation'])
-
-        if 'multi_frame' in d:
-            handle_multiple_frames_per_burst = d['multi_frame'] == 'True'
 
         fmt = 'float'
 
@@ -268,6 +265,7 @@ if __name__ == "__main__":
         elif opt in ('-D', '--decimation'):
             decimation = int(arg)
         elif opt == '--multi-frame':
+            # TODO: Handle an optional "False"
             handle_multiple_frames_per_burst = True
         elif opt == '--raw-capture':
             raw_capture_filename = arg
@@ -282,7 +280,6 @@ if __name__ == "__main__":
             print("\t-f format\tset input format [rtl, hackrf, sc16, float]", file=sys.stderr)
             print("\t--offline\tturn on offline mode (don't skip samples)", file=sys.stderr)
             print("\t-D num   \tturn on decimation (multi-channel decoding) ", file=sys.stderr)
-            print("\t--multi-frame  \tturn on multiple frame per burst support ", file=sys.stderr)
             print("\t--raw-capture=filename  \tsave raw IQ samples (sc16) to file ", file=sys.stderr)
             print("\t<filename>\traw sample file", file=sys.stderr)
             print("", file=sys.stderr)
