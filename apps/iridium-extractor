@@ -307,9 +307,6 @@ if __name__ == "__main__":
     if sample_rate == None:
         print("Sample rate missing!", file=sys.stderr)
         exit(1)
-    if sample_rate % 100000:
-        print("Sample rate must be divisible by 100000!", file=sys.stderr)
-        exit(1)
     if center == None:
         print("Need to specify center frequency!", file=sys.stderr)
         exit(1)
@@ -366,6 +363,8 @@ if __name__ == "__main__":
             file_info=file_info,
             samples_per_symbol=samples_per_symbol,
             config=cfg)
+
+    sample_rate = tb._input_sample_rate
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))
     statistics_thread.setDaemon(True)

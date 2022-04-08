@@ -24,6 +24,7 @@ class FlowGraph(gr.top_block):
         self.handle_sigint = False
         self._center_frequency = center_frequency
         self._burst_width = burst_width
+        self._source_sample_rate = sample_rate
         self._input_sample_rate = sample_rate
         self._verbose = verbose
         self._threshold = threshold
@@ -35,8 +36,19 @@ class FlowGraph(gr.top_block):
 
         # Sample rate of the bursts exiting the burst downmix block
         self._burst_sample_rate = 25000 * samples_per_symbol
+        self._resampler = None
         if (self._input_sample_rate / self._decimation) % self._burst_sample_rate != 0:
-            raise RuntimeError("Selected sample rate and decimation can not be matched. Please try a different combination. Sample rate divided by decimation must be a multiple of %d." % self._burst_sample_rate)
+            #raise RuntimeError("Selected sample rate and decimation can not be matched. Please try a different combination. Sample rate divided by decimation must be a multiple of %d." % self._burst_sample_rate)
+            print("WARNING: Selected sample rate and decimation can not be matched. Please try a different combination. Sample rate divided by decimation must be a multiple of %d." % self._burst_sample_rate, file=sys.stderr)
+            self._input_sample_rate = (self._source_sample_rate // (self._burst_sample_rate * self._decimation)) * self._burst_sample_rate * self._decimation
+
+            print("WARNING: Activating internal resampler! Resampling to", self._input_sample_rate, "samples per second. This will increase CPU usage and might reduce performance.", file=sys.stderr)
+
+            self._resampler = gnuradio.filter.rational_resampler_ccc(
+                    interpolation=self._input_sample_rate,
+                    decimation=self._source_sample_rate,
+                    taps=[],
+                    fractional_bw=0)
 
         self._fft_size = 2**round(math.log(self._input_sample_rate / 1000, 2)) # FFT is approx. 1 ms long
         self._burst_pre_len = 2 * self._fft_size
@@ -151,7 +163,7 @@ class FlowGraph(gr.top_block):
             else:
                 source = osmosdr.source()
 
-            source.set_sample_rate(self._input_sample_rate)
+            source.set_sample_rate(self._source_sample_rate)
             source.set_center_freq(self._center_frequency, 0)
 
             # Set a rough time estimate for potential rx_time tags from USRP devices
@@ -253,7 +265,7 @@ class FlowGraph(gr.top_block):
             # We only support a single channel. Apply tune_args and other_settings to that channel.
             source = soapy.source(dev, "fc32", 1, dev_args, stream_args, [tune_args], [other_settings])
 
-            source.set_sample_rate(0, self._input_sample_rate)
+            source.set_sample_rate(0, self._source_sample_rate)
             source.set_frequency(0, self._center_frequency)
 
             if 'gain' in d:
@@ -379,7 +391,10 @@ class FlowGraph(gr.top_block):
             #self._burst_downmixers = []
             #return
 
-        tb.connect(source, self._fft_burst_tagger)
+        if self._resampler:
+            tb.connect(source, self._resampler, self._fft_burst_tagger)
+        else:
+            tb.connect(source, self._fft_burst_tagger)
 
         if self._use_channelizer:
             self._burst_to_pdu_converters = []
