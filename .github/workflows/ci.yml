@@ -23,7 +23,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: quentinguidee/pep8-action@v1
       with:
-        arguments: '--max-line-length=120 --ignore E265,E266,E402,E501,E704,E712,E713,E714,E711,E722,E741,W504,W605 --exclude *.yml.py,docs/*'
+        arguments: '--max-line-length=120 --ignore E265,E266,E402,E501,E704,E712,E713,E714,E711,E722,E741,W504,W605 --exclude *.yml.py,docs/*,python/bindings/*'
   gr-ppa:
     name: Ubuntu 20.04 + GNURadio PPA
     runs-on: ubuntu-20.04
