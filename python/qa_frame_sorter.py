@@ -19,10 +19,11 @@ except ImportError:
     sys.path.append(os.path.join(dirname, "bindings"))
     from iridium import frame_sorter
 
+
 class qa_frame_sorter(gr_unittest.TestCase):
 
-    FLUSH_TIMEOUT = 2*10**9 + 1
-    SECOND = 1*10**9
+    FLUSH_TIMEOUT = 2 * 10**9 + 1
+    SECOND = 1 * 10**9
 
     def setUp(self):
         self.tb = gr.top_block()
@@ -53,13 +54,13 @@ class qa_frame_sorter(gr_unittest.TestCase):
         self.send_frame(self.max_timestamp + self.FLUSH_TIMEOUT, 0, 0)
 
     def expect(self, num):
-         # Publish all frames remaining
+        # Publish all frames remaining
         self.flush()
 
         self.waitFor(lambda: self.d1.num_messages() == num, timeout=1.0, poll_interval=0.01)
 
     def expect_frames(self, frames):
-         # Publish all frames remaining
+        # Publish all frames remaining
         self.flush()
 
         self.waitFor(lambda: self.d1.num_messages() == len(frames), timeout=1.0, poll_interval=0.01)
@@ -68,26 +69,24 @@ class qa_frame_sorter(gr_unittest.TestCase):
             f = pmt.to_python(self.d1.get_message(i))[0]
             self.assertEqual(frames[i], f)
 
-
     def test_001_deduplicate_time(self):
         # Less than one ms difference. Second one should win (higher confidence)
         self.send_frame(4, 1000, 99)
-        self.send_frame(3 + 1000*1000, 1000, 100)
+        self.send_frame(3 + 1000 * 1000, 1000, 100)
 
         self.expect_frames([
-            {'timestamp': 3 + 1000*1000, 'center_frequency': 1000, 'confidence': 100},
-            ])
+            {'timestamp': 3 + 1000 * 1000, 'center_frequency': 1000, 'confidence': 100},
+        ])
 
     def test_002_sort_time(self):
         # Exactly one ms difference. Both should be sorted and published
-        self.send_frame(4 + 1000*1000, 4, 100)
+        self.send_frame(4 + 1000 * 1000, 4, 100)
         self.send_frame(4, 4, 99)
 
         self.expect_frames([
             {'timestamp': 4, 'center_frequency': 4, 'confidence': 99},
-            {'timestamp': 4 + 1000*1000, 'center_frequency': 4, 'confidence': 100},
-            ])
-
+            {'timestamp': 4 + 1000 * 1000, 'center_frequency': 4, 'confidence': 100},
+        ])
 
     def test_003_deduplicate_frequency(self):
         # Less than 10 kHz difference. First one should win (higher confidence)
@@ -96,8 +95,7 @@ class qa_frame_sorter(gr_unittest.TestCase):
 
         self.expect_frames([
             {'timestamp': 1000, 'center_frequency': 4001, 'confidence': 100},
-            ])
-
+        ])
 
     def test_004_sort_frequency(self):
         # Exactly 10 kHz difference. Both should be sorted and published
@@ -107,8 +105,7 @@ class qa_frame_sorter(gr_unittest.TestCase):
         self.expect_frames([
             {'timestamp': 3, 'center_frequency': 4000, 'confidence': 100},
             {'timestamp': 3, 'center_frequency': 14000, 'confidence': 99},
-            ])
-
+        ])
 
     def test_005_deduplicate_time_2(self):
         # Less than one ms difference with a valid packet in between on a different frequency.
@@ -116,13 +113,12 @@ class qa_frame_sorter(gr_unittest.TestCase):
         # Third one should win (higher confidence)
         self.send_frame(4 + 4, 4, 99)
         self.send_frame(4 + 100, 100000, 100)
-        self.send_frame(4 + 3 + 1000*1000, 4, 100)
+        self.send_frame(4 + 3 + 1000 * 1000, 4, 100)
 
         self.expect_frames([
             {'timestamp': 4 + 100, 'center_frequency': 100000, 'confidence': 100},
-            {'timestamp': 4 + 3 + 1000*1000, 'center_frequency': 4, 'confidence': 100},
-            ])
-
+            {'timestamp': 4 + 3 + 1000 * 1000, 'center_frequency': 4, 'confidence': 100},
+        ])
 
     def test_006_deduplicate_time_3(self):
         # Less than one ms difference. First one should win (higher confidence)
@@ -131,7 +127,8 @@ class qa_frame_sorter(gr_unittest.TestCase):
 
         self.expect_frames([
             {'timestamp': 26457929700, 'center_frequency': 1626074240, 'confidence': 100},
-            ])
+        ])
+
 
 if __name__ == '__main__':
     gr_unittest.run(qa_frame_sorter)
