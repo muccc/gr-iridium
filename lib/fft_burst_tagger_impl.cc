@@ -44,6 +44,7 @@ fft_burst_tagger::sptr fft_burst_tagger::make(double center_frequency,
                                               int burst_post_len,
                                               int burst_width,
                                               int max_bursts,
+                                              int max_burst_len,
                                               float threshold,
                                               int history_size,
                                               bool offline,
@@ -56,6 +57,7 @@ fft_burst_tagger::sptr fft_burst_tagger::make(double center_frequency,
                                                                 burst_post_len,
                                                                 burst_width,
                                                                 max_bursts,
+                                                                max_burst_len,
                                                                 threshold,
                                                                 history_size,
                                                                 offline,
@@ -73,6 +75,7 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
                                              int burst_post_len,
                                              int burst_width,
                                              int max_bursts,
+                                             int max_burst_len,
                                              float threshold,
                                              int history_size,
                                              bool offline,
@@ -84,6 +87,7 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
       d_sample_rate(sample_rate),
       d_fft_size(fft_size),
       d_burst_pre_len(burst_pre_len),
+      d_max_burst_len(max_burst_len),
       d_burst_id(0),
       d_sample_count(0),
       d_n_tagged_bursts(0),
@@ -218,10 +222,10 @@ bool fft_burst_tagger_impl::update_filters_pre(void)
 }
 
 #define HIST(i) (d_baseline_history_f + i * d_fft_size)
-void fft_burst_tagger_impl::update_filters_post(void)
+void fft_burst_tagger_impl::update_filters_post(bool force)
 {
     // We only update the average if there is no burst going on at the moment
-    if (d_bursts.size() == 0) {
+    if (d_bursts.size() == 0 || force) {
         volk_32f_x2_subtract_32f(
             d_baseline_sum_f, d_baseline_sum_f, HIST(d_history_index), d_fft_size);
         volk_32f_x2_add_32f(
@@ -252,10 +256,20 @@ void fft_burst_tagger_impl::update_bursts(void)
 
 void fft_burst_tagger_impl::delete_gone_bursts(void)
 {
+    bool update_noise_floor = false;
     auto b = std::begin(d_bursts);
 
     while (b != std::end(d_bursts)) {
-        if ((b->last_active + d_burst_post_len) < d_index) {
+        bool long_burst = false;
+
+        if (d_max_burst_len) {
+            if (b->last_active - b->start > d_max_burst_len) {
+                update_noise_floor = true;
+                long_burst = true;
+            }
+        }
+
+        if ((b->last_active + d_burst_post_len) <= d_index || long_burst) {
             // printf("Deleting gone burst %" PRIu64 " (start=%" PRIu64 ", d_index=%"
             // PRIu64 ")\n", b->id, b->start, d_index);
             b->stop = d_index;
@@ -264,6 +278,10 @@ void fft_burst_tagger_impl::delete_gone_bursts(void)
         } else {
             ++b;
         }
+    }
+
+    if (update_noise_floor) {
+        update_filters_post(true);
     }
 }
 
@@ -528,7 +546,7 @@ int fft_burst_tagger_impl::work(int noutput_items,
             update_burst_mask();
             create_new_bursts();
         }
-        update_filters_post();
+        update_filters_post(false);
     }
 
     memcpy(out, in - d_burst_pre_len, sizeof(gr_complex) * noutput_items);
