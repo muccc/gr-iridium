@@ -14,8 +14,10 @@ if __name__ == '__main__':
     #use sites when the prefix is already recognized
     try:
         paths = [p for p in site.getsitepackages() if p.startswith(prefix)]
-        if len(paths) == 1: install_dir = paths[0]
-    except AttributeError: pass
+        if len(paths) == 1:
+            install_dir = paths[0]
+    except AttributeError:
+        pass
 
     #strip the prefix to return a relative path
     print(os.path.relpath(install_dir, prefix))
