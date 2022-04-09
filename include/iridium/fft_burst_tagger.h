@@ -52,6 +52,7 @@ public:
                      int burst_post_len,
                      int burst_width,
                      int max_bursts = 0,
+                     int max_burst_len = 0,
                      float threshold = 7,
                      int history_size = 512,
                      bool offline = false,

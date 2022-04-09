@@ -349,6 +349,7 @@ class FlowGraph(gr.top_block):
                                                           burst_post_len=self._burst_post_len,
                                                           burst_width=int(self._burst_width),
                                                           max_bursts=max_bursts,
+                                                          max_burst_len=int(self._input_sample_rate * 0.09),
                                                           threshold=self._threshold,
                                                           history_size=512,
                                                           offline=self._offline,

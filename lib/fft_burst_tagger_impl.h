@@ -56,6 +56,7 @@ private:
     int d_history_index;
     int d_burst_post_len;
     int d_max_bursts;
+    int d_max_burst_len;
     int d_sample_rate;
     int d_squelch_count;
     uint64_t d_index;
@@ -85,7 +86,7 @@ private:
     std::vector<burst> d_gone_bursts;
 
     bool update_filters_pre(void);
-    void update_filters_post(void);
+    void update_filters_post(bool force);
     void extract_peaks(void);
     void save_peaks_to_debug_file(char* filename);
     void remove_peaks_around_bursts(void);
@@ -105,6 +106,7 @@ public:
                           int burst_post_len,
                           int burst_width,
                           int max_bursts,
+                          int max_burst_len,
                           float threshold,
                           int history_size,
                           bool offline,

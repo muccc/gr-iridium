@@ -20,6 +20,10 @@ parameters:
     label: Max Bursts
     dtype: int
     default: '0'
+-   id: max_burst_len
+    label: Max Burst Length
+    dtype: int
+    default: '0'
 -   id: burst_pre_len
     label: Pre Burst Samples
     dtype: int
@@ -57,6 +61,6 @@ templates:
     imports: import iridium
     make: "iridium.fft_burst_tagger(${center_frequency}, ${fft_size}, ${sample_rate},\
         \ ${burst_pre_len}, ${burst_post_len},\n                            ${burst_width},\
-        \ ${max_bursts}, ${threshold}, ${history_size}, ${debug})\n  "
+        \ ${max_bursts}, ${max_burst_len}, ${threshold}, ${history_size}, ${debug})\n  "
 
 file_format: 1
