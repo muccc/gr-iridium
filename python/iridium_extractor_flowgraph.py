@@ -308,20 +308,24 @@ class FlowGraph(gr.top_block):
                 itemsize = gr.sizeof_char
                 scale = 1
                 itemtype = np.uint8
+                itemcount = 2
             elif sample_format == "ci8":
                 converter = blocks.interleaved_char_to_complex()
                 itemsize = gr.sizeof_char
                 scale = 1 / 128.
                 itemtype = np.int8
+                itemcount = 2
             elif sample_format == "ci16_le":
                 converter = blocks.interleaved_short_to_complex()
                 itemsize = gr.sizeof_short
                 scale = 1 / 32768.
                 itemtype = np.int16
+                itemcount = 2
             elif sample_format == "cf32_le":
                 converter = None
                 itemsize = gr.sizeof_gr_complex
                 itemtype = np.complex64
+                itemcount = 1
             else:
                 raise RuntimeError("Unknown sample format for offline mode given")
 
@@ -342,6 +346,13 @@ class FlowGraph(gr.top_block):
             else:
                 source = file_source
 
+        self._history_size = 512
+        self._pre_time = 0
+        if 'repeat' in config and config['repeat'] == True:
+            pre_size = self._history_size * self._fft_size * itemsize * itemcount
+            self._pre_time = (self._history_size * self._fft_size / self._input_sample_rate)*1e9
+            config['object'].setrepeat(pre_size)
+
         self._fft_burst_tagger = iridium.fft_burst_tagger(center_frequency=self._center_frequency,
                                                           fft_size=self._fft_size,
                                                           sample_rate=self._input_sample_rate,
@@ -350,7 +361,7 @@ class FlowGraph(gr.top_block):
                                                           burst_width=int(self._burst_width),
                                                           max_bursts=max_bursts,
                                                           threshold=self._threshold,
-                                                          history_size=512,
+                                                          history_size=self._history_size,
                                                           offline=self._offline,
                                                           debug=self._verbose)
         self._fft_burst_tagger.set_min_output_buffer(1024 * 64)
@@ -366,7 +377,7 @@ class FlowGraph(gr.top_block):
 
         self._iridium_qpsk_demod = iridium.iridium_qpsk_demod(self._channels)
         self._frame_sorter = iridium.frame_sorter()
-        self._iridium_frame_printer = iridium.iridium_frame_printer(file_info)
+        self._iridium_frame_printer = iridium.iridium_frame_printer(file_info, round(self._pre_time))
 
         if raw_capture_filename:
             multi = blocks.multiply_const_cc(32768)

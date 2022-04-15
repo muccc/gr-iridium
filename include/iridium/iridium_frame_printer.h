@@ -32,7 +32,7 @@ public:
      * class. iridium::iridium_frame_printer::make is the public interface for
      * creating new instances.
      */
-    static sptr make(std::string file_info);
+    static sptr make(std::string file_info, uint64_t offset);
 };
 
 } // namespace iridium

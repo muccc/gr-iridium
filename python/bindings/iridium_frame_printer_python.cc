@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(iridium_frame_printer.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(cc076f2a982ac1007d74e8c3950dab45)                     */
+/* BINDTOOL_HEADER_FILE_HASH(0bee7cd66b3eaf14fee1a6f60acd906a)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -38,6 +38,7 @@ void bind_iridium_frame_printer(py::module& m)
 
         .def(py::init(&iridium_frame_printer::make),
            py::arg("file_info"),
+           py::arg("offset"),
            D(iridium_frame_printer,make)
         )
         

@@ -17,21 +17,21 @@ using boost::format;
 namespace gr {
 namespace iridium {
 
-iridium_frame_printer::sptr iridium_frame_printer::make(std::string file_info)
+iridium_frame_printer::sptr iridium_frame_printer::make(std::string file_info, uint64_t offset)
 {
-    return gnuradio::make_block_sptr<iridium_frame_printer_impl>(file_info);
+    return gnuradio::make_block_sptr<iridium_frame_printer_impl>(file_info, offset);
 }
 
 
 /*
  * The private constructor
  */
-iridium_frame_printer_impl::iridium_frame_printer_impl(std::string file_info)
+iridium_frame_printer_impl::iridium_frame_printer_impl(std::string file_info, uint64_t offset)
     : gr::block("iridium_frame_printer",
                 gr::io_signature::make(0, 0, 0),
                 gr::io_signature::make(0, 0, 0)),
       d_file_info(file_info),
-      d_t0(0)
+      d_t0(offset)
 {
     auto port_name = pmt::mp("pdus");
     message_port_register_in(port_name);

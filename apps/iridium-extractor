@@ -133,6 +133,7 @@ if __name__ == "__main__":
                                                             'raw-capture=',
                                                             'debug-id=',
                                                             'file-info=',
+                                                            'restart',
                                                             'help'
                                                             ])
 
@@ -149,6 +150,7 @@ if __name__ == "__main__":
     handle_multiple_frames_per_burst = True
     debug_id = None
     file_info = ""
+    restart = False
     cfg = {}
 
     if len(remainder) == 0 or remainder[0] == '-' or remainder[0] == '/dev/stdin':
@@ -277,6 +279,8 @@ if __name__ == "__main__":
             debug_id = int(arg)
         elif opt == '--file-info':
             file_info = arg
+        elif opt == '--restart':
+            restart = True
         elif opt in ('-h', '--help'):
             print("Usage: iridium-extractor [options] <filename>", file=sys.stderr)
             print("\t-c frequency\tset center frequency", file=sys.stderr)
@@ -353,6 +357,52 @@ if __name__ == "__main__":
 
         with open(raw_capture_filename+'.sigmf-meta', 'w') as outfile:
             json.dump(data, outfile, indent=4)
+
+    if restart:
+        import inspect
+
+        class repeatf:
+            def __init__(self, fobj):
+                self._fobj=fobj
+                self._rlen=None
+                self._tell=0
+
+                # wrap all remaining methods
+                for name, value in inspect.getmembers(fobj, callable):
+                    if not hasattr(self, name):
+                        setattr(self, name, value)
+
+            def setrepeat(self, rlen):
+                self._rlen=int(rlen)
+
+            # override read
+            def read(self, count):
+                if self._tell+count<self._rlen:
+                    self._tell+=count
+                    return self._fobj.read(count)
+
+                readpre=self._rlen-self._tell
+                if readpre>0:
+                    self._tell+=readpre
+                    return self._fobj.read(readpre)
+
+                # our work is done, seek to start
+                # and map read() to original object
+                self._fobj.seek(0,0)
+                self._tell+=count
+                setattr(self, "read", self._fobj.read)
+                return self._fobj.read(count)
+
+        if cfg['source'] == 'file':
+            cfg['object'] = open(cfg['file'],"rb")
+            cfg['source'] = 'object'
+
+        if cfg['source'] == 'object':
+            cfg['object'] = repeatf(cfg['object'])
+            cfg['repeat'] = True
+        else:
+            print("Cannot use --restart with '%s' source" % cfg['source'], file=sys.stderr)
+            exit(1)
 
     tb = iridium.iridium_extractor_flowgraph.FlowGraph(center_frequency=center, sample_rate=sample_rate, decimation=decimation, 
             filename=filename, sample_format=fmt,

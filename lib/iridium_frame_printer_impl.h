@@ -23,7 +23,7 @@ private:
     void handle_msg_sys(const pmt::pmt_t& msg);
 
 public:
-    iridium_frame_printer_impl(std::string file_info);
+    iridium_frame_printer_impl(std::string file_info, uint64_t offset);
     ~iridium_frame_printer_impl();
 
     // Where all the action really happens
