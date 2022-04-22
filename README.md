@@ -10,8 +10,6 @@ You should also have a look at the [iridium-toolkit](https://github.com/muccc/ir
 
 > :warning: **If you want to build for GNU Radio 3.8**: Make sure to use the `maint-3.8` branch of this repository (i.e. run `git checkout maint-3.8` before installation). Also make sure to check the README.md from that branch for correct build instructions.
 
-> :warning: **If you want to build for GNU Radio 3.7**: Make sure to use the `maint-3.7` branch of this repository (i.e. run `git checkout maint-3.7` before installation). Also make sure to check the README.md from that branch for correct build instructions.
-
 ## Prerequisites
 A working [GNU Radio](https://gnuradio.org) installation with the following components is necessary:
 
@@ -25,8 +23,6 @@ No other OOT module is needed.
 
 ## Build & Installation
 If you want to build for GNU Radio 3.8, run `git checkout maint-3.8` before installation!
-
-If you want to build for GNU Radio 3.7, run `git checkout maint-3.7` before installation!
 
 ```
 mkdir build
