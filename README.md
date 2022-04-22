@@ -10,7 +10,7 @@ You should also have a look at the [iridium-toolkit](https://github.com/muccc/ir
 
 > :warning: **If you want to build for GNU Radio 3.8**: Make sure to use the `maint-3.8` branch of this repository (i.e. run `git checkout maint-3.8` before installation). Also make sure to check the README.md from that branch for correct build instructions.
 
-## Prerequisites
+## Dependencies
 A working [GNU Radio](https://gnuradio.org) installation with the following components is necessary:
 
  - VOLK
@@ -18,19 +18,24 @@ A working [GNU Radio](https://gnuradio.org) installation with the following comp
  - Filter
  - Python 3
  - pybind11
- - libsndlib
+ - libsndlib1-dev
 
 No other OOT module is needed.
 
 ## Build & Installation
 If you want to build for GNU Radio 3.8, run `git checkout maint-3.8` before installation!
 
+
+Installation instructions for:
+
+ - [Ubuntu 22.04](docs/install-ubuntu-22.04.md)
+
+If your operating system is not listed above, try these generic instructions after installing the
+dependencies mentioned above:
 ```
-mkdir build
-cd build
-cmake ..
-make
-sudo make install
+cmake -B build
+cmake --build build -j 2
+sudo cmake --install build
 sudo ldconfig
 ```
 
