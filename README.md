@@ -11,7 +11,7 @@ You should also have a look at the [iridium-toolkit](https://github.com/muccc/ir
 > :warning: **If you want to build for GNU Radio 3.8**: Make sure to use the `maint-3.8` branch of this repository (i.e. run `git checkout maint-3.8` before installation). Also make sure to check the README.md from that branch for correct build instructions.
 
 ## Dependencies
-A working [GNU Radio](https://gnuradio.org) installation with the following components is necessary:
+A working [GNU Radio 3.10](https://gnuradio.org) installation with the following components is necessary:
 
  - VOLK
  - FFT
@@ -39,8 +39,8 @@ sudo cmake --install build
 sudo ldconfig
 ```
 
-### GNU Radio on Ubuntu or Debian
-The recommended GNU Radio versions to use gr-iridium with are 3.9 and 3.10. If you use Ubuntu or Debian our recommended way to install GNU Radio is to use PyBOMBS as described here: https://github.com/Sec42/sec-gr/. Please expect trouble if you install GNU Radio any other way.
+### GNU Radio on Ubuntu 20.04 or Debian stable (bullseye) or Raspberry Pi OS (64-bit)
+The recommended GNU Radio versions to use gr-iridium with is GNU Radio 3.10. If you use a Ubuntu version older than Ubuntu 22.04 or Debian stable (bullseye) our recommended way to install GNU Radio is to use PyBOMBS as described here: https://github.com/Sec42/sec-gr/. Please expect trouble if you install GNU Radio any other way on these systems.
 
 ## Usage examples
 The following commands are examples how to use the `iridium-extractor` tool. To further parse the demodulated frames have a look at the [iridium-toolkit](https://github.com/muccc/iridium-toolkit). It provides scripts to extract meaningful information.

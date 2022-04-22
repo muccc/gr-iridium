@@ -32,4 +32,4 @@ sudo ldconfig
 ```
 
 You are now ready to execute `iridium-extractor` as a normal user. Follow the instructions in
-[README.md](../README.md) for details.
+[README.md](../README.md#usage-examples) for details.
