@@ -18,6 +18,7 @@ A working [GNU Radio](https://gnuradio.org) installation with the following comp
  - Filter
  - Python 3
  - pybind11
+ - libsndlib
 
 No other OOT module is needed.
 
