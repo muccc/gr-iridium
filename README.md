@@ -100,10 +100,11 @@ If no configuration file is used, a file name can be provided to read samples fr
 
 ### Configuration File
 Configuration files need to have a `.conf` file extension.
-The configuration file should contain one section and start with a corresponding `[section-name]` line.
+The configuration file must contain exactly one source section and start with a
+corresponding `[section-name]` line.
 
 ### `osmosdr-source` Section
-If this section is present an OsmoSDR source is instantiated.
+If the `[osmosdr-source]` section is present an OsmoSDR source is instantiated.
 
 The following options are available in this section:
 
@@ -120,7 +121,7 @@ The following options are available in this section:
 <a name="dev">1</a>: Mostly used to enable bias tee - check files under `examples/`
 
 ### `soapy-source` Section
-If this section is present a SoapySDR source is instantiated.
+If the `[soapy-source]` section is present a SoapySDR source is instantiated.
 
 The following options are available in this section:
 
@@ -144,14 +145,14 @@ The following options are available in this section:
 <small><a name="gain">4</a>: Check the output of `SoapySDRUtil --probe` to find valid gain names for your SDR. Gain names are usually different between OsmoSDR and SoapySDR.</small>
 
 ### `demodulator` Section
-The optional `demodulator` section can be used to influence the demodulator behavior.
+The optional `[demodulator]` section can be used to influence the demodulator behavior.
 
 | Option Name          | Required | Description                                |
 |----------------------|----------|--------------------------------------------|
 | `samples_per_symbol` | No       | Modifies the number of samples per symbol after down-mixing. Default is 10. Lower values decrease CPU/memory requirements and offer more flexibility for SDR sample rates. Higher values might demodulate a few more burst. |
 | `decimation`         | No       | See `--decimation` in the section below.   |
 
-The `samples_per_symbol` option is useful if you are running on a constraint system like a single
+The `samples_per_symbol` option is useful if you are running on a constrained system like a single
 board ARM computer (e.g. a Raspberry Pi). It also allows you to use sample rates which are not a
 multiple of 250000 samples per second. E.g. a setting of 5 samples per symbol allows your SDRs sample
 rate to be a multiple of 25000 * 5 = 125000 samples per second. A setting of 8 allows the sample rate
