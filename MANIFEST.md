@@ -1,5 +1,5 @@
 title: The IRIDIUM OOT Module
-brief: GNURadio components to receive and demodulate Iridium frames
+brief: GNU Radio components to receive and demodulate Iridium frames
 tags:
   - sdr
   - iridium
