@@ -29,6 +29,7 @@ If you want to build for GNU Radio 3.8, run `git checkout maint-3.8` before inst
 Installation instructions for:
 
  - [Ubuntu 22.04 (from source)](docs/install-ubuntu-22.04.md)
+ - [Ubuntu 22.04 on Rasperry Pi 4 (from source)](docs/install-ubuntu-22.04-rpi-source.md)
  - [DragonOS Pi64 Beta](docs/install-dragon-os-pi64-beta.md)
 
 If your operating system is not listed above, try these generic instructions after installing the
