@@ -12,6 +12,7 @@ gr_supported_version:
   - v3.7
   - v3.8
   - v3.9
+  - v3.10
 
 #repo: # Put the URL of the repository here, or leave blank for default
 #website: <module_website> # If you have a separate project website, put it here
