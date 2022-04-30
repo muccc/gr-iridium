@@ -10,21 +10,9 @@ You should also have a look at the [iridium-toolkit](https://github.com/muccc/ir
 
 > :warning: **If you want to build for GNU Radio 3.8**: Make sure to use the `maint-3.8` branch of this repository (i.e. run `git checkout maint-3.8` before installation). Also make sure to check the README.md from that branch for correct build instructions.
 
-## Dependencies
-A working [GNU Radio 3.10](https://gnuradio.org) installation with the following components is necessary:
-
- - VOLK
- - FFT
- - Filter
- - Python 3
- - pybind11
- - libsndlib1-dev
-
-No other OOT module is needed.
+A working [GNU Radio 3.10](https://gnuradio.org) installation is necessary to use gr-iridium.
 
 ## Build & Installation
-If you want to build for GNU Radio 3.8, run `git checkout maint-3.8` before installation!
-
 
 Installation instructions for:
 
@@ -32,11 +20,16 @@ Installation instructions for:
  - [Ubuntu 22.04 on Rasperry Pi 4 (from source)](docs/install-ubuntu-22.04-rpi-source.md)
  - [DragonOS Pi64 Beta](docs/install-dragon-os-pi64-beta.md)
 
-If your operating system is not listed above, try these generic instructions after installing the
-dependencies mentioned above:
+If your operating system is not listed above, first install the following dependencies:
+ - gnuradio-dev
+ - libvolk-dev
+ - pybind11-dev
+ - libsndlib1-dev
+
+Afterwards try these generic build instructions:
 ```
 cmake -B build
-cmake --build build -j 2
+cmake --build build
 sudo cmake --install build
 sudo ldconfig
 ```
