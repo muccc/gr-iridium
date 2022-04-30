@@ -1,0 +1,24 @@
+Source: gr-iridium
+Section: comm
+Priority: optional
+Maintainer: schneider <schneider@muc.ccc.de>
+Build-Depends: cmake,
+               debhelper (>= 13~),
+               dh-python,
+               gnuradio-dev,
+               libsndfile-dev,
+               pkg-config,
+               python3-dev,
+Standards-Version: 4.5.0
+Homepage: http://github.com/muccc/gr-iridium
+Vcs-Git: git://github.com/muccc/gr-iridium.git
+Vcs-Browser: https://github.com/muccc/gr-iridium
+
+Package: gr-iridium
+Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${misc:Depends}, ${python3:Depends}, ${shlibs:Depends},
+         gnuradio,
+Description:GNU Radio out-of-tree module for Iridium satellite reception
+ gr-iridium is a GNU Radio out-of-tree module that contains a demodulator for
+ Iridium satellites.
