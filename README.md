@@ -99,7 +99,7 @@ The configuration file must contain exactly one source section and start with a
 corresponding `[section-name]` line.
 
 ### `osmosdr-source` Section
-If the `[osmosdr-source]` section is present an OsmoSDR source is instantiated.
+If the `[osmosdr-source]` section is present, an OsmoSDR source is instantiated.
 
 The following options are available in this section:
 
@@ -116,7 +116,7 @@ The following options are available in this section:
 <a name="dev">1</a>: Mostly used to enable bias tee - check files under `examples/`
 
 ### `soapy-source` Section
-If the `[soapy-source]` section is present a SoapySDR source is instantiated.
+If the `[soapy-source]` section is present, a SoapySDR source is instantiated.
 
 The following options are available in this section:
 
@@ -138,6 +138,24 @@ The following options are available in this section:
 <small><a name="dev">2</a>: Mostly used to enable an integrated bias tee - check files under `examples/`.</small>
 <small><a name="args">3</a>: These arguments are highly device specific. You might find hints in `examples/` or your SDR's SoapySDR driver. </small>
 <small><a name="gain">4</a>: Check the output of `SoapySDRUtil --probe` to find valid gain names for your SDR. Gain names are usually different between OsmoSDR and SoapySDR.</small>
+
+### `zeromq-sub-source` Section
+If the `[zeromq-sub-source]` section is present, ZeroMQ is used to receive data from a `ZMW PUB Sink` running in another flow graph.
+
+The following options are available in this section:
+
+| Option Name      | Required | Description                                |
+|------------------|----------|--------------------------------------------|
+| `address`        | Yes      | Address of the source. Something like `tcp://127.0.0.1:5000`. |
+| `sample_rate`    | Yes      | Sample rate at which the source is running. Must be divisible by 100000. |
+| `center_freq`    | Yes      | Center frequency of the source in Hz.      |
+| `pass_tags`      | No       | Must be equal to the `Pass Tags` setting of the `ZMQ PUB Sink` block. Default is `False`. Valid options are `True` and `False`. |
+| `high_water_mark`| No       | ZMQ's "High Water Mark" option. Default is `-1`. |
+
+See `examples/zeromq-sub.conf` and `experimental/zmq-publisher.grc` for examples how to use this source.
+Also have a look at https://wiki.gnuradio.org/index.php/ZMQ_SUB_Source and https://wiki.gnuradio.org/index.php/ZMQ_PUB_Sink .
+
+Also consider https://github.com/muaddib1984/stillsuit as a solution to create a compatible source.
 
 ### `demodulator` Section
 The optional `[demodulator]` section can be used to influence the demodulator behavior.
