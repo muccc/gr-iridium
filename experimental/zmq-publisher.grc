@@ -273,7 +273,7 @@ blocks:
     dc_offs_enb8: default
     dc_offs_enb9: default
     dev_addr: '""'
-    dev_args: ''
+    dev_args: num_recv_frames=1024,recv_frame_size=8000
     gain0: '36'
     gain1: '36'
     gain10: '0'
@@ -709,7 +709,7 @@ blocks:
     dc_offs_enb8: default
     dc_offs_enb9: default
     dev_addr: '""'
-    dev_args: ''
+    dev_args: num_recv_frames=1024,recv_frame_size=8000
     gain0: '36'
     gain1: '36'
     gain10: '0'
@@ -992,7 +992,7 @@ blocks:
 - name: zeromq_pub_sink_0_0
   id: zeromq_pub_sink
   parameters:
-    address: tcp://0.0.0.0:2324
+    address: tcp://0.0.0.0:5001
     affinity: ''
     alias: ''
     comment: ''
