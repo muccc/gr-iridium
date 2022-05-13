@@ -149,13 +149,18 @@ The following options are available in this section:
 | `address`        | Yes      | Address of the source. Something like `tcp://127.0.0.1:5000`. |
 | `sample_rate`    | Yes      | Sample rate at which the source is running. Must be divisible by 100000. |
 | `center_freq`    | Yes      | Center frequency of the source in Hz.      |
-| `pass_tags`      | No       | Must be equal to the `Pass Tags` setting of the `ZMQ PUB Sink` block. Default is `False`. Valid options are `True` and `False`. |
+| `pass_tags`      | No       | Must be equal to the `Pass Tags` setting of the `ZMQ PUB Sink` block. Default is `False`. Valid options are `True` and `False`. Relevant if you want to receive `rx_time` tags from your source.|
 | `high_water_mark`| No       | ZMQ's "High Water Mark" option. Default is `-1`. |
 
 See `examples/zeromq-sub.conf` and `experimental/zmq-publisher.grc` for examples how to use this source.
 Also have a look at https://wiki.gnuradio.org/index.php/ZMQ_SUB_Source and https://wiki.gnuradio.org/index.php/ZMQ_PUB_Sink .
 
 Also consider https://github.com/muaddib1984/stillsuit as a solution to create a compatible source.
+
+Warning: If you set `pass_tags` to `True` make sure that your source is not supplying bogus `rx_time` tags.
+This is by default the case when using a USRP without a properly configured external time source. In this case
+the timestamps reported by gr-iridium will follow what ever the `rx_time` tags of the source tell it. Sometimes
+this might be based on the uptime of some system part or something similar.
 
 ### `demodulator` Section
 The optional `[demodulator]` section can be used to influence the demodulator behavior.
