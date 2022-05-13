@@ -162,6 +162,34 @@ This is by default the case when using a USRP without a properly configured exte
 the timestamps reported by gr-iridium will follow what ever the `rx_time` tags of the source tell it. Sometimes
 this might be based on the uptime of some system part or something similar.
 
+### `uhd-source` Section
+If the `[uhd-source]` section is present, UHD is used to connect to a USRP.
+
+This is mainly of interest when working with an internal GPSDO as gr-iridium will wait for
+it to lock if `clock_source` or `time_source` specifies an internal GPSDO. This source will always
+use channel 0 of the chosen USRP.
+
+| Option Name      | Required | Description                                |
+|------------------|----------|--------------------------------------------|
+| `device_addr`    | No       | Device address. Default lets UHD pick a device.|
+| `device_args`    | Yes      | Device arguments passed onto UHD. Must be supplied to configure buffer sizes.|
+| `sample_rate`    | Yes      | Sample rate at which the source is running. Must be divisible by 100000. |
+| `center_freq`    | Yes      | Center frequency of the source in Hz.      |
+| `gain`           | No       | Gain in dB.                                |
+| `bandwidth`      | No       | Base band filter bandwidth in Hz.          |
+| `antenna`        | No       | Antenna port to be used.                   |
+| `clock_source`   | No       | Can be used to specify an external reference clock.                   |
+| `time_source`    | No       | Can be used to specify the time source.                   |
+
+Please refer to the UHD documentation for your device to understand the options for `antenna`, `clock_source` and
+`time_source`. Tested options so far are `external`, `gpsdo` and `jacksonlabs` (see below).
+
+gr-iridium implements a special `clock_source` and `time_source` for USRP B2x0 devices `jacksonlabs`. It
+improves waiting for proper GPS lock before starting a capture. Use this if you have an internal Jacksonlabs
+GPSDO.
+
+See `examples/usrp-b2x0-uhd.conf` for an example how to use this with a B2x0 device.
+
 ### `demodulator` Section
 The optional `[demodulator]` section can be used to influence the demodulator behavior.
 
