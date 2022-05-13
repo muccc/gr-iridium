@@ -376,7 +376,7 @@ if __name__ == "__main__":
             config=cfg)
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))
-    statistics_thread.setDaemon(True)
+    statistics_thread.daemon = True
     statistics_thread.start()
 
     tb.run()
