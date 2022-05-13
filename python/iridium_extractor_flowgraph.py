@@ -444,6 +444,10 @@ class FlowGraph(gr.top_block):
 
                 # TODO: Check result for plausibility
                 print("USRP  time:", source.get_time_last_pps(0).get_real_secs(), file=sys.stderr)
+            else:
+                # Set a rough time estimate for rx_time tags from the USRP.
+                # This prevents the output from having bogous time stamps if no GPSDO is available.
+                source.set_time_now(uhd.time_spec_t(time.time()))
 
             self.source = source
 
