@@ -514,6 +514,9 @@ int fft_burst_tagger_impl::work(int noutput_items,
         const uint64_t seconds = pmt::to_uint64(pmt::tuple_ref(value, 0));
         const double seconds_fraction = pmt::to_double(pmt::tuple_ref(value, 1));
 
+        std::cerr << "Got rx_time tag: " << seconds << " + " << seconds_fraction
+                  << " seconds." << std::endl;
+
         d_last_rx_time_timestamp =
             seconds * 1000000000ULL + (uint64_t)(seconds_fraction * 1000000000ULL);
     }
