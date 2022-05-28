@@ -10,6 +10,9 @@
 
 #include <iridium/iridium_frame_printer.h>
 
+#include <nngpp/nngpp.h>
+#include <nngpp/protocol/pub0.h>
+
 namespace gr {
 namespace iridium {
 
@@ -18,6 +21,7 @@ class iridium_frame_printer_impl : public iridium_frame_printer
 private:
     std::string d_file_info;
     uint64_t d_t0;
+    nng::socket nng_sock;
 
     void handler(const pmt::pmt_t& msg);
     void handle_msg_sys(const pmt::pmt_t& msg);

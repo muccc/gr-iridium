@@ -32,6 +32,7 @@ endif(NOT iridium_sources)
 
 add_library(gnuradio-iridium SHARED ${iridium_sources})
 target_link_libraries(gnuradio-iridium gnuradio::gnuradio-runtime gnuradio::gnuradio-filter)
+target_link_libraries(gnuradio-iridium nng)
 target_include_directories(gnuradio-iridium
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     PUBLIC $<INSTALL_INTERFACE:include>

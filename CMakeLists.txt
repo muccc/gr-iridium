@@ -168,6 +168,8 @@ else(ENABLE_PYTHON)
   message(STATUS "PYTHON and GRC components are disabled")
 endif(ENABLE_PYTHON)
 
+target_include_directories(gnuradio-iridium PRIVATE nngpp/include)
+
 ########################################################################
 # Install cmake search helper for this library
 ########################################################################

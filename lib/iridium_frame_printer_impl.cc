@@ -14,6 +14,9 @@ using boost::format;
 
 #include <ctime>
 
+#include <nngpp/nngpp.h>
+#include <nngpp/protocol/pub0.h>
+
 namespace gr {
 namespace iridium {
 
@@ -39,6 +42,12 @@ iridium_frame_printer_impl::iridium_frame_printer_impl(std::string file_info)
 
     // hack: hijack system message port
     set_msg_handler(pmt::mp("system"), [this](const pmt::pmt_t& msg) { this->handle_msg_sys(msg); });
+
+    // create a socket for the pub protocol
+    nng_sock = nng::pub::open();
+
+    // listen using the ipc transport
+    nng_sock.listen( "ipc:///tmp/iridium" );
 }
 
 /*
@@ -76,22 +85,27 @@ void iridium_frame_printer_impl::handler(const pmt::pmt_t& msg)
         d_file_info = "i-" + std::to_string(d_t0/1000000000ULL) + "-t1";
     }
 
-    std::cout << "RAW: " << d_file_info << " ";
-    std::cout << format("%012.4f ") % ((timestamp - d_t0)/1000000.);
-    std::cout << format("%010d ") % int(center_frequency);
-    std::cout << format("N:%05.2f%+06.2f ") % magnitude % noise;
-    std::cout << format("I:%011d ") % id;
-    std::cout << format("%3d%% ") % confidence;
-    std::cout << format("%.5f ") % level;
-    std::cout << format("%3d ") % (n_symbols - ::iridium::UW_LENGTH);
+    std::ostringstream line;
+
+    line << "RAW: " << d_file_info << " ";
+    line << format("%012.4f ") % ((timestamp - d_t0)/1000000.);
+    line << format("%010d ") % int(center_frequency);
+    line << format("N:%05.2f%+06.2f ") % magnitude % noise;
+    line << format("I:%011d ") % id;
+    line << format("%3d%% ") % confidence;
+    line << format("%.5f ") % level;
+    line << format("%3d ") % (n_symbols - ::iridium::UW_LENGTH);
 
 
     auto bits = pmt::u8vector_elements(symbols);
     for (const auto i: bits) {
-        std::cout << std::to_string(i);
+        line << std::to_string(i);
     }
 
-    std::cout << std::endl;
+    const std::string tmp = line.str();
+    nng_sock.send(nng::view(tmp.data(), tmp.size()));
+
+//    std::cout << line.str() << std::endl;
 }
 
 } /* namespace iridium */
