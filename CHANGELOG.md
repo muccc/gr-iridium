@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Indicate support for GNU Radio 3.10 in MANIFEST.md.
 - Limit size of detected bursts to 90 ms for better frame sorting.
 - Improve suppression of long lasting interference.
+- Install example configurations
 
 ### Added
 - Support for ZeroMQ sources.
