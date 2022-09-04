@@ -468,7 +468,7 @@ float burst_downmix_impl::interpolate(float alpha, float beta, float gamma)
 }
 
 int burst_downmix_impl::process_next_frame(float sample_rate,
-                                           float center_frequency,
+                                           double center_frequency,
                                            uint64_t timestamp,
                                            uint64_t sub_id,
                                            size_t burst_size,
@@ -757,8 +757,8 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     pmt::pmt_t meta = pmt::car(msg);
     float relative_frequency =
         pmt::to_float(pmt::dict_ref(meta, pmt::mp("relative_frequency"), pmt::PMT_NIL));
-    float center_frequency =
-        pmt::to_float(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
+    double center_frequency =
+        pmt::to_double(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
     float sample_rate =
         pmt::to_float(pmt::dict_ref(meta, pmt::mp("sample_rate"), pmt::PMT_NIL));
     uint64_t id = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("id"), pmt::PMT_NIL));
