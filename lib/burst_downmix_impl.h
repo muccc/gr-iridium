@@ -74,7 +74,7 @@ private:
 
     void handler(pmt::pmt_t msg);
     int process_next_frame(float sample_rate,
-                           float center_frequency,
+                           double center_frequency,
                            uint64_t timestamp,
                            uint64_t sub_id,
                            size_t burst_size,
