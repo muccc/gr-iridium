@@ -5,8 +5,8 @@ import getopt
 import sys
 import threading
 import os.path
+import argparse
 
-import multiprocessing
 import iridium.iridium_extractor_flowgraph
 
 queue_len_max = 0
@@ -118,46 +118,54 @@ def print_stats(tb):
 
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:],
-                                       'w:c:r:vd:f:oq:b:D:h',
-                                       [
-                                       'burst-width=',
-                                       'center=',
-                                       'rate=',
-                                       'verbose',
-                                       'db=',
-                                       'format=',
-                                       'offline',
-                                       'queuelen=',
-                                       'burstsize=',
-                                       'decimation',
-                                       'multi-frame',
-                                       'raw-capture=',
-                                       'debug-id=',
-                                       'file-info=',
-                                       'help']
-                                       )
+    parser = argparse.ArgumentParser(description='Receive and demodulate Iridium transmissions.',
+                                     epilog='For more detailed usage information see https://github.com/muccc/gr-iridium/')
+    parser.add_argument('-b', '--max-bursts', dest='max_bursts', type=int, default=0,
+                        help='Maximum allowed number of active bursts. Default: automatic')
+    parser.add_argument('-w', '--burst-width', dest='burst_width', type=int, default=40000,
+                        help='Width in Hz of the burst filter. Default: 40 kHz.')
+    parser.add_argument('-c', '--center', dest='center', type=int,
+                        help='Center frequency for the source or the file in Hz.')
+    parser.add_argument('-d', '--db', dest='threshold', type=float, default=18,
+                        help='Burst detection threshold in dB. Default: 18 dB.')
+    parser.add_argument('--debug-id', dest='debug_id', type=int,
+                        help='Write debug data for a certain frame ID. Last digit must be 0. See documentation for details.')
+    parser.add_argument('-D', '--decimation', dest='decimation', type=int,
+                        help='Number of channel to split the signal into. Must be even or 1. Default: 1.')
+    parser.add_argument('--file-info', dest='file_info', action="store",
+                        help='Manually set the file info field in the output data.')
+    parser.add_argument('-f', '--format', dest='fmt', action='store', choices=('cu8', 'ci8', 'ci16_le', 'cf32_le', 'rtl', 'hackrf', 'sc16', 'float', 'fc32', 'cfile'),
+                        help='Format of the samples of a recording. If not specified the file extension will be used.')
+    # This only exists to support legacy scripts
+    # TODO: Handle an optional "False"
+    parser.add_argument('--multi-frame', dest='handle_multiple_frames_per_burst', action="store_true", default=True,
+                        help='Enable handling of multiple frames per burst. Enabled by default.')
+    parser.add_argument('-o', '--offline', dest='offline', action='store_true',
+                        help='Enable offline mode when reading from stdin.')
+    parser.add_argument('-q', '--queuelen', dest='max_queue_len', type=int, default=500,
+                        help='Number of bursts that are allowed to queue up per channel. Default: 500.')
+    parser.add_argument('-r', '--rate', dest='sample_rate', type=int,
+                        help='Sample rate of the source or the file in Hz. Must be divisible by 100000.')
+    parser.add_argument('--raw-capture', dest='raw_capture_filename', action="store",
+                        help='Write a copy of the samples to a SigMF recording.')
+    parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
+                        help='Enable verbose output.')
+
+    parser.add_argument('filename', action="store", nargs='?', default='-',
+                        help='File containing either raw samples or a configuration for an SDR. If not present stdin will be used to read raw samples.')
+    args = parser.parse_args()
 
     center = None
-    burst_width = 40000
-    verbose = False
-    threshold = 18  # about 18 dB over noise
     fmt = None
-    max_queue_len = 500
-    max_bursts = 0
     decimation = 1
     samples_per_symbol = 10
-    raw_capture_filename = None
-    handle_multiple_frames_per_burst = True
-    debug_id = None
-    file_info = ""
     cfg = {}
 
-    if len(remainder) == 0 or remainder[0] == '-' or remainder[0] == '/dev/stdin':
+    if args.filename in ('-', '/dev/stdin'):
         filename = "/dev/stdin"
         cfg['source'] = 'stdin'
-    elif len(remainder) == 1:
-        filename = remainder[0]
+    else:
+        filename = args.filename
         if not os.path.exists(filename):
             print("Specified input file `%s` does not exist" % filename, file=sys.stderr)
             exit(1)
@@ -165,9 +173,6 @@ if __name__ == "__main__":
             offline = True
         cfg['source'] = 'file'
         cfg['file'] = filename
-    else:
-        print("Excess arguments after filename.", file=sys.stderr)
-        exit(1)
 
     if filename.endswith(".conf"):
         import configparser
@@ -256,48 +261,20 @@ if __name__ == "__main__":
         except:
             print("[sigmf] datatype missing.", file=sys.stderr)
 
-    for opt, arg in options:
-        if opt in ('-w', '--burst-width'):
-            burst_width = int(arg)
-        elif opt in ('-c', '--center'):
-            center = int(arg)
-        elif opt in ('-r', '--rate'):
-            sample_rate = int(arg)
-        elif opt in ('-d', '--db'):
-            threshold = float(arg)
-        elif opt in ('-v', '--verbose'):
-            verbose = True
-        elif opt in ('-f', '--format'):
-            fmt = arg
-        elif opt in ('-o', '--offline'):
-            offline = True
-        elif opt in ('-q', '--queuelen'):
-            max_queue_len = int(arg)
-        elif opt in ('-b', '--burstsize'):
-            max_bursts = int(arg)
-        elif opt in ('-D', '--decimation'):
-            decimation = int(arg)
-        elif opt == '--multi-frame':
-            # TODO: Handle an optional "False"
-            handle_multiple_frames_per_burst = True
-        elif opt == '--raw-capture':
-            raw_capture_filename = arg
-        elif opt == '--debug-id':
-            debug_id = int(arg)
-        elif opt == '--file-info':
-            file_info = arg
-        elif opt in ('-h', '--help'):
-            print("Usage: iridium-extractor [options] <filename>", file=sys.stderr)
-            print("\t-c frequency\tset center frequency", file=sys.stderr)
-            print("\t-r rate \tset sample rate", file=sys.stderr)
-            print("\t-f format\tset input format [rtl, hackrf, sc16, float]", file=sys.stderr)
-            print("\t--offline\tturn on offline mode (don't skip samples)", file=sys.stderr)
-            print("\t-D num   \tturn on decimation (multi-channel decoding) ", file=sys.stderr)
-            print("\t--raw-capture=filename  \tsave raw IQ samples (sc16) to file ", file=sys.stderr)
-            print("\t<filename>\traw sample file", file=sys.stderr)
-            print("", file=sys.stderr)
-            print("For more documentation check: https://github.com/muccc/gr-iridium/", file=sys.stderr)
-            exit(-1)
+    if args.sample_rate is not None:
+        sample_rate = args.sample_rate
+
+    if args.center is not None:
+        center = args.center
+
+    if args.fmt is not None:
+        fmt = args.fmt
+
+    if args.decimation is not None:
+        decimation = args.decimation
+
+    if args.offline:
+        offline = True
 
     # check filename extension for sample format
     extension = os.path.splitext(filename)[-1][1:]
@@ -308,10 +285,8 @@ if __name__ == "__main__":
     if fmt in sample_formats:
         fmt = sample_formats[fmt]
 
-    if file_info == "" and offline:
-        file_info = filename
-        file_info = os.path.basename(file_info)
-        file_info = os.path.splitext(file_info)[0]
+    if args.file_info is None and offline:
+        args.file_info = os.path.splitext(os.path.basename(filename))[0]
 
     if sample_rate == None:
         print("Sample rate missing!", file=sys.stderr)
@@ -323,7 +298,7 @@ if __name__ == "__main__":
         print("Need to specify center frequency!", file=sys.stderr)
         exit(1)
     if fmt == None:
-        print("Need to specify sample format (one of rtl, hackrf, sc16, float)!", file=sys.stderr)
+        print("Need to specify sample format (use -h to get a list of supported formats)!", file=sys.stderr)
         exit(1)
     if decimation < 1:
         print("Decimation must be > 0", file=sys.stderr)
@@ -331,12 +306,12 @@ if __name__ == "__main__":
     if decimation > 1 and decimation % 2:
         print("Decimations > 1 must be even", file=sys.stderr)
         exit(1)
-    if debug_id is not None:
+    if args.debug_id is not None:
         if not os.path.isdir('/tmp/signals'):
             print("/tmp/signals directory missing!", file=sys.stderr)
             exit(1)
 
-    if raw_capture_filename is not None:
+    if args.raw_capture_filename is not None:
         import json
         import datetime
         data = {
@@ -360,19 +335,19 @@ if __name__ == "__main__":
         if cfg['source'] == 'soapy':
             data['global']['core:hw'] = cfg['soapy-source']['driver']
 
-        with open(raw_capture_filename + '.sigmf-meta', 'w') as outfile:
+        with open(args.raw_capture_filename + '.sigmf-meta', 'w') as outfile:
             json.dump(data, outfile, indent=4)
 
     tb = iridium.iridium_extractor_flowgraph.FlowGraph(center_frequency=center, sample_rate=sample_rate, decimation=decimation,
                                                        filename=filename, sample_format=fmt,
-                                                       threshold=threshold, burst_width=burst_width,
-                                                       offline=offline, max_queue_len=max_queue_len,
-                                                       handle_multiple_frames_per_burst=handle_multiple_frames_per_burst,
-                                                       raw_capture_filename=raw_capture_filename,
-                                                       debug_id=debug_id,
-                                                       max_bursts=max_bursts,
-                                                       verbose=verbose,
-                                                       file_info=file_info,
+                                                       threshold=args.threshold, burst_width=args.burst_width,
+                                                       offline=offline, max_queue_len=args.max_queue_len,
+                                                       handle_multiple_frames_per_burst=args.handle_multiple_frames_per_burst,
+                                                       raw_capture_filename=args.raw_capture_filename,
+                                                       debug_id=args.debug_id,
+                                                       max_bursts=args.max_bursts,
+                                                       verbose=args.verbose,
+                                                       file_info=args.file_info,
                                                        samples_per_symbol=samples_per_symbol,
                                                        config=cfg)
 
