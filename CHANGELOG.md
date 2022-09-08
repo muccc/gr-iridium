@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Limit size of detected bursts to 90 ms for better frame sorting.
 - Improve suppression of long lasting interference.
 - Install example configurations.
+- Better center frequency estimates
 
 ### Added
 - Support for ZeroMQ sources.
