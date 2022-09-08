@@ -142,12 +142,13 @@ int iridium_qpsk_demod_impl::decimate(const gr_complex* in,
 /*
  * Taken from synchronizer_v4_impl.cc of gr-burst
  */
-void iridium_qpsk_demod_impl::qpskFirstOrderPLL(const gr_complex* x,
-                                                int size,
-                                                float alpha,
-                                                gr_complex* y)
+float iridium_qpsk_demod_impl::qpskFirstOrderPLL(const gr_complex* x,
+                                                 int size,
+                                                 float alpha,
+                                                 gr_complex* y)
 {
     gr_complex phiHat = gr_complex(1, 0);
+    float total_phase = 0;
     gr_complex xHat, er, phiHatT;
     for (int ii = 0; ii < size; ii++) {
         // correct w/ estimated phase
@@ -171,9 +172,11 @@ void iridium_qpsk_demod_impl::qpskFirstOrderPLL(const gr_complex* x,
         // loop filter to update phase estimate
         er = std::conj(xHat) * y[ii];
         phiHatT = er / std::abs(er);
-        phiHat = std::conj(std::pow(phiHatT, d_alpha)) * phiHat;
+        total_phase += std::arg(std::pow(phiHatT, alpha));
+        phiHat = std::conj(std::pow(phiHatT, alpha)) * phiHat;
         phiHat = phiHat / std::abs(phiHat);
     }
+    return total_phase;
 }
 
 
@@ -351,7 +354,9 @@ void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
 #if 1
     // Apply a PLL to the signal to remove any remaining
     // frequency or phase offset
-    qpskFirstOrderPLL(d_decimated_burst, n_symbols, d_alpha, d_burst_after_pll);
+    float total_phase =
+        qpskFirstOrderPLL(d_decimated_burst, n_symbols, d_alpha, d_burst_after_pll);
+    center_frequency += total_phase / (n_symbols / 25000.) / M_PI / 2.;
 #else
     memcpy(d_burst_after_pll, d_decimated_burst, n_symbols * sizeof(gr_complex));
 #endif

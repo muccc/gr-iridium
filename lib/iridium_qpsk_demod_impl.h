@@ -47,7 +47,7 @@ private:
     void handler(int channel, pmt::pmt_t msg);
     void update_buffer_sizes(size_t burst_size);
     int decimate(const gr_complex* in, int size, int sps, gr_complex* out);
-    void qpskFirstOrderPLL(const gr_complex* x, int size, float alpha, gr_complex* y);
+    float qpskFirstOrderPLL(const gr_complex* x, int size, float alpha, gr_complex* y);
     size_t demod_qpsk(const gr_complex* burst,
                       size_t n_symbols,
                       int* out,
