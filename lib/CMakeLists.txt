@@ -30,7 +30,13 @@ if(NOT iridium_sources)
     return()
 endif(NOT iridium_sources)
 
-add_library(gnuradio-iridium SHARED ${iridium_sources})
+find_package(Protobuf REQUIRED)
+include_directories(${Protobuf_INCLUDE_DIRS})
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS bits.proto)
+
+add_library(gnuradio-iridium SHARED ${iridium_sources} ${PROTO_SRCS} ${PROTO_HDRS})
+target_link_libraries(gnuradio-iridium ${Protobuf_LIBRARIES})
 target_link_libraries(gnuradio-iridium gnuradio::gnuradio-runtime gnuradio::gnuradio-filter)
 target_include_directories(gnuradio-iridium
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>

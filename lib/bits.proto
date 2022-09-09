@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+package gr.iridium;
+
+message Frame {
+  optional string fileinfo = 1;
+  required int64 timestamp = 2;
+  required int32 frequency = 3;
+  required float magnitude = 4;
+  required float noise = 5;
+  required int64 id = 6;
+  required int32 confidence = 7;
+  required float level = 8;
+  required int32 len = 9;
+  required bytes data = 10;
+}
+

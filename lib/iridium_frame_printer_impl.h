@@ -10,6 +10,8 @@
 
 #include <iridium/iridium_frame_printer.h>
 
+#include <fstream>
+
 namespace gr {
 namespace iridium {
 
@@ -18,6 +20,7 @@ class iridium_frame_printer_impl : public iridium_frame_printer
 private:
     std::string d_file_info;
     uint64_t d_t0;
+    std::fstream d_output;
 
     void handler(const pmt::pmt_t& msg);
     void handle_msg_sys(const pmt::pmt_t& msg);
