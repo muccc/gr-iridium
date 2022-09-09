@@ -8,11 +8,16 @@
 #include "iridium_frame_printer_impl.h"
 #include <gnuradio/io_signature.h>
 
+#include "bits.pb.h"
+
 #include "iridium.h"
 
 using boost::format;
 
 #include <ctime>
+#include <iostream>
+#include <fstream>
+#include <string>
 
 namespace gr {
 namespace iridium {
@@ -31,8 +36,11 @@ iridium_frame_printer_impl::iridium_frame_printer_impl(std::string file_info)
                 gr::io_signature::make(0, 0, 0),
                 gr::io_signature::make(0, 0, 0)),
       d_file_info(file_info),
-      d_t0(0)
+      d_t0(0),
+      d_output("/tmp/foo.pbits", std::ios::out | std::ios::trunc | std::ios::binary)
 {
+    GOOGLE_PROTOBUF_VERIFY_VERSION;
+
     auto port_name = pmt::mp("pdus");
     message_port_register_in(port_name);
     set_msg_handler(port_name, [this](const pmt::pmt_t& msg) { this->handler(msg); });
@@ -97,6 +105,39 @@ void iridium_frame_printer_impl::handler(const pmt::pmt_t& msg)
     }
 
     std::cout << std::endl;
+
+
+    //::iridium::Frame frame;
+    //::gr::iridium::Frame frame;
+    //iridium::Frame frame;
+    Frame frame;
+
+    //frame.set_fileinfo(d_file_info);
+    frame.set_timestamp(timestamp - d_t0);
+    frame.set_frequency(int(center_frequency + 0.5));
+    frame.set_magnitude(magnitude);
+    frame.set_noise(noise);
+    frame.set_id(id);
+    frame.set_confidence(confidence);
+    frame.set_level(level);
+
+    frame.set_len(n_symbols * 2);
+
+    for (const auto i : bits) {
+        std::cout << std::to_string(i);
+    }
+
+    char packed[(n_symbols * 2 + 7) / 8];
+    memset(packed, 0, sizeof(packed));
+
+    for(int i=0; i<n_symbols * 2; i++) {
+        if(bits[i]) {
+            packed[i/8] |= 1 << (7 - (i % 8));
+        }
+    }
+
+    frame.set_data(std::string(packed, sizeof(packed)));
+    frame.SerializeToOstream(&d_output);
 }
 
 } /* namespace iridium */
