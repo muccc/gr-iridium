@@ -15,7 +15,10 @@ const int SIMPLEX_FREQUENCY_MIN = 1626000000;
 const int PREAMBLE_LENGTH_SHORT = 16;
 const int PREAMBLE_LENGTH_LONG = 64;
 
-const int MIN_FRAME_LENGTH_NORMAL = 131; // IBC frame
+const int MIN_FRAME_LENGTH_UL = 26; // IAQ frame
+const int MIN_FRAME_LENGTH_DL = 67; // Partial IBC frame with time. 131 would be a full IBC frame
+
+const int MIN_FRAME_LENGTH_NORMAL = MIN_FRAME_LENGTH_UL;
 const int MAX_FRAME_LENGTH_NORMAL = 191;
 
 const int MIN_FRAME_LENGTH_SIMPLEX = 80; // Single page IRA

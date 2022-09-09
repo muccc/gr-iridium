@@ -378,6 +378,13 @@ void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
         return;
     }
 
+    if (ul_uw_ok && n_symbols < ::iridium::MIN_FRAME_LENGTH_UL + ::iridium::UW_LENGTH) {
+        return;
+    }
+
+    if (dl_uw_ok && n_symbols < ::iridium::MIN_FRAME_LENGTH_DL + ::iridium::UW_LENGTH) {
+        return;
+    }
 
     // Let's count the number of bursts before
     // the burst downmix split them up
