@@ -10,9 +10,10 @@
 
 #include "iridium.h"
 
-using boost::format;
-
+#include <boost/format.hpp>
 #include <ctime>
+
+using boost::format;
 
 namespace gr {
 namespace iridium {
