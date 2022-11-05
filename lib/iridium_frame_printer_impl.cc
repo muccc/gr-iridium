@@ -18,6 +18,22 @@
 #include <fstream>
 #include <string>
 
+#include <zmq.hpp>
+
+#if defined(CPPZMQ_VERSION) && defined(ZMQ_MAKE_VERSION) && \
+    CPPZMQ_VERSION >= ZMQ_MAKE_VERSION(4, 3, 1)
+#define USE_NEW_CPPZMQ_SEND_RECV 1
+#else
+#define USE_NEW_CPPZMQ_SEND_RECV 0
+#endif
+
+#if defined(CPPZMQ_VERSION) && defined(ZMQ_MAKE_VERSION) && \
+    CPPZMQ_VERSION >= ZMQ_MAKE_VERSION(4, 8, 0)
+#define USE_NEW_CPPZMQ_SET_GET 1
+#else
+#define USE_NEW_CPPZMQ_SET_GET 0
+#endif
+
 using boost::format;
 
 namespace gr {
@@ -38,9 +54,41 @@ iridium_frame_printer_impl::iridium_frame_printer_impl(std::string file_info)
                 gr::io_signature::make(0, 0, 0)),
       d_file_info(file_info),
       d_t0(0),
-      d_output("/tmp/foo.pbits", std::ios::out | std::ios::trunc | std::ios::binary)
+      d_context(1),
+      d_socket(d_context, ZMQ_PUB)
 {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+    bool bind = true;
+    auto address = "tcp://127.0.0.1:2323";
+
+    int time = 0;
+#if USE_NEW_CPPZMQ_SET_GET
+    d_socket.set(zmq::sockopt::linger, time);
+#else
+    d_socket.setsockopt(ZMQ_LINGER, &time, sizeof(time));
+#endif
+    if (bind) {
+        d_socket.bind(address);
+    } else {
+        d_socket.connect(address);
+    }
+
+    int hwm = 1000;
+    /* Set high watermark */
+    if (hwm >= 0) {
+#if USE_NEW_CPPZMQ_SET_GET
+        d_socket.set(zmq::sockopt::sndhwm, hwm);
+#else
+#ifdef ZMQ_SNDHWM
+        d_socket.setsockopt(ZMQ_SNDHWM, &hwm, sizeof(hwm));
+#else // major < 3
+        uint64_t tmp = hwm;
+        d_socket.setsockopt(ZMQ_HWM, &tmp, sizeof(tmp));
+#endif
+#endif
+    }
+
 
     auto port_name = pmt::mp("pdus");
     message_port_register_in(port_name);
@@ -107,13 +155,8 @@ void iridium_frame_printer_impl::handler(const pmt::pmt_t& msg)
 
     std::cout << std::endl;
 
-
-    //::iridium::Frame frame;
-    //::gr::iridium::Frame frame;
-    //iridium::Frame frame;
     Frame frame;
-
-    //frame.set_fileinfo(d_file_info);
+    frame.set_fileinfo(d_file_info);
     frame.set_timestamp(timestamp - d_t0);
     frame.set_frequency(int(center_frequency + 0.5));
     frame.set_magnitude(magnitude);
@@ -121,7 +164,6 @@ void iridium_frame_printer_impl::handler(const pmt::pmt_t& msg)
     frame.set_id(id);
     frame.set_confidence(confidence);
     frame.set_level(level);
-
     frame.set_len(n_symbols * 2);
 
     for (const auto i : bits) {
@@ -138,7 +180,18 @@ void iridium_frame_printer_impl::handler(const pmt::pmt_t& msg)
     }
 
     frame.set_data(std::string(packed, sizeof(packed)));
-    frame.SerializeToOstream(&d_output);
+
+    std::string msg_str;
+    frame.SerializeToString(&msg_str);
+    zmq::message_t zmsg(msg_str.size());
+    memcpy(zmsg.data(), msg_str.c_str(), msg_str.size());
+
+#if USE_NEW_CPPZMQ_SEND_RECV
+    d_socket.send(zmsg, zmq::send_flags::none);
+#else
+    d_socket.send(zmsg);
+#endif
+
 }
 
 } /* namespace iridium */

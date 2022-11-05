@@ -10,6 +10,7 @@
 
 #include <iridium/iridium_frame_printer.h>
 
+#include <zmq.hpp>
 #include <fstream>
 
 namespace gr {
@@ -20,7 +21,9 @@ class iridium_frame_printer_impl : public iridium_frame_printer
 private:
     std::string d_file_info;
     uint64_t d_t0;
-    std::fstream d_output;
+
+    zmq::context_t d_context;
+    zmq::socket_t d_socket;
 
     void handler(const pmt::pmt_t& msg);
     void handle_msg_sys(const pmt::pmt_t& msg);
