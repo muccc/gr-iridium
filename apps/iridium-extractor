@@ -285,8 +285,11 @@ if __name__ == "__main__":
     if fmt in sample_formats:
         fmt = sample_formats[fmt]
 
-    if args.file_info is None and offline:
-        args.file_info = os.path.splitext(os.path.basename(filename))[0]
+    if args.file_info is None:
+        if offline:
+            args.file_info = os.path.splitext(os.path.basename(filename))[0]
+        else:
+            args.file_info = ''
 
     if sample_rate == None:
         print("Sample rate missing!", file=sys.stderr)
