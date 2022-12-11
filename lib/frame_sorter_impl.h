@@ -16,7 +16,8 @@ namespace iridium {
 class frame
 {
 public:
-    double timestamp;
+    // Needs to be a signed integer for std::abs to be available
+    int64_t timestamp;
     double center_frequency;
 
     friend bool operator<(const frame& l, const frame& r)
