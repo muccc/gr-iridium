@@ -22,11 +22,6 @@ public:
 
     friend bool operator<(const frame& l, const frame& r)
     {
-        if (std::abs(l.timestamp - r.timestamp) < 1000000 &&
-            std::abs(l.center_frequency - r.center_frequency) < 10000) {
-            return false;
-        }
-
         return std::tie(l.timestamp, l.center_frequency) <
                std::tie(r.timestamp, r.center_frequency);
     }

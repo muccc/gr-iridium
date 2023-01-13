@@ -47,6 +47,8 @@ void frame_sorter_impl::handler(const pmt::pmt_t& msg)
     f.center_frequency =
         pmt::to_double(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
 
+    int confidence =
+        pmt::to_long(pmt::dict_ref(meta, pmt::mp("confidence"), pmt::PMT_NIL));
 
     auto it = frames.begin();
 
@@ -59,24 +61,30 @@ void frame_sorter_impl::handler(const pmt::pmt_t& msg)
         }
     }
 
-    it = frames.find(f);
+    // Frames within this window will be de-duplicated
+    const int64_t max_dt = 1000000; // 1 ms
+    const int64_t max_df = 10000;   // 10 kHz
 
-    if (it == frames.end()) {
-        frames.insert({ f, msg });
-    } else {
-        int confidence =
-            pmt::to_long(pmt::dict_ref(meta, pmt::mp("confidence"), pmt::PMT_NIL));
+    // Get first element which is after the start of our search window (time).
+    it = frames.upper_bound((frame){ .timestamp = f.timestamp - max_dt });
 
-        pmt::pmt_t meta_old = pmt::car(it->second);
-        int confidence_old =
-            pmt::to_long(pmt::dict_ref(meta_old, pmt::mp("confidence"), pmt::PMT_NIL));
+    // Loop over all elements possibly within our search window (time and frequency)
+    for (; it != frames.end() && abs(it->first.timestamp - f.timestamp) < max_dt;
+         it = std::next(it)) {
+        if (std::abs(it->first.center_frequency - f.center_frequency) < max_df) {
+            pmt::pmt_t meta_old = pmt::car(it->second);
+            int confidence_old = pmt::to_long(
+                pmt::dict_ref(meta_old, pmt::mp("confidence"), pmt::PMT_NIL));
 
-        if (confidence > confidence_old) {
-            // insert_or_assign with it2 as a hint would be nice but is C++17
-            frames.erase(it);
-            frames.insert({ f, msg });
+            if (confidence > confidence_old) {
+                // insert_or_assign with it2 as a hint would be nice but is C++17
+                frames.erase(it);
+                frames.insert({ f, msg });
+            }
+            return;
         }
     }
+    frames.insert({ f, msg });
 }
 
 bool frame_sorter_impl::stop()
