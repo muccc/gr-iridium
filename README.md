@@ -140,7 +140,7 @@ The following options are available in this section:
 <small><a name="gain">4</a>: Check the output of `SoapySDRUtil --probe` to find valid gain names for your SDR. Gain names are usually different between OsmoSDR and SoapySDR.</small>
 
 ### `zeromq-sub-source` Section
-If the `[zeromq-sub-source]` section is present, ZeroMQ is used to receive data from a `ZMW PUB Sink` running in another flow graph.
+If the `[zeromq-sub-source]` section is present, ZeroMQ is used to receive data from a `ZMQ PUB Sink` running in another flow graph.
 
 The following options are available in this section:
 
@@ -339,7 +339,7 @@ During normal operation `iridium-extractor` will output one line of bits per "ok
 [^fileinfo]: In live mode: `i-<timestamp>-t1` whereas `timestamp` is a unix `time_t` representing the start of the recording.
 [^time]: Time in `3` is defined as the middle of the first symbol of the 12-symbol BPSK Iridium sync word.
 [^id]: Last digit identifies the sub-frame of a burst.
-[^signal]: Due to historic reasons column `8` is not in dB. Convert do dBFS via `20*log10(_value_)`.
+[^signal]: Due to historic reasons column `8` is not in dB. Convert to dBFS via `20*log10(_value_)`.
 [^bits]: Due to historic reasons the bits in column `10` are symbol-wise reversed to how they would normally be presented.
 
 ## Citations
