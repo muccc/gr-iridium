@@ -24,7 +24,7 @@ If your operating system is not listed above, first install the following depend
  - gnuradio-dev
  - libvolk-dev
  - pybind11-dev
- - libsndlib1-dev
+ - libsndfile1-dev
 
 Afterwards try these generic build instructions:
 ```
