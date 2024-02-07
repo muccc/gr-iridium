@@ -10,7 +10,7 @@ jobs:
     name: Check C++ Formatting
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: gnuradio/clang-format-lint-action@v0.5-4
       with:
         source: '.'
@@ -20,7 +20,7 @@ jobs:
     name: Check Python Formatting
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: quentinguidee/pep8-action@v1
       with:
         arguments: '--max-line-length=120 --ignore E265,E266,E402,E501,E704,E712,E713,E714,E711,E722,E741,W504,W605 --exclude *.yml.py,docs/*,python/bindings/* --filename=*.py,iridium-extractor'
@@ -28,7 +28,7 @@ jobs:
     name: Ubuntu 22.04
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install GNU Radio
         run: |
@@ -63,7 +63,7 @@ jobs:
       matrix:
         ppa: [gnuradio/gnuradio-releases, gnuradio/gnuradio-releases-3.9]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Install GNURadio
         run: |
