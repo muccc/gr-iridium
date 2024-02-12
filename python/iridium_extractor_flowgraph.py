@@ -256,6 +256,11 @@ class FlowGraph(gr.top_block):
 
             source.set_sample_rate(0, self._input_sample_rate)
             source.set_frequency(0, self._center_frequency)
+            try:
+                source.set_hardware_time(time.time_ns(), '')
+            except ValueError as e:
+                print(e)
+                pass
 
             if 'gain' in d:
                 gain = int(d['gain'])
