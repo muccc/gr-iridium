@@ -17,11 +17,43 @@ endif()
 message(STATUS "CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "GR_PYTHON_DIR: ${GR_PYTHON_DIR}")
 
-execute_process(
-    COMMAND ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/get_python_lib.py" "${CMAKE_INSTALL_PREFIX}"
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    OUTPUT_VARIABLE GR_PYTHON_DIR
-)
+########################################################################
+# Sets the python installation directory GR_PYTHON_DIR
+# From https://github.com/pothosware/SoapySDR/tree/master/python
+# https://github.com/pothosware/SoapySDR/blob/master/LICENSE_1_0.txt
+########################################################################
+if(NOT DEFINED GR_PYTHON_DIR)
+    execute_process(
+        COMMAND
+            ${PYTHON_EXECUTABLE} -c
+            "import os
+import sysconfig
+import site
+
+install_dir = None
+prefix = '${CMAKE_INSTALL_PREFIX}'
+
+#use sites when the prefix is already recognized
+try:
+  paths = [p for p in site.getsitepackages() if p.startswith(prefix)]
+  if len(paths) == 1: install_dir = paths[0]
+except AttributeError: pass
+
+if not install_dir:
+    # Newer Python versions have 'venv' scheme, use for all OSs.
+    if 'venv' in sysconfig.get_scheme_names():
+        scheme = 'venv'
+    elif os.name == 'nt':
+        scheme = 'nt'
+    else:
+        scheme = 'posix_prefix'
+    install_dir = sysconfig.get_path('platlib', scheme=scheme, vars={'base': prefix, 'platbase': prefix})
+print(os.path.relpath(install_dir, prefix))"
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        OUTPUT_VARIABLE GR_PYTHON_DIR)
+endif()
+file(TO_CMAKE_PATH ${GR_PYTHON_DIR} GR_PYTHON_DIR)
+
 message(STATUS "GR_PYTHON_DIR: ${GR_PYTHON_DIR}")
 
 add_subdirectory(bindings)
