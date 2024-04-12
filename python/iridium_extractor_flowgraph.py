@@ -6,7 +6,6 @@ from gnuradio import gr
 from gnuradio import blocks
 import gnuradio.filter
 
-import scipy.signal
 import numpy as np
 
 import sys
