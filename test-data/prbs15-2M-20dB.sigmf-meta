@@ -7,7 +7,6 @@
     },
     "captures": [
         {
-            "core:datetime": "2020-09-29T23:14:06Z",
             "core:frequency": 1622000000,
             "core:sample_start": 0
         }
