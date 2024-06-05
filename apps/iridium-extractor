@@ -261,6 +261,13 @@ if __name__ == "__main__":
             fmt = sigmf['global']['core:datatype']
         except:
             print("[sigmf] datatype missing.", file=sys.stderr)
+        try:
+            import datetime
+            dt = datetime.datetime.fromisoformat(sigmf['captures'][0]['core:datetime'].replace("Z", "+00:00"))
+            if args.file_info is None:
+                args.file_info = f'i-{dt.timestamp():.20g}-t1'
+        except:
+            print("[sigmf] timestamp missing.", file=sys.stderr)
 
     if args.sample_rate is not None:
         sample_rate = args.sample_rate
