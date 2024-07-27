@@ -13,7 +13,16 @@ import math
 import time
 import platform
 import multiprocessing
-import distutils.util
+
+
+def strtobool(val):
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
 
 
 class FlowGraph(gr.top_block):
@@ -312,7 +321,7 @@ class FlowGraph(gr.top_block):
 
             pass_tags = False
             if 'pass_tags' in d:
-                pass_tags = bool(distutils.util.strtobool(d['pass_tags']))
+                pass_tags = strtobool(d['pass_tags'])
 
             timeout = 100
             if 'timeout' in d:
