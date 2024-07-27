@@ -24,6 +24,39 @@ jobs:
     - uses: quentinguidee/pep8-action@v1
       with:
         arguments: '--max-line-length=120 --ignore E265,E266,E402,E501,E704,E712,E713,E714,E711,E722,E741,W504,W605 --exclude *.yml.py,docs/*,python/bindings/* --filename=*.py,iridium-extractor'
+  ubuntu-24-04:
+    name: Ubuntu 24.04
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GNU Radio
+        run: |
+         sudo apt update
+         sudo apt install gnuradio-dev cmake
+      - name: Build
+        run: |
+         cmake -B build
+         cmake --build build
+      - name: Install
+        run: |
+         cd build
+         sudo make install
+         sudo ldconfig
+      - name: Unit Tests
+        run: |
+         cd build
+         make test
+      - name: Open SDR with gr-soapy
+        run: |
+         iridium-extractor examples/hackrf-soapy.conf 2>&1 | tee stderr-out
+         cat stderr-out | grep "RuntimeError: no hackrf device matches"
+      - name: Open SDR with gr-osmosdr
+        run: |
+         sudo apt install gr-osmosdr
+         iridium-extractor examples/hackrf-10msps.conf 2>&1 | tee stderr-out
+         cat stderr-out | grep "RuntimeError: Failed to use '0' as HackRF device index: not enough devices"
+
   ubuntu-22-04:
     name: Ubuntu 22.04
     runs-on: ubuntu-22.04
