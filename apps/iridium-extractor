@@ -3,6 +3,7 @@
 import time
 import getopt
 import sys
+import re
 import threading
 import os.path
 import argparse
@@ -284,6 +285,21 @@ if __name__ == "__main__":
     # compatibility mappings
     if fmt in sample_formats:
         fmt = sample_formats[fmt]
+
+    # grab things from filename as fallback
+    if sample_rate is None and (g := re.search(r"-s(\d+(\.\d+)?(e[+-]\d+)?)-", filename)):
+        sample_rate = int(float(g.group(1)))
+
+    if args.file_info is None and (g := re.search(r"-t(\d{14}(\+\d{4})?)\.", filename)):
+        try:
+            import datetime
+            dt = datetime.datetime.strptime(g.group(1), "%Y%m%d%H%M%S" + "%z" * bool(g.group(2)))
+            args.file_info = f'i-{dt.timestamp():.20g}-t1'
+        except ValueError:
+            print("Couldn't parse timestamp in filename.", file=sys.stderr)
+
+    if center is None and (g := re.search(r"-f(\d+(\.\d+)?(e[+-]\d+)?)-", filename)):
+        center = int(float(g.group(1)))
 
     if args.file_info is None:
         if offline:
