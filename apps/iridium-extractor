@@ -92,7 +92,7 @@ def print_stats(tb):
         stats = ""
         stats += "%d" % time.time()
         if offline:
-            stats += " | srr: %.1f%%" % (sample_rate_ratio * 100)
+            stats += " | srr: %5.1f%%" % (sample_rate_ratio * 100)
         else:
             stats += " | i: %3d/s" % in_rate
         stats += " | i_avg: %3d/s" % in_rate_avg
