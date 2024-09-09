@@ -24,87 +24,37 @@ jobs:
     - uses: quentinguidee/pep8-action@v1
       with:
         arguments: '--max-line-length=120 --ignore E265,E266,E402,E501,E704,E712,E713,E714,E711,E722,E741,W504,W605 --exclude *.yml.py,docs/*,python/bindings/* --filename=*.py,iridium-extractor'
-  ubuntu-24-04:
-    name: Ubuntu 24.04
-    runs-on: ubuntu-24.04
+  ubuntu:
+    name: Ubuntu
+    strategy:
+      matrix:
+        os:
+          - version: ubuntu-20.04
+            ppa: gnuradio/gnuradio-releases
+            packages: libsndfile-dev libspdlog-dev pybind11-dev
+            osmosdr-from-source: True
+          - version: ubuntu-20.04
+            ppa: gnuradio/gnuradio-releases-3.9
+            packages: libsndfile-dev libspdlog-dev pybind11-dev gr-osmosdr
+          - version: ubuntu-22.04
+            packages: libsndfile1-dev gr-osmosdr
+          - version: ubuntu-24.04
+            packages: gr-osmosdr
+    runs-on: ${{matrix.os.version}}
     steps:
       - uses: actions/checkout@v4
-
+      - name: Add PPA
+        if: ${{matrix.os.ppa}}
+        run: |
+         sudo add-apt-repository ppa:${{matrix.os.ppa}}
       - name: Install GNU Radio
         run: |
          sudo apt update
          sudo apt install gnuradio-dev cmake
-      - name: Build
+      - name: Install extra packages
+        if: ${{matrix.os.packages}}
         run: |
-         cmake -B build
-         cmake --build build
-      - name: Install
-        run: |
-         cd build
-         sudo make install
-         sudo ldconfig
-      - name: Unit Tests
-        run: |
-         cd build
-         make test
-      - name: Open SDR with gr-soapy
-        run: |
-         iridium-extractor examples/hackrf-soapy.conf 2>&1 | tee stderr-out
-         cat stderr-out | grep "RuntimeError: no hackrf device matches"
-      - name: Open SDR with gr-osmosdr
-        run: |
-         sudo apt install gr-osmosdr
-         iridium-extractor examples/hackrf-10msps.conf 2>&1 | tee stderr-out
-         cat stderr-out | grep "RuntimeError: Failed to use '0' as HackRF device index: not enough devices"
-
-  ubuntu-22-04:
-    name: Ubuntu 22.04
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install GNU Radio
-        run: |
-         sudo apt update
-         sudo apt install gnuradio-dev cmake libsndfile1-dev
-      - name: Build
-        run: |
-         cmake -B build
-         cmake --build build
-      - name: Install
-        run: |
-         cd build
-         sudo make install
-         sudo ldconfig
-      - name: Unit Tests
-        run: |
-         cd build
-         make test
-      - name: Open SDR with gr-soapy
-        run: |
-         iridium-extractor examples/hackrf-soapy.conf 2>&1 | tee stderr-out
-         cat stderr-out | grep "RuntimeError: no hackrf device matches"
-      - name: Open SDR with gr-osmosdr
-        run: |
-         sudo apt install gr-osmosdr
-         iridium-extractor examples/hackrf-10msps.conf 2>&1 | tee stderr-out
-         cat stderr-out | grep "RuntimeError: Failed to use '0' as HackRF device index: not enough devices"
-  gr-ppa:
-    name: Ubuntu 20.04 + GNURadio PPA
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        ppa: [gnuradio/gnuradio-releases, gnuradio/gnuradio-releases-3.9]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install GNURadio
-        run: |
-         sudo add-apt-repository ppa:${{matrix.ppa}}
-         sudo apt update
-         sudo apt install gnuradio-dev
-         sudo apt install cmake libsndfile-dev libspdlog-dev
-         sudo apt install pybind11-dev
+         sudo apt install ${{matrix.os.packages}}
       - name: Build
         run: |
          cmake -B build
@@ -140,7 +90,13 @@ jobs:
          tar cf test-data/prbs15-2M-20dB.sigmf test-data/prbs15-2M-20dB.sigmf-*
          iridium-extractor test-data/prbs15-2M-20dB.sigmf |grep ^RAW > prbs15-2M-20dB.bits.archive
          cmp prbs15-2M-20dB.bits prbs15-2M-20dB.bits.archive
-      - name: Install gr-osmosdr
+
+      - name: Open SDR with gr-soapy
+        run: |
+         iridium-extractor examples/hackrf-soapy.conf 2>&1 | tee stderr-out
+         cat stderr-out | grep "RuntimeError: no hackrf device matches"
+      - name: Install gr-osmosdr from source
+        if: ${{matrix.os.osmosdr-from-source}}
         run: |
          git clone https://github.com/osmocom/gr-osmosdr
          cd gr-osmosdr
@@ -149,11 +105,9 @@ jobs:
          cd build
          sudo make install
          sudo ldconfig
-      - name: Open SDR
+
+      - name: Open SDR with gr-osmosdr
         run: |
          iridium-extractor examples/hackrf-10msps.conf 2>&1 | tee stderr-out
-         cat stderr-out | grep "No supported devices found"
-      - name: Test Open SDR with soapy
-        run: |
-         iridium-extractor examples/hackrf-soapy.conf 2>&1 | tee stderr-out
-         cat stderr-out | grep "RuntimeError: no hackrf device matches"
+         cat stderr-out | grep "RuntimeError: Failed to use '0' as HackRF device index: not enough devices\|No supported devices found"
+
