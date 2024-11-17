@@ -342,18 +342,35 @@ int fft_channelizer_impl::work(int noutput_items,
                 // Construct the input to the reverse FFT. We need to copy the two halves
                 // as the output of the initial FFT still is [DC, Positive Freq, Negative
                 // Freq].
+
+                gr_complex scale = 1. / d_fft_size;
+#if VOLK_VERSION_MAJOR >= 3 && VOLK_VERSION_MINOR >= 1
+                volk_32fc_s32fc_multiply2_32fc(
+                    &d_ifft.get_inbuf()[0],
+                    &d_fft.get_outbuf()[positive_offset(
+                        d_fft_size, d_output_step, j, d_ifft_size)],
+                    &scale,
+                    d_ifft_size / 2);
+                volk_32fc_s32fc_multiply2_32fc(
+                    &d_ifft.get_inbuf()[d_ifft_size / 2],
+                    &d_fft.get_outbuf()[negative_offset(
+                        d_fft_size, d_output_step, j, d_ifft_size)],
+                    &scale,
+                    d_ifft_size / 2);
+#else
                 volk_32fc_s32fc_multiply_32fc(
                     &d_ifft.get_inbuf()[0],
                     &d_fft.get_outbuf()[positive_offset(
                         d_fft_size, d_output_step, j, d_ifft_size)],
-                    1. / d_fft_size,
+                    scale,
                     d_ifft_size / 2);
                 volk_32fc_s32fc_multiply_32fc(
                     &d_ifft.get_inbuf()[d_ifft_size / 2],
                     &d_fft.get_outbuf()[negative_offset(
                         d_fft_size, d_output_step, j, d_ifft_size)],
-                    1. / d_fft_size,
+                    scale,
                     d_ifft_size / 2);
+#endif
                 d_ifft.execute();
 
                 if (output_items.size() > 0) {
