@@ -283,6 +283,11 @@ This is mostly useful for debugging when using SDR mode to process live data.
 
 The samples will be written in `ci16_le` format.
 
+#### `--generate-sigmf-meta`: Create a sigm-meta file based on the input format
+additionally write a file in sigmf-meta format describing the processed input.
+
+To convert a standard recording to a sigmf dataset, specify "--generate-sigmf-meta NEWNAME.sigmf-meta" and then after the extractor ends, manually rename your recording to "NEWNAME.sigmf-data"
+
 ### Interactive Output
 During normal operation `iridium-extractor` will output a status line once per second on `stderr`.
 #### SDR / live mode
