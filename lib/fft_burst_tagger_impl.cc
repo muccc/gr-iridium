@@ -93,7 +93,7 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
       d_n_tagged_bursts(0),
       d_squelch_count(0),
       d_fft(NULL),
-      d_history_size(history_size),
+      d_history_size(500),
       d_peaks(std::vector<peak>()),
       d_bursts(std::vector<burst>()),
       d_history_primed(false),
@@ -234,25 +234,31 @@ bool fft_burst_tagger_impl::update_filters_pre(void)
 
     memset(d_power_estimates_f, 0, sizeof(float) * d_fft_size * (d_history_size / 10));
 
-    for(int i=0; i<d_history_size / 10; i++) {
-        for(int j=0; j<10; j++) {
-            volk_32f_x2_add_32f(POWER(i), POWER(i), HIST(i*10+j), d_fft_size);
+#define AVG_SIZE 20
+
+    for(int i=0; i<d_history_size / AVG_SIZE; i++) {
+        for(int j=0; j<AVG_SIZE; j++) {
+            volk_32f_x2_add_32f(POWER(i), POWER(i), HIST((d_history_index + i*AVG_SIZE+j) % d_history_size), d_fft_size);
         }
     }
 
     memcpy(d_noise_estimate_f, POWER(0), sizeof(float) * d_fft_size);
 
-    for(int i=0; i<d_history_size / 10; i++) {
+    for(int i=0; i<d_history_size / AVG_SIZE; i++) {
         for(int j=0; j<d_fft_size; j++) {
             if(d_noise_estimate_f[j] > POWER(i)[j]) {
-                d_noise_estimate_f[j] = POWER(i)[j]/10;
+                d_noise_estimate_f[j] = POWER(i)[j];
             }
         }
     }
 
+    for(int j=0; j<d_fft_size; j++) {
+        d_noise_estimate_f[j] /= AVG_SIZE;
+    }
     volk_32f_x2_divide_32f(
         d_relative_magnitude_f, d_magnitude_shifted_f, d_noise_estimate_f, d_fft_size);
 
+#if 0
     FILE* file = fopen("/tmp/noise.log", "a");
     for (int i = 0; i<d_fft_size; i++) {
         //fprintf(file, "%f ", d_noise_estimate_f[i]/d_history_size);
@@ -262,7 +268,7 @@ bool fft_burst_tagger_impl::update_filters_pre(void)
     }
     fprintf(file, "\n");
     fclose(file);
-
+#endif
     return true;
 }
 
