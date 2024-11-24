@@ -68,7 +68,8 @@ private:
 
     float* d_window_f;
     float* d_magnitude_shifted_f;
-    float* d_baseline_sum_f;
+    float* d_noise_estimate_f;
+    float* d_power_estimates_f;
     float* d_baseline_history_f;
     float* d_relative_magnitude_f;
     float* d_burst_mask_f;

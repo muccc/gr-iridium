@@ -139,8 +139,12 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
 
     d_baseline_history_f = (float*)volk_malloc(
         sizeof(float) * d_fft_size * d_history_size, volk_get_alignment());
-    d_baseline_sum_f =
+    d_noise_estimate_f =
         (float*)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
+
+    d_power_estimates_f =
+        (float*)volk_malloc(sizeof(float) * d_fft_size * (d_history_size / 10), volk_get_alignment());
+
     d_magnitude_shifted_f =
         (float*)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
     d_relative_magnitude_f =
@@ -150,7 +154,7 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
     d_ones_f = (float*)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
 
     memset(d_baseline_history_f, 0, sizeof(float) * d_fft_size * d_history_size);
-    memset(d_baseline_sum_f, 0, sizeof(float) * d_fft_size);
+    memset(d_noise_estimate_f, 0, sizeof(float) * d_fft_size);
     memset(d_magnitude_shifted_f, 0, sizeof(float) * d_fft_size);
     memset(d_relative_magnitude_f, 0, sizeof(float) * d_fft_size);
 
@@ -161,7 +165,7 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
 
     // Divide by the ENBW as the calculation of d_relative_magnitude_f does
     // not take the ENBW of the FFT into account.
-    d_threshold = pow(10, threshold / 10) / d_history_size / d_window_enbw;
+    d_threshold = pow(10, threshold / 10) / d_window_enbw;
     if (d_debug) {
         fprintf(stderr,
                 "threshold=%f, d_threshold=%f (%f/%d)\n",
@@ -203,42 +207,67 @@ fft_burst_tagger_impl::~fft_burst_tagger_impl()
     delete d_fft;
     volk_free(d_window_f);
     volk_free(d_baseline_history_f);
-    volk_free(d_baseline_sum_f);
+    volk_free(d_noise_estimate_f);
     volk_free(d_relative_magnitude_f);
     if (d_burst_debug_file) {
         fclose(d_burst_debug_file);
     }
 }
 
+#define HIST(i) (d_baseline_history_f + (i) * d_fft_size)
+#define POWER(i) (d_power_estimates_f + (i) * d_fft_size)
+
 bool fft_burst_tagger_impl::update_filters_pre(void)
 {
+    memcpy(HIST(d_history_index), d_magnitude_shifted_f, sizeof(float) * d_fft_size);
+
+    d_history_index++;
+
+    if (d_history_index == d_history_size) {
+        d_history_primed = true;
+        d_history_index = 0;
+    }
+
     if (!d_history_primed) {
         return false;
     }
 
+    memset(d_power_estimates_f, 0, sizeof(float) * d_fft_size * (d_history_size / 10));
+
+    for(int i=0; i<d_history_size / 10; i++) {
+        for(int j=0; j<10; j++) {
+            volk_32f_x2_add_32f(POWER(i), POWER(i), HIST(i*10+j), d_fft_size);
+        }
+    }
+
+    memcpy(d_noise_estimate_f, POWER(0), sizeof(float) * d_fft_size);
+
+    for(int i=0; i<d_history_size / 10; i++) {
+        for(int j=0; j<d_fft_size; j++) {
+            if(d_noise_estimate_f[j] > POWER(i)[j]) {
+                d_noise_estimate_f[j] = POWER(i)[j]/10;
+            }
+        }
+    }
+
     volk_32f_x2_divide_32f(
-        d_relative_magnitude_f, d_magnitude_shifted_f, d_baseline_sum_f, d_fft_size);
+        d_relative_magnitude_f, d_magnitude_shifted_f, d_noise_estimate_f, d_fft_size);
+
+    FILE* file = fopen("/tmp/noise.log", "a");
+    for (int i = 0; i<d_fft_size; i++) {
+        //fprintf(file, "%f ", d_noise_estimate_f[i]/d_history_size);
+        fprintf(file, "%f ", d_noise_estimate_f[i]);
+        // float f_rel = (p.bin - d_fft_size / 2) / float(d_fft_size);
+        // fprintf(file, "%f,%f,x\n", d_index/4e6, f_rel * 4e6 + 1624800000);
+    }
+    fprintf(file, "\n");
+    fclose(file);
+
     return true;
 }
 
-#define HIST(i) (d_baseline_history_f + i * d_fft_size)
 void fft_burst_tagger_impl::update_filters_post(bool force)
 {
-    // We only update the average if there is no burst going on at the moment
-    if (d_bursts.size() == 0 || force) {
-        volk_32f_x2_subtract_32f(
-            d_baseline_sum_f, d_baseline_sum_f, HIST(d_history_index), d_fft_size);
-        volk_32f_x2_add_32f(
-            d_baseline_sum_f, d_baseline_sum_f, d_magnitude_shifted_f, d_fft_size);
-        memcpy(HIST(d_history_index), d_magnitude_shifted_f, sizeof(float) * d_fft_size);
-
-        d_history_index++;
-
-        if (d_history_index == d_history_size) {
-            d_history_primed = true;
-            d_history_index = 0;
-        }
-    }
 }
 
 void fft_burst_tagger_impl::update_bursts(void)
@@ -301,14 +330,14 @@ void fft_burst_tagger_impl::create_new_bursts(void)
             // relative_magnitude relates to the uncorrected (regarding ENBW) noise floor.
             // We apply the ENBW here to have a more accurate SNR estimate
             b.magnitude =
-                10 * log10(p.relative_magnitude * d_history_size * d_window_enbw);
+                10 * log10(p.relative_magnitude * d_window_enbw);
             // The burst might have started one FFT earlier
             b.start = d_index - d_burst_pre_len;
             b.last_active = b.start;
             // Keep noise level around (dbFS/Hz)
-            // Need to divide by the fft size twice as d_baseline_sum_f is a square of the
+            // Need to divide by the fft size twice as d_noise_estimate_f is a square of the
             // FFT's magnitude Apply the ENBW again to get an accurate estimate
-            b.noise = 10 * log10(d_baseline_sum_f[b.center_bin] / d_history_size /
+            b.noise = 10 * log10(d_noise_estimate_f[b.center_bin] /
                                  (d_fft_size * d_fft_size) / d_window_enbw /
                                  (d_sample_rate / d_fft_size));
 
@@ -345,7 +374,7 @@ void fft_burst_tagger_impl::create_new_bursts(void)
             d_history_index = 0;
             d_history_primed = 0;
             memset(d_baseline_history_f, 0, sizeof(float) * d_fft_size * d_history_size);
-            memset(d_baseline_sum_f, 0, sizeof(float) * d_fft_size);
+            memset(d_noise_estimate_f, 0, sizeof(float) * d_fft_size);
             d_squelch_count = 0;
         }
     } else {
