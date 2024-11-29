@@ -110,6 +110,7 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
 
     set_output_multiple(d_fft_size);
 
+    d_burst_post_len = d_sample_rate * 0.009;
     // We need to keep d_burst_pre_len samples
     // in the buffer to be able to tag a burst at it's start.
     // Set the history to this + 1, so we always have
@@ -192,6 +193,12 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
     if (d_debug) {
         d_burst_debug_file = fopen("/tmp/fft_burst_tagger-bursts.log", "w");
     }
+
+    auto port_name = pmt::mp("iras");
+    message_port_register_in(port_name);
+    set_msg_handler(port_name, [this](const pmt::pmt_t& msg) { this->handler(msg); });
+
+    memset(d_sats, 0, sizeof(d_sats));
 }
 
 /*
@@ -207,6 +214,98 @@ fft_burst_tagger_impl::~fft_burst_tagger_impl()
     volk_free(d_relative_magnitude_f);
     if (d_burst_debug_file) {
         fclose(d_burst_debug_file);
+    }
+}
+
+void fft_burst_tagger_impl::advance_sat(struct sat *s)
+{
+    uint64_t frame_phases[] = {
+        (uint64_t)((1.0) * d_sample_rate / 1000),           // Guard
+
+        (uint64_t)((20.32 + 1.24) * d_sample_rate / 1000),  // Simplex
+        (uint64_t)((8.28 + 0.22) * d_sample_rate / 1000),   // UL1
+        (uint64_t)((8.28 + 0.22) * d_sample_rate / 1000),   // UL2
+        (uint64_t)((8.28 + 0.22) * d_sample_rate / 1000),   // UL3
+        (uint64_t)((8.28 + 0.24) * d_sample_rate / 1000),   // UL4
+
+        (uint64_t)((8.28 + 0.1) * d_sample_rate / 1000),    // DL1
+        (uint64_t)((8.28 + 0.1) * d_sample_rate / 1000),    // DL2
+        (uint64_t)((8.28 + 0.1) * d_sample_rate / 1000),    // DL2
+        (uint64_t)((8.28) * d_sample_rate / 1000),          // DL4
+    };
+
+    for(int i=0; i<10; i++) {
+        //fprintf(stderr, "%lu\n", frame_phases[i]);
+    }
+
+    while(s->start < d_index) {
+        s->phase = (s->phase + 1) % 10;;
+        s->start += frame_phases[s->phase];
+    }
+}
+
+void fft_burst_tagger_impl::update_sat(struct sat * s, uint64_t ira_timestamp, uint64_t start, float doppler)
+{
+    s->phase = 0;
+    s->doppler = doppler;
+    s->ira_timestamp = ira_timestamp;
+    s->start = start;
+    advance_sat(s);
+}
+
+void fft_burst_tagger_impl::handler(const pmt::pmt_t& msg)
+{
+    uint64_t timestamp =
+        pmt::to_uint64(pmt::dict_ref(msg, pmt::mp("timestamp"), pmt::PMT_NIL));
+    double center_frequency =
+        pmt::to_double(pmt::dict_ref(msg, pmt::mp("center_frequency"), pmt::PMT_NIL));
+
+    uint64_t start = (timestamp * d_sample_rate) / 1000000000UL - (64.5/25000 * d_sample_rate);
+    float doppler = 1626270833 - center_frequency;
+
+    //fprintf(stderr, "%lu %f %f\n", timestamp/1000/1000, center_frequency, doppler);
+
+    int i;
+    uint64_t oldest_ira_timestamp = d_sats[0].ira_timestamp;
+    int oldest_sat = 0;
+
+    for(i=0; i<9; i++) {
+        if(d_sats[i].ira_timestamp != 0) {
+            //fprintf(stderr, "%d %f %lu\n", i, fabs(d_sats[i].doppler - doppler), labs(d_sats[i].ira_timestamp - timestamp) % (90 * 1000 * 1000));
+
+            float d_doppler = d_sats[i].doppler - doppler;
+            float foo = labs(d_sats[i].ira_timestamp - timestamp) % (90 * 1000 * 1000);
+            if(foo > 45000000) {
+                foo = 90000000 - foo;
+            }
+
+            //fprintf(stderr, "%f\n", foo);
+
+            //if(fabs(d_doppler) < 1000 && (labs(d_sats[i].ira_timestamp -  timestamp) % (90 * 1000 * 1000)) < 1000000) {
+            if(fabs(d_doppler) < 1000 && foo < 1000000) {
+                //fprintf(stderr, "match\n");
+                update_sat(&d_sats[i], timestamp, start, doppler);
+                break;
+            }
+        }
+
+        if(d_sats[i].ira_timestamp < oldest_ira_timestamp){
+            oldest_ira_timestamp = d_sats[i].ira_timestamp;
+            oldest_sat = i;
+        }
+    }
+
+    if(i==9) {
+        update_sat(&d_sats[oldest_sat], timestamp, start, doppler);
+    }
+
+    for(i=0; i<9; i++) {
+        if(d_sats[i].ira_timestamp != 0) {
+            fprintf(stderr, "sat %d %lu %f\n", i, d_sats[i].ira_timestamp/1000/1000, d_sats[i].doppler);
+            if(labs(d_sats[i].ira_timestamp - timestamp) > 30 * 1000 * 1000 * 1000UL) {
+                d_sats[i].ira_timestamp = 0;
+            }
+        }
     }
 }
 
@@ -245,10 +344,12 @@ void fft_burst_tagger_impl::update_bursts(void)
 {
     auto b = std::begin(d_bursts);
     while (b != std::end(d_bursts)) {
-        if (d_relative_magnitude_f[b->center_bin - 1] > d_threshold ||
-            d_relative_magnitude_f[b->center_bin] > d_threshold ||
-            d_relative_magnitude_f[b->center_bin + 1] > d_threshold) {
-            b->last_active = d_index;
+        if(!b->tracked) {
+            if (d_relative_magnitude_f[b->center_bin - 1] > d_threshold ||
+                d_relative_magnitude_f[b->center_bin] > d_threshold ||
+                d_relative_magnitude_f[b->center_bin + 1] > d_threshold) {
+                b->last_active = d_index;
+            }
         }
         ++b;
     }
@@ -293,6 +394,11 @@ void fft_burst_tagger_impl::create_new_bursts(void)
             b.id = d_burst_id;
             b.center_bin = p.bin;
 
+            float relative_frequency = (b.center_bin - d_fft_size / 2) / float(d_fft_size);
+            double f = relative_frequency * d_sample_rate + d_center_frequency;
+
+            if(f < 1626200000 || f > 1626350000) break;
+
             // Allow downstream blocks to split this burst
             // and assign sub ids
             d_burst_id += 10;
@@ -312,6 +418,7 @@ void fft_burst_tagger_impl::create_new_bursts(void)
                                  (d_fft_size * d_fft_size) / d_window_enbw /
                                  (d_sample_rate / d_fft_size));
 
+            b.tracked = false;
             d_bursts.push_back(b);
             d_new_bursts.push_back(b);
             mask_burst(b);
@@ -324,6 +431,44 @@ void fft_burst_tagger_impl::create_new_bursts(void)
             }
         }
     }
+
+    //FILE* file = fopen("/tmp/tracked", "a");
+    double channel_width = 1e7/(30 * 8);
+    for(int i=0; i<9; i++) {
+        if(d_sats[i].ira_timestamp != 0 && d_sats[i].phase > 4 && d_sats[i].phase < 9) {
+            //fprintf(stderr, "%d %lu %lu\n", i, d_index, d_sats[i].start);
+            if(d_index <= d_sats[i].start && d_index + d_fft_size > d_sats[i].start) {
+                //fprintf(stderr, "tagging SV %d at sample %lu\n",i, d_index);
+                for(int sb=6; sb<30; sb++) {
+                    for(int fa=0; fa<8; fa++) {
+                        burst b;
+                        b.id = d_burst_id;
+                        d_burst_id += 10;
+                        double fa_f = 1616000000 + channel_width/2 + channel_width * 8 * sb + channel_width * fa - d_sats[i].doppler;
+                        b.center_bin = (fa_f - d_center_frequency) / d_sample_rate * d_fft_size + d_fft_size / 2;
+                        if(b.center_bin >= 0 && b.center_bin < d_fft_size) {
+                            //fprintf(file, "%" PRIu64 ",%d,y\n", d_sats[i].start, b.center_bin);
+                            b.magnitude = 0;
+                            b.noise = 0;
+                            //b.start = d_sats[i].start - d_burst_pre_len;
+                            //b.start = d_index - d_burst_pre_len;
+                            b.start = d_index;
+                            //b.last_active = b.start - d_burst_pre_len;
+                            b.tracked = true;
+                            d_new_bursts.push_back(b);
+
+                            b.stop = d_sats[i].start + 10 * d_sample_rate / 1000;
+                            d_gone_bursts.push_back(b);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    //fclose(file);
+
+
+#if 0
     if (d_max_bursts > 0 && d_bursts.size() > d_max_bursts) {
         fprintf(
             stderr, "Detector in burst squelch at %f\n", d_index / float(d_sample_rate));
@@ -353,6 +498,7 @@ void fft_burst_tagger_impl::create_new_bursts(void)
             d_squelch_count--;
         }
     }
+#endif
 }
 
 void fft_burst_tagger_impl::mask_burst(burst& b)
@@ -433,6 +579,7 @@ void fft_burst_tagger_impl::tag_new_bursts(void)
             d_last_rx_time_timestamp +
             (offset * (1000000000ULL / 100000)) / (d_sample_rate / 100000);
 
+        //fprintf(stderr, "%lu\n", timestamp);
         pmt::pmt_t value = pmt::make_dict();
         value = pmt::dict_add(value, pmt::mp("id"), pmt::from_uint64(b.id));
         value = pmt::dict_add(
@@ -532,6 +679,12 @@ int fft_burst_tagger_impl::work(int noutput_items,
         volk_32fc_magnitude_squared_32f(&d_magnitude_shifted_f[d_fft_size / 2],
                                         &d_fft->get_outbuf()[0],
                                         d_fft_size / 2);
+
+        for(int i=0; i<9; i++) {
+            if(d_sats[i].ira_timestamp != 0) {
+                advance_sat(&d_sats[i]);
+            }
+        }
 
         if (update_filters_pre()) {
             update_bursts();

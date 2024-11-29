@@ -35,6 +35,7 @@ struct burst {
     float magnitude;
     float noise;
     uint64_t id;
+    bool tracked;
 };
 
 struct peak {
@@ -42,9 +43,18 @@ struct peak {
     float relative_magnitude;
 };
 
+struct sat {
+    uint64_t ira_timestamp;
+    float doppler;
+    int phase;
+    uint64_t start;
+};
+
 class fft_burst_tagger_impl : public fft_burst_tagger
 {
 private:
+    struct sat d_sats[9];
+
     bool d_history_primed;
     bool d_debug;
     bool d_offline;
@@ -97,6 +107,9 @@ private:
     void mask_burst(burst& b);
     void tag_new_bursts(void);
     void tag_gone_bursts(int noutput_items);
+    void handler(const pmt::pmt_t& msg);
+    void advance_sat(struct sat *s);
+    void update_sat(struct sat * s, uint64_t ira_timestamp, uint64_t start, float doppler);
 
 public:
     fft_burst_tagger_impl(double center_frequency,

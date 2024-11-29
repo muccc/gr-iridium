@@ -628,6 +628,8 @@ class FlowGraph(gr.top_block):
         tb.msg_connect((self._iridium_qpsk_demod, 'pdus'), (self._frame_sorter, 'pdus'))
         tb.msg_connect((self._frame_sorter, 'pdus'), (self._iridium_frame_printer, 'pdus'))
 
+        tb.msg_connect((self._iridium_qpsk_demod, 'iras'), (self._fft_burst_tagger, 'iras'))
+
     def get_n_detected_bursts(self):
         return self._fft_burst_tagger.get_n_tagged_bursts()
 

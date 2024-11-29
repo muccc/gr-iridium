@@ -60,6 +60,8 @@ iridium_qpsk_demod_impl::iridium_qpsk_demod_impl(int n_channels)
 {
     message_port_register_out(pmt::mp("pdus"));
 
+    message_port_register_out(pmt::mp("iras"));
+
     if (n_channels > 1) {
         for (int i = 0; i < n_channels; i++) {
             auto port_name = pmt::mp("cpdus" + std::to_string(i));
@@ -409,6 +411,14 @@ void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
 
     pmt::pmt_t out_msg = pmt::cons(pdu_meta, pdu_vector);
     message_port_pub(pmt::mp("pdus"), out_msg);
+
+    if(center_frequency > 1626200000 && center_frequency < 1626350000 && confidence > 80) {
+        pmt::pmt_t pdu_ira = pmt::make_dict();
+        pdu_ira = pmt::dict_add(pdu_ira, pmt::mp("timestamp"), pmt::mp(timestamp));
+        pdu_ira = pmt::dict_add(pdu_ira, pmt::mp("center_frequency"), pmt::mp(center_frequency));
+        message_port_pub(pmt::mp("iras"), pdu_ira);
+    }
+
 }
 
 } /* namespace iridium */
