@@ -401,7 +401,7 @@ void fft_burst_tagger_impl::create_new_bursts(void)
 
             // Allow downstream blocks to split this burst
             // and assign sub ids
-            d_burst_id += 10;
+            //d_burst_id += 10;
 
             // Normalize the relative magnitude
             // relative_magnitude relates to the uncorrected (regarding ENBW) noise floor.
@@ -432,7 +432,7 @@ void fft_burst_tagger_impl::create_new_bursts(void)
         }
     }
 
-    //FILE* file = fopen("/tmp/tracked", "a");
+    FILE* file = fopen("/tmp/tracked", "a");
     double channel_width = 1e7/(30 * 8);
     for(int i=0; i<9; i++) {
         if(d_sats[i].ira_timestamp != 0 && d_sats[i].phase > 4 && d_sats[i].phase < 9) {
@@ -447,7 +447,7 @@ void fft_burst_tagger_impl::create_new_bursts(void)
                         double fa_f = 1616000000 + channel_width/2 + channel_width * 8 * sb + channel_width * fa - d_sats[i].doppler;
                         b.center_bin = (fa_f - d_center_frequency) / d_sample_rate * d_fft_size + d_fft_size / 2;
                         if(b.center_bin >= 0 && b.center_bin < d_fft_size) {
-                            //fprintf(file, "%" PRIu64 ",%d,y\n", d_sats[i].start, b.center_bin);
+                            fprintf(file, "%" PRIu64 ",%d,%ld\n", d_sats[i].start, b.center_bin, b.id);
                             b.magnitude = 0;
                             b.noise = 0;
                             //b.start = d_sats[i].start - d_burst_pre_len;
@@ -465,7 +465,7 @@ void fft_burst_tagger_impl::create_new_bursts(void)
             }
         }
     }
-    //fclose(file);
+    fclose(file);
 
 
 #if 0

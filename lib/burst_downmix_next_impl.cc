@@ -29,7 +29,7 @@
 #include <gnuradio/io_signature.h>
 #include <gnuradio/math.h>
 
-#include "burst_downmix_impl.h"
+#include "burst_downmix_next_impl.h"
 
 #include <gnuradio/filter/firdes.h>
 #include <inttypes.h>
@@ -39,7 +39,7 @@ namespace gr {
 namespace iridium {
 
 
-void write_data_c(const gr_complex* data, size_t len, char* name, int num)
+void write_data_c2(const gr_complex* data, size_t len, char* name, int num)
 {
     char filename[256];
     sprintf(filename, "/tmp/signals/%s-%d.cfile", name, num);
@@ -48,7 +48,7 @@ void write_data_c(const gr_complex* data, size_t len, char* name, int num)
     fclose(fp);
 }
 
-void write_data_f(const float* data, size_t len, char* name, int num)
+void write_data_f2(const float* data, size_t len, char* name, int num)
 {
     char filename[256];
     sprintf(filename, "/tmp/signals/%s-%d.f32", name, num);
@@ -57,7 +57,7 @@ void write_data_f(const float* data, size_t len, char* name, int num)
     fclose(fp);
 }
 
-float sinc(float x)
+float sinc2(float x)
 {
     if (x == 0) {
         return 1;
@@ -65,28 +65,28 @@ float sinc(float x)
     return sin(M_PI * x) / (M_PI * x);
 }
 
-float raised_cosine_h(float t, float Ts, float alpha)
+float raised_cosine_h2(float t, float Ts, float alpha)
 {
     if (fabs(t) == Ts / (2 * alpha)) {
-        return M_PI / (4 * Ts) * sinc(1 / (2 * alpha));
+        return M_PI / (4 * Ts) * sinc2(1 / (2 * alpha));
     }
 
-    return 1 / Ts * sinc(t / Ts) * cos(M_PI * alpha * t / Ts) /
+    return 1 / Ts * sinc2(t / Ts) * cos(M_PI * alpha * t / Ts) /
            (1 - powf((2 * alpha * t / Ts), 2));
 }
 
-std::vector<float> rcosfilter(int ntaps, float alpha, float Ts, float Fs)
+std::vector<float> rcosfilter2(int ntaps, float alpha, float Ts, float Fs)
 {
     std::vector<float> taps(ntaps);
 
     for (int i = -ntaps / 2 + 1; i < ntaps / 2 + 1; i++) {
-        taps[i + (ntaps + 1) / 2 - 1] = raised_cosine_h(i / Fs, Ts, alpha) * Ts;
+        taps[i + (ntaps + 1) / 2 - 1] = raised_cosine_h2(i / Fs, Ts, alpha) * Ts;
     }
 
     return taps;
 }
 
-burst_downmix::sptr burst_downmix::make(int sample_rate,
+burst_downmix_next::sptr burst_downmix_next::make(int sample_rate,
                                         int search_depth,
                                         size_t hard_max_queue_len,
                                         const std::vector<float>& input_taps,
@@ -94,7 +94,7 @@ burst_downmix::sptr burst_downmix::make(int sample_rate,
                                         bool handle_multiple_frames_per_burst)
 {
     return gnuradio::get_initial_sptr(
-        new burst_downmix_impl(sample_rate,
+        new burst_downmix_next_impl(sample_rate,
                                search_depth,
                                hard_max_queue_len,
                                input_taps,
@@ -106,17 +106,17 @@ burst_downmix::sptr burst_downmix::make(int sample_rate,
 /*
  * The private constructor
  */
-burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
+burst_downmix_next_impl::burst_downmix_next_impl(int output_sample_rate,
                                        int search_depth,
                                        size_t hard_max_queue_len,
                                        const std::vector<float>& input_taps,
                                        const std::vector<float>& start_finder_taps,
                                        bool handle_multiple_frames_per_burst)
-    : gr::block("burst_downmix",
+    : gr::block("burst_downmix_next",
                 gr::io_signature::make(0, 0, 0),
                 gr::io_signature::make(0, 0, 0)),
       d_output_sample_rate(output_sample_rate),
-      d_output_samples_per_symbol(d_output_sample_rate / ::iridium::SYMBOLS_PER_SECOND),
+      d_output_samples_per_symbol(d_output_sample_rate / ::iridium::SYMBOLS_PER_SECOND_NEXT),
       d_max_burst_size(0),
       d_search_depth(search_depth),
       d_pre_start_samples(int(0.1e-3 * d_output_sample_rate)),
@@ -136,6 +136,7 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
       d_hard_max_queue_len(hard_max_queue_len),
       d_handle_multiple_frames_per_burst(handle_multiple_frames_per_burst),
       d_debug(false),
+      //d_debug(true),
 
       d_frame(NULL),
       d_tmp_a(NULL),
@@ -154,9 +155,9 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
       d_input_fir(input_taps),
       d_start_finder_fir(start_finder_taps),
       d_rrc_fir(gr::filter::firdes::root_raised_cosine(
-          1.0, d_output_sample_rate, ::iridium::SYMBOLS_PER_SECOND, .4, 51)),
+          1.0, d_output_sample_rate, ::iridium::SYMBOLS_PER_SECOND_NEXT, .2, 51)),
       d_rc_fir(
-          rcosfilter(51, 0.4, 1. / ::iridium::SYMBOLS_PER_SECOND, d_output_sample_rate)),
+          rcosfilter2(51, 0.4, 1. / ::iridium::SYMBOLS_PER_SECOND_NEXT, d_output_sample_rate)),
       d_cfo_est_fft(d_cfo_est_fft_size * d_fft_over_size_facor)
 {
     d_dl_preamble_reversed_conj = generate_sync_word(::iridium::direction::DOWNLINK);
@@ -181,7 +182,7 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
 /*
  * Our virtual destructor.
  */
-burst_downmix_impl::~burst_downmix_impl()
+burst_downmix_next_impl::~burst_downmix_next_impl()
 {
     if (d_frame) {
         volk_free(d_frame);
@@ -219,25 +220,20 @@ burst_downmix_impl::~burst_downmix_impl()
 }
 
 volk::vector<gr_complex>
-burst_downmix_impl::generate_sync_word(::iridium::direction direction)
+burst_downmix_next_impl::generate_sync_word(::iridium::direction direction)
 {
     gr_complex s1 = gr_complex(-1, -1);
     gr_complex s0 = -s1;
     std::vector<gr_complex> sync_word;
-    std::vector<gr_complex> uw_dl = { s0, s1, s1, s1, s1, s0, s0, s0, s1, s0, s0, s1 };
+    //std::vector<gr_complex> uw_dl = { s0, s1, s1, s1, s1, s0, s0, s0, s1, s0, s0, s1 };
+    //std::vector<gr_complex> uw_dl = { s0, s0, s0, s0, s0, s1, s1, s0, s1, s1, s0, s1 s0, s1, s0, s1, s1, s0, s0, s1, s0, s1, s1, s1, s1, s0, s1, s1, s1, s0, s1, s0, s0};
+    std::vector<gr_complex> uw_dl = { s1, s1, s0, s1, s1, s0, s1, s0, s1, s0, s1, s1 };//, s0, s0, s1, s0, s1, s1, s1, s1, s0, s1, s1, s1, s0, s1, s0, s0};
     std::vector<gr_complex> uw_ul = { s1, s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1 };
     int i;
 
     if (direction == ::iridium::direction::DOWNLINK) {
-        for (i = 0; i < ::iridium::PREAMBLE_LENGTH_SHORT; i++) {
-            sync_word.push_back(s0);
-        }
         sync_word.insert(std::end(sync_word), std::begin(uw_dl), std::end(uw_dl));
     } else if (direction == ::iridium::direction::UPLINK) {
-        for (i = 0; i < ::iridium::PREAMBLE_LENGTH_SHORT; i += 2) {
-            sync_word.push_back(s1);
-            sync_word.push_back(s0);
-        }
         sync_word.insert(std::end(sync_word), std::begin(uw_ul), std::end(uw_ul));
     }
 
@@ -317,7 +313,7 @@ burst_downmix_impl::generate_sync_word(::iridium::direction direction)
     return sync_word_padded;
 }
 
-void burst_downmix_impl::initialize_cfo_est_fft(void)
+void burst_downmix_next_impl::initialize_cfo_est_fft(void)
 {
     // Only the first d_cfo_est_fft_size samples will be filled with data.
     // Zero out everyting first.
@@ -339,7 +335,7 @@ void burst_downmix_impl::initialize_cfo_est_fft(void)
     }
 }
 
-void burst_downmix_impl::initialize_correlation_filter(void)
+void burst_downmix_next_impl::initialize_correlation_filter(void)
 {
     // Based on code from synchronizer_v4_impl.cc in gr-burst
 
@@ -393,7 +389,7 @@ void burst_downmix_impl::initialize_correlation_filter(void)
     memset(d_corr_fft->get_inbuf(), 0, sizeof(gr_complex) * d_corr_fft_size);
 }
 
-void burst_downmix_impl::update_buffer_sizes(size_t burst_size)
+void burst_downmix_next_impl::update_buffer_sizes(size_t burst_size)
 {
     if (burst_size > d_max_burst_size) {
         d_max_burst_size = burst_size;
@@ -429,14 +425,14 @@ void burst_downmix_impl::update_buffer_sizes(size_t burst_size)
     }
 }
 
-size_t burst_downmix_impl::get_input_queue_size() { return nmsgs(pmt::mp("cpdus")); }
+size_t burst_downmix_next_impl::get_input_queue_size() { return nmsgs(pmt::mp("cpdus")); }
 
-uint64_t burst_downmix_impl::get_n_dropped_bursts() { return d_n_dropped_bursts; }
+uint64_t burst_downmix_next_impl::get_n_dropped_bursts() { return d_n_dropped_bursts; }
 
-void burst_downmix_impl::debug_id(uint64_t id) { d_debug_id = id; }
+void burst_downmix_next_impl::debug_id(uint64_t id) { d_debug_id = id; }
 
 // Maps an index in [-N/2 .. (N/2)-1] notation to [0 .. N-1] notation
-int burst_downmix_impl::fft_shift_index(int index, int fft_size)
+int burst_downmix_next_impl::fft_shift_index(int index, int fft_size)
 {
     // Clamp the input to [-N/2 .. (N/2)-1]
     index = std::max(index, -fft_size / 2);
@@ -449,7 +445,7 @@ int burst_downmix_impl::fft_shift_index(int index, int fft_size)
 }
 
 // Maps an index in [0 .. N-1] notation to [-N/2 .. (N/2)-1] notation
-int burst_downmix_impl::fft_unshift_index(int index, int fft_size)
+int burst_downmix_next_impl::fft_unshift_index(int index, int fft_size)
 {
     // Clamp the input to [0 .. N-1]
     index = std::max(index, 0);
@@ -461,13 +457,13 @@ int burst_downmix_impl::fft_unshift_index(int index, int fft_size)
     return index;
 }
 
-float burst_downmix_impl::interpolate(float alpha, float beta, float gamma)
+float burst_downmix_next_impl::interpolate(float alpha, float beta, float gamma)
 {
     const float correction = 0.5 * (alpha - gamma) / (alpha - 2 * beta + gamma);
     return correction;
 }
 
-int burst_downmix_impl::process_next_frame(float sample_rate,
+int burst_downmix_next_impl::process_next_frame(float sample_rate,
                                            double center_frequency,
                                            uint64_t timestamp,
                                            uint64_t sub_id,
@@ -493,8 +489,11 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
         min_frame_length =
             (::iridium::MIN_FRAME_LENGTH_SIMPLEX)*d_output_samples_per_symbol;
     } else {
+        //max_frame_length =
+        //    ::iridium::MAX_FRAME_LENGTH_NORMAL * d_output_samples_per_symbol;
+
         max_frame_length =
-            ::iridium::MAX_FRAME_LENGTH_NORMAL * d_output_samples_per_symbol;
+            245 * d_output_samples_per_symbol; // 248 symbols in 8.267 ms. We remove the first 4 or 3 (preamble?)
         min_frame_length =
             (::iridium::MIN_FRAME_LENGTH_NORMAL)*d_output_samples_per_symbol;
     }
@@ -575,7 +574,7 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     center_frequency += center_offset * sample_rate;
 
     if (d_debug) {
-        write_data_c(d_tmp_a,
+        write_data_c2(d_tmp_a,
                      burst_size - start,
                      (char*)"signal-filtered-deci-cut-start-shift",
                      sub_id);
@@ -594,7 +593,7 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     d_rrc_fir.filterN(d_tmp_a, d_tmp_b, burst_size - start);
 
     if (d_debug) {
-        write_data_c(d_tmp_a,
+        write_data_c2(d_tmp_a,
                      burst_size - start,
                      (char*)"signal-filtered-deci-cut-start-shift-rrc",
                      sub_id);
@@ -654,7 +653,7 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     float correction;
     ::iridium::direction direction;
 
-    if (max_dl > max_ul) {
+    if (max_dl > max_ul || 1) {
         direction = ::iridium::direction::DOWNLINK;
         corr_offset = corr_offset_dl;
         correction = correction_dl;
@@ -675,7 +674,7 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     // before the first sample => preamble_offset might be negative
     int preamble_offset = corr_offset - d_dl_preamble_reversed_conj.size() + 1;
     int uw_start =
-        preamble_offset + ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
+        preamble_offset;
 
     // If the UW starts at an offset < 0, we will not be able to demodulate the signal
     if (uw_start < 0) {
@@ -691,10 +690,14 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
      */
     d_r.set_phase_incr(exp(gr_complex(0, 0)));
     d_r.set_phase(std::conj(corr_result / abs(corr_result)));
+    //d_r.set_phase(exp(gr_complex(0, 2 * M_PI * 0.25 * 1)));
+    //d_r.set_phase(exp(gr_complex(0, 0.91)));
     d_r.rotateN(d_tmp_b, d_tmp_a, frame_size);
 
+    //if(max_dl > 10000)
+    //    d_debug = true;
     if (d_debug) {
-        write_data_c(d_tmp_b,
+        write_data_c2(d_tmp_b,
                      frame_size,
                      (char*)"signal-filtered-deci-cut-start-shift-rrc-rotate",
                      sub_id);
@@ -711,7 +714,7 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     start += uw_start;
 
     if (d_debug) {
-        write_data_c(d_tmp_b + uw_start,
+        write_data_c2(d_tmp_b + uw_start,
                      frame_size,
                      (char*)"signal-filtered-deci-cut-start-shift-rrc-rotate-cut",
                      sub_id);
@@ -732,20 +735,23 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("timestamp"), pmt::mp(timestamp));
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(sub_id));
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("noise"), pmt::mp(noise));
+    //pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("noise"), pmt::mp(max_dl));
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("magnitude"), pmt::mp(magnitude));
-    pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("next"), pmt::mp(false));
+    pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("next"), pmt::mp(true));
 
     if (d_debug) {
         printf("center_frequency=%f, uw_start=%u\n", center_frequency, uw_start);
     }
 
+    //if(max_dl > 10000)
+    //    d_debug = false;
     pmt::pmt_t out_msg = pmt::cons(pdu_meta, pdu_vector);
     message_port_pub(pmt::mp("cpdus"), out_msg);
 
     return consumed_samples;
 }
 
-void burst_downmix_impl::handler(pmt::pmt_t msg)
+void burst_downmix_next_impl::handler(pmt::pmt_t msg)
 {
     /*
      * Extract the burst and meta data from the cpdu
@@ -769,7 +775,7 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     float magnitude =
         pmt::to_float(pmt::dict_ref(meta, pmt::mp("magnitude"), pmt::PMT_NIL));
 
-    if (id == d_debug_id) {
+    if (id == d_debug_id || id == d_debug_id + 1920 || id == d_debug_id - 1920) {
         d_debug = true;
     }
 
@@ -795,9 +801,9 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     update_buffer_sizes(burst_size + 10000);
 
     if (d_debug) {
-        write_data_c(burst, burst_size, (char*)"signal", id);
+        write_data_c2(burst, burst_size, (char*)"signal", id);
     }
-
+    //return;
 
     /*
      * Shift the center frequency of the burst to the provided rough CFO estimate.
@@ -836,7 +842,7 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
         printf("---------------> id:%" PRIu64 " len:%lu\n",
                id,
                burst_size / d_output_sample_rate);
-        write_data_c(d_frame, burst_size, (char*)"signal-filtered-deci", id);
+        write_data_c2(d_frame, burst_size, (char*)"signal-filtered-deci", id);
     }
 
     /*
@@ -853,14 +859,15 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     volk_32fc_magnitude_squared_32f(d_magnitude_f, d_frame, N + fir_size - 1);
 
     if (d_debug) {
-        write_data_f(d_magnitude_f, N + fir_size - 1, (char*)"signal-mag", id);
+        write_data_f2(d_magnitude_f, N + fir_size - 1, (char*)"signal-mag", id);
     }
 
     d_start_finder_fir.filterN(d_magnitude_filtered_f, d_magnitude_f, N);
 
     if (d_debug) {
-        write_data_f(d_magnitude_filtered_f, N, (char*)"signal-mag-filter", id);
+        write_data_f2(d_magnitude_filtered_f, N, (char*)"signal-mag-filter", id);
     }
+
 
     float* max = std::max_element(d_magnitude_filtered_f, d_magnitude_filtered_f + N);
     float threshold = *max * 0.28;
@@ -882,7 +889,7 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
 
     if (d_debug) {
         std::cout << "Start:" << start << "\n";
-        write_data_c(d_frame + start,
+        write_data_c2(d_frame + start,
                      burst_size - start,
                      (char*)"signal-filtered-deci-cut-start",
                      id);
@@ -922,7 +929,7 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     }
 }
 
-int burst_downmix_impl::work(int noutput_items,
+int burst_downmix_next_impl::work(int noutput_items,
                              gr_vector_const_void_star& input_items,
                              gr_vector_void_star& output_items)
 {
