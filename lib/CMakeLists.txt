@@ -16,6 +16,7 @@ list(APPEND iridium_sources
     iuchar_to_complex_impl.cc
     tagged_burst_to_pdu_impl.cc
     burst_downmix_impl.cc
+    burst_downmix_next_impl.cc
     pdu_null_sink_impl.cc
     iridium_qpsk_demod_impl.cc
     pdu_round_robin_impl.cc

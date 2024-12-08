@@ -45,6 +45,7 @@ class FlowGraph(gr.top_block):
 
         # Sample rate of the bursts exiting the burst downmix block
         self._burst_sample_rate = 25000 * samples_per_symbol
+        self._burst_sample_rate_next = 30000 * samples_per_symbol
         if (self._input_sample_rate / self._decimation) % self._burst_sample_rate != 0:
             raise RuntimeError("Selected sample rate and decimation can not be matched. Please try a different combination. Sample rate divided by decimation must be a multiple of %d." % self._burst_sample_rate)
 
@@ -508,7 +509,7 @@ class FlowGraph(gr.top_block):
                                                           max_bursts=max_bursts,
                                                           max_burst_len=int(self._input_sample_rate * 0.09),
                                                           threshold=self._threshold,
-                                                          history_size=512,
+                                                          history_size=300,
                                                           offline=self._offline,
                                                           debug=self._verbose)
         self._fft_burst_tagger.set_min_output_buffer(1024 * 64)
@@ -542,6 +543,7 @@ class FlowGraph(gr.top_block):
         if self._use_channelizer:
             self._burst_to_pdu_converters = []
             self._burst_downmixers = []
+            self._burst_downmixers_next = []
             sinks = []
 
             for channel in range(self._channels):
@@ -568,10 +570,18 @@ class FlowGraph(gr.top_block):
                                                         (start_finder_filter),
                                                         self._handle_multiple_frames_per_burst)
 
+                burst_downmixer_next = iridium.burst_downmix_next(self._burst_sample_rate_next,
+                                                        int(0.007 * self._burst_sample_rate_next),
+                                                        0,
+                                                        (input_filter),
+                                                        (start_finder_filter),
+                                                        self._handle_multiple_frames_per_burst)
                 if debug_id is not None:
                     burst_downmixer.debug_id(debug_id)
+                    burst_downmixer_next.debug_id(debug_id)
 
                 self._burst_downmixers.append(burst_downmixer)
+                self._burst_downmixers_next.append(burst_downmixer_next)
 
             channelizer_debug_sinks = []
             #channelizer_debug_sinks = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
@@ -598,16 +608,21 @@ class FlowGraph(gr.top_block):
                 if self._burst_to_pdu_converters:
                     tb.connect((self._channelizer, i), self._burst_to_pdu_converters[i])
                     tb.msg_connect((self._burst_to_pdu_converters[i], 'cpdus'), (self._burst_downmixers[i], 'cpdus'))
+                    tb.msg_connect((self._burst_to_pdu_converters[i], 'cpdus'), (self._burst_downmixers_next[i], 'cpdus'))
                     tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (self._burst_to_pdu_converters[i], 'burst_handled'))
                 else:
                     tb.msg_connect((self._channelizer, 'cpdus%d' % i), (self._burst_downmixers[i], 'cpdus'))
+                    tb.msg_connect((self._channelizer, 'cpdus%d' % i), (self._burst_downmixers_next[i], 'cpdus'))
                     tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (self._channelizer, 'burst_handled'))
 
                 tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus%d' % i))
+                tb.msg_connect((self._burst_downmixers_next[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus%d' % i))
         else:
             burst_downmix = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * self._burst_sample_rate), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
+            burst_downmix_next = iridium.burst_downmix_next(self._burst_sample_rate_next, int(0.007 * self._burst_sample_rate_next), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
             if debug_id is not None:
                 burst_downmix.debug_id(debug_id)
+                burst_downmix_next.debug_id(debug_id)
 
             burst_to_pdu = iridium.tagged_burst_to_pdu(self._max_burst_len,
                                                        0.0, 1.0, 1.0,
@@ -617,12 +632,15 @@ class FlowGraph(gr.top_block):
             tb.connect(self._fft_burst_tagger, burst_to_pdu)
 
             tb.msg_connect((burst_to_pdu, 'cpdus'), (burst_downmix, 'cpdus'))
-            tb.msg_connect((burst_downmix, 'burst_handled'), (burst_to_pdu, 'burst_handled'))
+            tb.msg_connect((burst_to_pdu, 'cpdus'), (burst_downmix_next, 'cpdus'))
+            tb.msg_connect((burst_downmix_next, 'burst_handled'), (burst_to_pdu, 'burst_handled'))
 
             # Final connection to the demodulator. It prints the output to stdout
             tb.msg_connect((burst_downmix, 'cpdus'), (self._iridium_qpsk_demod, 'cpdus'))
+            tb.msg_connect((burst_downmix_next, 'cpdus'), (self._iridium_qpsk_demod, 'cpdus'))
 
             self._burst_downmixers = [burst_downmix]
+            self._burst_downmixers_next = [burst_downmix_next]
             self._burst_to_pdu_converters = [burst_to_pdu]
 
         tb.msg_connect((self._iridium_qpsk_demod, 'pdus'), (self._frame_sorter, 'pdus'))

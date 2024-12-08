@@ -188,11 +188,13 @@ size_t iridium_qpsk_demod_impl::demod_qpsk(
     float max = 0;
     int low_count = 0;
     int n_ok = 0;
+    int n = 0;
 
     volk_32fc_magnitude_32f(d_magnitude_f, burst, n_symbols);
 
     for (index = 0; index < n_symbols; index++) {
         sum += d_magnitude_f[index];
+        //printf("%f ", d_magnitude_f[index]);
         if (max < d_magnitude_f[index]) {
             max = d_magnitude_f[index];
         }
@@ -222,11 +224,13 @@ size_t iridium_qpsk_demod_impl::demod_qpsk(
                 break;
             }
         }
+        n++;
     }
+    //printf("\n");
 
-    *level = sum / index;
-    *confidence = (int)(100. * n_ok / index);
-    return index;
+    *level = sum / n;
+    *confidence = (int)(100. * n_ok / n);
+    return n;
 }
 
 void iridium_qpsk_demod_impl::decode_deqpsk(int* demodulated_burst, size_t n_symbols)
@@ -292,6 +296,11 @@ bool iridium_qpsk_demod_impl::check_sync_word(int* demodulated_burst,
         uw_len = sizeof(::iridium::UW_DL) / sizeof(*::iridium::UW_DL);
     }
 
+    if (direction == ::iridium::direction::DOWNLINK_NEXT) {
+        uw = ::iridium::UW_DL_NEXT;
+        uw_len = sizeof(::iridium::UW_DL_NEXT) / sizeof(*::iridium::UW_DL_NEXT);
+    }
+
     if (direction == ::iridium::direction::UPLINK) {
         uw = ::iridium::UW_UL;
         uw_len = sizeof(::iridium::UW_DL) / sizeof(*::iridium::UW_DL);
@@ -341,8 +350,13 @@ void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
         pmt::to_float(pmt::dict_ref(meta, pmt::mp("magnitude"), pmt::PMT_NIL));
     uint64_t timestamp =
         pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("timestamp"), pmt::PMT_NIL));
+    uint64_t next =
+        pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("next"), pmt::PMT_NIL));
 
     int sps = sample_rate / 25000;
+
+    if(next) sps = sample_rate / 30000;
+
     timestamp += uw_start * 1000000000ULL / (int)sample_rate;
 
     update_buffer_sizes(burst_size);
@@ -356,6 +370,9 @@ void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
     // frequency or phase offset
     float total_phase =
         qpskFirstOrderPLL(d_decimated_burst, n_symbols, d_alpha, d_burst_after_pll);
+    if(next)
+    center_frequency += total_phase / (n_symbols / 30000.) / M_PI / 2.;
+    else
     center_frequency += total_phase / (n_symbols / 25000.) / M_PI / 2.;
 #else
     memcpy(d_burst_after_pll, d_decimated_burst, n_symbols * sizeof(gr_complex));
@@ -363,6 +380,7 @@ void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
 
     int confidence;
     float level;
+    //printf("id:%d ", sub_id);
     n_symbols = demod_qpsk(
         d_burst_after_pll, n_symbols, d_demodulated_burst, &level, &confidence);
 
@@ -370,10 +388,11 @@ void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
         check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::DOWNLINK);
     bool ul_uw_ok =
         check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::UPLINK);
-
+    bool dl_next_uw_ok =
+        check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::DOWNLINK_NEXT);
     d_n_handled_bursts++;
 
-    if (!dl_uw_ok && !ul_uw_ok) {
+    if (!dl_uw_ok && !ul_uw_ok && !dl_next_uw_ok) {
         // Drop frames which have no valid sync word
         return;
     }

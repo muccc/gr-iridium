@@ -30,6 +30,7 @@ include(GrPybind)
 
 list(APPEND iridium_python_files
     burst_downmix_python.cc
+    burst_downmix_next_python.cc
     fft_burst_tagger_python.cc
     iridium_qpsk_demod_python.cc
     iuchar_to_complex_python.cc
