@@ -6,6 +6,7 @@ enum class direction {
     DOWNLINK = 1,
     UPLINK = 2,
     DOWNLINK_NEXT = 3,
+    UPLINK_NEXT = 4,
 };
 
 const int SYMBOLS_PER_SECOND = 25000;
@@ -28,4 +29,8 @@ const int UW_UL[] = { 2, 2, 0, 0, 0, 2, 0, 0, 2, 0, 2, 2 };
 
 //    std::vector<gr_complex> uw_dl = { s1, s1, s0, s1, s1, s0, s1, s0, s1, s0, s1, s1 };//, s0, s0, s1, s0, s1, s1, s1, s1, s0, s1, s1, s1, s0, s1, s0, s0};
 const int UW_DL_NEXT[] =             { 2,  2,  0,  2,  2,  0,  2,  0,  2,  0,  2, 2 };
+//    std::vector<gr_complex> uw_ul = { s1, s0, s1, s0, s0, s0, s1, s1, s1, s0, s0, s1 };
+//const int UW_UL_NEXT[] =             { 2,  0,  2,  0,  0,  2,  2,  2,  2,  0,  0, 2 };
+//    std::vector<gr_complex> uw_ul = { s0, s1, s0, s0, s0, s0, s0, s0, s1, s0, s1, s0 };
+const int UW_UL_NEXT[] =             { 0,  2,  0,  0,  0,  0,  0,  0,  2,  0,  2, 0 };
 } // namespace iridium

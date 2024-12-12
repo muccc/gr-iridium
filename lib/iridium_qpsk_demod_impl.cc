@@ -306,6 +306,11 @@ bool iridium_qpsk_demod_impl::check_sync_word(int* demodulated_burst,
         uw_len = sizeof(::iridium::UW_DL) / sizeof(*::iridium::UW_DL);
     }
 
+    if (direction == ::iridium::direction::UPLINK_NEXT) {
+        uw = ::iridium::UW_UL_NEXT;
+        uw_len = sizeof(::iridium::UW_UL_NEXT) / sizeof(*::iridium::UW_UL_NEXT);
+    }
+
     int diffs = 0;
     for (int i = 0; i < uw_len; i++) {
         int diff = abs(demodulated_burst[i] - uw[i]);
@@ -390,9 +395,11 @@ void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
         check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::UPLINK);
     bool dl_next_uw_ok =
         check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::DOWNLINK_NEXT);
+    bool ul_next_uw_ok =
+        check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::UPLINK_NEXT);
     d_n_handled_bursts++;
 
-    if (!dl_uw_ok && !ul_uw_ok && !dl_next_uw_ok) {
+    if (!dl_uw_ok && !ul_uw_ok && !dl_next_uw_ok && !ul_next_uw_ok) {
         // Drop frames which have no valid sync word
         return;
     }

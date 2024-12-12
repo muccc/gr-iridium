@@ -228,7 +228,10 @@ burst_downmix_next_impl::generate_sync_word(::iridium::direction direction)
     //std::vector<gr_complex> uw_dl = { s0, s1, s1, s1, s1, s0, s0, s0, s1, s0, s0, s1 };
     //std::vector<gr_complex> uw_dl = { s0, s0, s0, s0, s0, s1, s1, s0, s1, s1, s0, s1 s0, s1, s0, s1, s1, s0, s0, s1, s0, s1, s1, s1, s1, s0, s1, s1, s1, s0, s1, s0, s0};
     std::vector<gr_complex> uw_dl = { s1, s1, s0, s1, s1, s0, s1, s0, s1, s0, s1, s1 };//, s0, s0, s1, s0, s1, s1, s1, s1, s0, s1, s1, s1, s0, s1, s0, s0};
-    std::vector<gr_complex> uw_ul = { s1, s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1 };
+                                    // 101 000 111 001 10001001
+    //std::vector<gr_complex> uw_ul = { s1, s0, s1, s0, s0, s0, s1, s1, s1, s0, s0, s1 };
+    // 01 00 00 00 10 10 00 11 10 01 10001001
+    std::vector<gr_complex> uw_ul = { s0, s1, s0, s0, s0, s0, s0, s0, s1, s0, s1, s0 };
     int i;
 
     if (direction == ::iridium::direction::DOWNLINK) {
@@ -653,7 +656,7 @@ int burst_downmix_next_impl::process_next_frame(float sample_rate,
     float correction;
     ::iridium::direction direction;
 
-    if (max_dl > max_ul || 1) {
+    if (max_dl > max_ul) {
         direction = ::iridium::direction::DOWNLINK;
         corr_offset = corr_offset_dl;
         correction = correction_dl;
