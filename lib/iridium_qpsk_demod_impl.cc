@@ -183,50 +183,61 @@ float iridium_qpsk_demod_impl::qpskFirstOrderPLL(const gr_complex* x,
 size_t iridium_qpsk_demod_impl::demod_qpsk(
     const gr_complex* burst, size_t n_symbols, int* out, float* level, int* confidence)
 {
-    int index;
-    float sum = 0;
     float max = 0;
     int low_count = 0;
-    int n_ok = 0;
+    int n = 0;
+    float offsets[n_symbols];
 
     volk_32fc_magnitude_32f(d_magnitude_f, burst, n_symbols);
 
-    for (index = 0; index < n_symbols; index++) {
-        sum += d_magnitude_f[index];
-        if (max < d_magnitude_f[index]) {
-            max = d_magnitude_f[index];
+    for (int i = 0; i < n_symbols; i++) {
+        if (max < d_magnitude_f[i]) {
+            max = d_magnitude_f[i];
         }
 
         // demodulating circuit
-        if (burst[index].real() >= 0 && burst[index].imag() >= 0) {
-            out[index] = d_symbol_mapping[0];
-        } else if (burst[index].real() >= 0 && burst[index].imag() < 0) {
-            out[index] = d_symbol_mapping[3];
-        } else if (burst[index].real() < 0 && burst[index].imag() < 0) {
-            out[index] = d_symbol_mapping[2];
+        if (burst[i].real() >= 0 && burst[i].imag() >= 0) {
+            out[i] = d_symbol_mapping[0];
+        } else if (burst[i].real() >= 0 && burst[i].imag() < 0) {
+            out[i] = d_symbol_mapping[3];
+        } else if (burst[i].real() < 0 && burst[i].imag() < 0) {
+            out[i] = d_symbol_mapping[2];
         } else {
-            out[index] = d_symbol_mapping[1];
+            out[i] = d_symbol_mapping[1];
         }
 
         // Keep some quality estimate
         // If the phase is off too much, we lower the reported confidence
-        int phase = (gr::fast_atan2f(burst[index]) + M_PI) * 180 / M_PI;
+        int phase = (gr::fast_atan2f(burst[i]) + M_PI) * 180 / M_PI;
         int offset = 45 - (phase % 90);
-        if (abs(offset) <= 22) {
-            n_ok++;
-        }
+        offsets[i] = offset;
 
-        if (d_magnitude_f[index] < max / 8.) {
+        n++;
+        if (d_magnitude_f[i] < max / 8.) {
             low_count++;
-            if (low_count > 2) {
+            if (low_count == 3) {
+                // We don't want to consider noise at the end of the frame
+                n -= 3;
                 break;
             }
+        } else {
+            low_count = 0;
         }
     }
 
-    *level = sum / index;
-    *confidence = (int)(100. * n_ok / index);
-    return index;
+    int n_ok = 0;
+    float sum = 0;
+
+    for (int i = 0; i < n; i++) {
+        if (abs(offsets[i]) <= 22) {
+            n_ok++;
+        }
+        sum += d_magnitude_f[i];
+    }
+
+    *level = sum / n;
+    *confidence = (int)(100. * n_ok / n);
+    return n;
 }
 
 void iridium_qpsk_demod_impl::decode_deqpsk(int* demodulated_burst, size_t n_symbols)
