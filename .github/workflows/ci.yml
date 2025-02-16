@@ -29,13 +29,6 @@ jobs:
     strategy:
       matrix:
         os:
-          - version: ubuntu-20.04
-            ppa: gnuradio/gnuradio-releases
-            packages: libsndfile-dev libspdlog-dev pybind11-dev
-            osmosdr-from-source: True
-          - version: ubuntu-20.04
-            ppa: gnuradio/gnuradio-releases-3.9
-            packages: libsndfile-dev libspdlog-dev pybind11-dev gr-osmosdr
           - version: ubuntu-22.04
             packages: libsndfile1-dev gr-osmosdr
           - version: ubuntu-24.04
@@ -43,10 +36,6 @@ jobs:
     runs-on: ${{matrix.os.version}}
     steps:
       - uses: actions/checkout@v4
-      - name: Add PPA
-        if: ${{matrix.os.ppa}}
-        run: |
-         sudo add-apt-repository ppa:${{matrix.os.ppa}}
       - name: Install GNU Radio
         run: |
          sudo apt update
@@ -104,16 +93,6 @@ jobs:
         run: |
          iridium-extractor examples/hackrf-soapy.conf 2>&1 | tee stderr-out
          cat stderr-out | grep "RuntimeError: no hackrf device matches"
-      - name: Install gr-osmosdr from source
-        if: ${{matrix.os.osmosdr-from-source}}
-        run: |
-         git clone https://github.com/osmocom/gr-osmosdr
-         cd gr-osmosdr
-         cmake -B build
-         cmake --build build
-         cd build
-         sudo make install
-         sudo ldconfig
 
       - name: Open SDR with gr-osmosdr
         run: |
