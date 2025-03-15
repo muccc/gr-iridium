@@ -13,7 +13,7 @@ parameters:
 inputs:
 -   domain: message
     id: cpdus
-    multiplicity: ${channel}
+    multiplicity: ${channels}
 
 outputs:
 -   domain: message
