@@ -76,13 +76,19 @@ void iridium_frame_printer_impl::handler(const pmt::pmt_t& msg)
         pmt::to_long(pmt::dict_ref(meta, pmt::mp("confidence"), pmt::PMT_NIL));
     float level = pmt::to_float(pmt::dict_ref(meta, pmt::mp("level"), pmt::PMT_NIL));
     int n_symbols = pmt::to_long(pmt::dict_ref(meta, pmt::mp("n_symbols"), pmt::PMT_NIL));
+    uint64_t next = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("next"), pmt::PMT_NIL));
 
     if (d_file_info == "") {
         d_t0 = (timestamp / 1000000000ULL) * 1000000000ULL;
         d_file_info = "i-" + std::to_string(d_t0 / 1000000000ULL) + "-t1";
     }
 
-    std::cout << "RAW: " << d_file_info << " ";
+    if(next)
+        std::cout << "NC1: ";
+    else
+        std::cout << "RAW: ";
+
+    std::cout << d_file_info << " ";
     std::cout << format("%012.4f ") % ((timestamp - d_t0) / 1000000.);
     std::cout << format("%010d ") % int(center_frequency + 0.5);
     std::cout << format("N:%05.2f%+06.2f ") % magnitude % noise;
