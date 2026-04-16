@@ -224,6 +224,7 @@ size_t iridium_qpsk_demod_impl::demod_qpsk(
             low_count = 0;
         }
     }
+    //printf("\n");
 
     int n_ok = 0;
     float sum = 0;
@@ -303,9 +304,19 @@ bool iridium_qpsk_demod_impl::check_sync_word(int* demodulated_burst,
         uw_len = sizeof(::iridium::UW_DL) / sizeof(*::iridium::UW_DL);
     }
 
+    if (direction == ::iridium::direction::DOWNLINK_NEXT) {
+        uw = ::iridium::UW_DL_NEXT;
+        uw_len = sizeof(::iridium::UW_DL_NEXT) / sizeof(*::iridium::UW_DL_NEXT);
+    }
+
     if (direction == ::iridium::direction::UPLINK) {
         uw = ::iridium::UW_UL;
         uw_len = sizeof(::iridium::UW_DL) / sizeof(*::iridium::UW_DL);
+    }
+
+    if (direction == ::iridium::direction::UPLINK_NEXT) {
+        uw = ::iridium::UW_UL_NEXT;
+        uw_len = sizeof(::iridium::UW_UL_NEXT) / sizeof(*::iridium::UW_UL_NEXT);
     }
 
     int diffs = 0;
@@ -352,8 +363,13 @@ void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
         pmt::to_float(pmt::dict_ref(meta, pmt::mp("magnitude"), pmt::PMT_NIL));
     uint64_t timestamp =
         pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("timestamp"), pmt::PMT_NIL));
+    uint64_t next =
+        pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("next"), pmt::PMT_NIL));
 
     int sps = sample_rate / 25000;
+
+    if(next) sps = sample_rate / 30000;
+
     timestamp += uw_start * 1000000000ULL / (int)sample_rate;
 
     update_buffer_sizes(burst_size);
@@ -367,27 +383,48 @@ void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
     // frequency or phase offset
     float total_phase =
         qpskFirstOrderPLL(d_decimated_burst, n_symbols, d_alpha, d_burst_after_pll);
-    center_frequency += total_phase / (n_symbols / 25000.) / M_PI / 2.;
+    if(next)
+        center_frequency += total_phase / (n_symbols / 30000.) / M_PI / 2.;
+    else
+        center_frequency += total_phase / (n_symbols / 25000.) / M_PI / 2.;
 #else
     memcpy(d_burst_after_pll, d_decimated_burst, n_symbols * sizeof(gr_complex));
 #endif
 
     int confidence;
     float level;
+    //printf("id:%d ", sub_id);
     n_symbols = demod_qpsk(
         d_burst_after_pll, n_symbols, d_demodulated_burst, &level, &confidence);
 
-    bool dl_uw_ok =
-        check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::DOWNLINK);
-    bool ul_uw_ok =
-        check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::UPLINK);
-
     d_n_handled_bursts++;
 
-    if (!dl_uw_ok && !ul_uw_ok) {
-        // Drop frames which have no valid sync word
-        return;
+    ::iridium::direction direction = ::iridium::direction::UNDEF;
+    if (next) {
+        bool dl_next_uw_ok =
+            check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::DOWNLINK_NEXT);
+        bool ul_next_uw_ok =
+            check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::UPLINK_NEXT);
+
+        if (!dl_next_uw_ok && !ul_next_uw_ok) {
+            return;
+        }
+        // If both match (rare), prefer DL — UL UW is still experimental.
+        direction = dl_next_uw_ok ? ::iridium::direction::DOWNLINK_NEXT
+                                  : ::iridium::direction::UPLINK_NEXT;
+    } else {
+        bool dl_uw_ok =
+            check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::DOWNLINK);
+        bool ul_uw_ok =
+            check_sync_word(d_demodulated_burst, n_symbols, ::iridium::direction::UPLINK);
+        if (!dl_uw_ok && !ul_uw_ok) {
+            // Drop frames which have no valid sync word
+            return;
+        }
+        direction = dl_uw_ok ? ::iridium::direction::DOWNLINK
+                             : ::iridium::direction::UPLINK;
     }
+
 
 
     // Let's count the number of bursts before
@@ -415,8 +452,8 @@ void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("noise"), pmt::mp(noise));
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("magnitude"), pmt::mp(magnitude));
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("n_symbols"), pmt::mp((int)n_symbols));
-    pdu_meta =
-        pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)(ul_uw_ok ? 1 : 0)));
+    pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("next"), pmt::mp(next));
+    pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)direction));
 
     pmt::pmt_t out_msg = pmt::cons(pdu_meta, pdu_vector);
     message_port_pub(pmt::mp("pdus"), out_msg);

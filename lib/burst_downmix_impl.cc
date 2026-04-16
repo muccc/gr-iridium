@@ -733,6 +733,7 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(sub_id));
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("noise"), pmt::mp(noise));
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("magnitude"), pmt::mp(magnitude));
+    pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("next"), pmt::mp(false));
 
     if (d_debug) {
         printf("center_frequency=%f, uw_start=%u\n", center_frequency, uw_start);
