@@ -330,7 +330,7 @@ During normal operation `iridium-extractor` will output one line of bits per "ok
 
 |Column|Example|Explanation|
 |-|-|-|
-|  1|RAW:          |Indicates that this is an unprocessed output from `iridium-extractor` |
+|  1|RAW:          |Indicates that this is an unprocessed Block1 (classic 25 ksps) output from `iridium-extractor`. Iridium NEXT / Certus-C1 bursts (30 ksps, QPSK) use the `NC1:` prefix instead — see [Iridium NEXT / Certus-C1](#iridium-next--certus-c1) below. |
 |  2|prbs15-2M-20dB|File info - see `--file-info` command line option[^fileinfo]|
 |  3|0000599.9996  |Time in ms since start of recording/extraction[^time]. This is derived from sample counting and will drift depending on your SDR clock accuracy (and also when dropping samples)|
 |  4|1622000000    |Frequency in Hz at which this "frame" was detected|
@@ -346,6 +346,24 @@ During normal operation `iridium-extractor` will output one line of bits per "ok
 [^id]: Last digit identifies the sub-frame of a burst.
 [^signal]: Due to historic reasons column `8` is not in dB. Convert to dBFS via `20*log10(_value_)`.
 [^bits]: Due to historic reasons the bits in column `10` are symbol-wise reversed to how they would normally be presented.
+
+### Iridium NEXT / Certus-C1
+
+`iridium-extractor` also runs a second burst downmixer tuned to the 30 ksps
+QPSK waveform used by Iridium NEXT's Certus bearer (carrier class C1 — 200
+symbols per burst). When a burst correlates against the NEXT unique word
+instead of the classic 25 ksps Block1 UW, the output line is prefixed with
+`NC1:` and the `direction` PMT metadata field is set to `DOWNLINK_NEXT` (3)
+or `UPLINK_NEXT` (4).
+
+NEXT-tagged frames are emitted with the same column layout as `RAW:` lines
+and can be consumed by [iridium-toolkit](https://github.com/muccc/iridium-toolkit)'s
+bit parser, which classifies them via the `NXT:` category.
+
+**Experimental — NEXT uplink sync word is unverified**. The downlink
+unique word is stable; the uplink UW is a current best guess and may
+change in a follow-up. Expect most `NC1:` lines to be downlink-direction
+frames.
 
 ## Citations
 
