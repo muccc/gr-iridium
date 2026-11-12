@@ -10,6 +10,7 @@
 
 #include <gnuradio/fft/fft.h>
 #include <fftw3.h>
+#include "burst_ack_counter.h"
 #include <iridium/fft_channelizer.h>
 
 namespace gr {
@@ -64,8 +65,10 @@ private:
     uint64_t d_n_dropped_bursts;
     bool d_drop_overflow;
     void burst_handled(pmt::pmt_t msg);
+    void frame_handled(pmt::pmt_t msg);
 
     int d_next_pdu_port;
+    burst_ack_counter d_acks;
 
 public:
     fft_channelizer_impl(int fft_size,

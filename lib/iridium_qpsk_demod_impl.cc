@@ -67,11 +67,16 @@ iridium_qpsk_demod_impl::iridium_qpsk_demod_impl(int n_channels)
             message_port_register_in(port_name);
             set_msg_handler(port_name,
                             [this, i](pmt::pmt_t msg) { this->handler(i, msg); });
+            d_frame_handled_ports.push_back(pmt::mp("frame_handled" + std::to_string(i)));
         }
     } else {
         auto port_name = pmt::mp("cpdus");
         message_port_register_in(port_name);
         set_msg_handler(port_name, [this](pmt::pmt_t msg) { this->handler(0, msg); });
+        d_frame_handled_ports.push_back(pmt::mp("frame_handled"));
+    }
+    for (const auto& port : d_frame_handled_ports) {
+        message_port_register_out(port);
     }
 }
 
@@ -333,7 +338,25 @@ uint64_t iridium_qpsk_demod_impl::get_n_access_ok_sub_bursts()
     return d_n_access_ok_sub_bursts;
 }
 
+/*
+ * Report the frame as handled to the burst source, if the downmixer asked for it, so the
+ * source sees the backlog of the demodulator.
+ */
+void iridium_qpsk_demod_impl::frame_handled(int channel, const pmt::pmt_t& meta)
+{
+    pmt::pmt_t burst_id = pmt::dict_ref(meta, pmt::mp("burst_id"), pmt::PMT_NIL);
+    if (!pmt::is_null(burst_id)) {
+        message_port_pub(d_frame_handled_ports[channel], burst_id);
+    }
+}
+
 void iridium_qpsk_demod_impl::handler(int channel, pmt::pmt_t msg)
+{
+    demodulate(channel, msg);
+    frame_handled(channel, pmt::car(msg));
+}
+
+void iridium_qpsk_demod_impl::demodulate(int channel, pmt::pmt_t msg)
 {
     pmt::pmt_t samples = pmt::cdr(msg);
     size_t burst_size = pmt::length(samples);

@@ -72,6 +72,11 @@ private:
     blocks::rotator d_r;
     gr::fft::fft_complex_fwd d_cfo_est_fft;
 
+    bool d_wait_for_demod;
+    uint64_t d_burst_id; // the burst being handled
+    int d_n_frames;      // frames published for it so far
+    void burst_done(uint64_t id);
+
     void handler(pmt::pmt_t msg);
     int process_next_frame(float sample_rate,
                            double center_frequency,
@@ -96,7 +101,8 @@ public:
                        size_t hard_max_queue_len,
                        const std::vector<float>& input_taps,
                        const std::vector<float>& start_finder_taps,
-                       bool handle_multiple_frames_per_burst);
+                       bool handle_multiple_frames_per_burst,
+                       bool wait_for_demod);
     ~burst_downmix_impl();
 
     size_t get_input_queue_size();

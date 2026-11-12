@@ -566,7 +566,8 @@ class FlowGraph(gr.top_block):
                                                         0,
                                                         (input_filter),
                                                         (start_finder_filter),
-                                                        self._handle_multiple_frames_per_burst)
+                                                        self._handle_multiple_frames_per_burst,
+                                                        wait_for_demod=True)
 
                 if debug_id is not None:
                     burst_downmixer.debug_id(debug_id)
@@ -604,8 +605,12 @@ class FlowGraph(gr.top_block):
                     tb.msg_connect((self._burst_downmixers[i], 'burst_handled'), (self._channelizer, 'burst_handled'))
 
                 tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus%d' % i))
+                # Bursts count as handled once the demodulator has handled their frames
+                source = self._burst_to_pdu_converters[i] if self._burst_to_pdu_converters else self._channelizer
+                tb.msg_connect((self._iridium_qpsk_demod, 'frame_handled%d' % i), (source, 'frame_handled'))
         else:
-            burst_downmix = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * self._burst_sample_rate), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst)
+            burst_downmix = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * self._burst_sample_rate), 0, (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst,
+                                                  wait_for_demod=True)
             if debug_id is not None:
                 burst_downmix.debug_id(debug_id)
 
@@ -621,6 +626,8 @@ class FlowGraph(gr.top_block):
 
             # Final connection to the demodulator. It prints the output to stdout
             tb.msg_connect((burst_downmix, 'cpdus'), (self._iridium_qpsk_demod, 'cpdus'))
+            # Bursts count as handled once the demodulator has handled their frames
+            tb.msg_connect((self._iridium_qpsk_demod, 'frame_handled'), (burst_to_pdu, 'frame_handled'))
 
             self._burst_downmixers = [burst_downmix]
             self._burst_to_pdu_converters = [burst_to_pdu]

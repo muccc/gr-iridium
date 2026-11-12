@@ -78,7 +78,8 @@ fft_channelizer_impl::fft_channelizer_impl(int fft_size,
       d_max_outstanding(0),
       d_outstanding(0),
       d_n_dropped_bursts(0),
-      d_next_pdu_port(0)
+      d_next_pdu_port(0),
+      d_acks(1)
 {
     // FFT size and decimation must be a power of two so the output sizes are
     // also a power of two.
@@ -115,6 +116,9 @@ fft_channelizer_impl::fft_channelizer_impl(int fft_size,
         message_port_register_in(pmt::mp("burst_handled"));
         set_msg_handler(pmt::mp("burst_handled"),
                         [this](pmt::pmt_t msg) { this->burst_handled(msg); });
+        message_port_register_in(pmt::mp("frame_handled"));
+        set_msg_handler(pmt::mp("frame_handled"),
+                        [this](pmt::pmt_t msg) { this->frame_handled(msg); });
     }
 
     d_out = (fftwf_complex*)volk_malloc(d_fft_size * sizeof(fftwf_complex),
@@ -126,7 +130,15 @@ fft_channelizer_impl::fft_channelizer_impl(int fft_size,
  */
 fft_channelizer_impl::~fft_channelizer_impl() {}
 
-void fft_channelizer_impl::burst_handled(pmt::pmt_t msg) { d_outstanding--; }
+void fft_channelizer_impl::burst_handled(pmt::pmt_t msg)
+{
+    d_outstanding -= d_acks.burst_handled(msg);
+}
+
+void fft_channelizer_impl::frame_handled(pmt::pmt_t msg)
+{
+    d_outstanding -= d_acks.frame_handled(msg);
+}
 
 uint64_t fft_channelizer_impl::get_n_dropped_bursts() { return d_n_dropped_bursts; }
 

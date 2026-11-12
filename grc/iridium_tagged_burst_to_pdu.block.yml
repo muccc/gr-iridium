@@ -39,6 +39,9 @@ inputs:
     dtype: complex
 -   domain: message
     id: burst_handled
+-   domain: message
+    id: frame_handled
+    optional: true
 
 outputs:
 -   domain: message

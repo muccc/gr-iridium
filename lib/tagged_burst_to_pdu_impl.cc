@@ -74,6 +74,7 @@ tagged_burst_to_pdu_impl::tagged_burst_to_pdu_impl(int max_burst_size,
       d_outstanding(0),
       d_max_outstanding(0),
       d_outstanding_limit(outstanding_limit),
+      d_acks(1),
       d_n_dropped_bursts(0),
       d_drop_overflow(drop_overflow),
       d_blocked(false)
@@ -85,6 +86,9 @@ tagged_burst_to_pdu_impl::tagged_burst_to_pdu_impl(int max_burst_size,
     message_port_register_in(pmt::mp("burst_handled"));
     set_msg_handler(pmt::mp("burst_handled"),
                     [this](pmt::pmt_t msg) { this->burst_handled(msg); });
+    message_port_register_in(pmt::mp("frame_handled"));
+    set_msg_handler(pmt::mp("frame_handled"),
+                    [this](pmt::pmt_t msg) { this->frame_handled(msg); });
 }
 
 /*
@@ -92,7 +96,15 @@ tagged_burst_to_pdu_impl::tagged_burst_to_pdu_impl(int max_burst_size,
  */
 tagged_burst_to_pdu_impl::~tagged_burst_to_pdu_impl() {}
 
-void tagged_burst_to_pdu_impl::burst_handled(pmt::pmt_t msg) { d_outstanding--; }
+void tagged_burst_to_pdu_impl::burst_handled(pmt::pmt_t msg)
+{
+    d_outstanding -= d_acks.burst_handled(msg);
+}
+
+void tagged_burst_to_pdu_impl::frame_handled(pmt::pmt_t msg)
+{
+    d_outstanding -= d_acks.frame_handled(msg);
+}
 
 void tagged_burst_to_pdu_impl::append_to_burst(burst_data& burst,
                                                const gr_complex* data,

@@ -40,6 +40,13 @@ inputs:
 - label: in
   domain: stream
   dtype: complex
+- label: burst_handled
+  domain: message
+  hide: ${pdu_ports == 0}
+- label: frame_handled
+  domain: message
+  optional: true
+  hide: ${pdu_ports == 0}
 
 outputs:
 - label: cpdus0
@@ -49,9 +56,6 @@ outputs:
   domain: message
   multiplicity: ${pdu_ports}
   hide: ${pdu_ports < 2}
-- label: burst_handled
-  domain: message
-  hide: ${pdu_ports == 0}
 - label: out
   domain: stream
   dtype: complex

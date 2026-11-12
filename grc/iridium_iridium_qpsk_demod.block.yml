@@ -18,6 +18,10 @@ inputs:
 outputs:
 -   domain: message
     id: pdus
+-   domain: message
+    id: frame_handled
+    multiplicity: ${channels}
+    optional: true
 
 templates:
     imports: import iridium

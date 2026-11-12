@@ -21,6 +21,7 @@
 #ifndef INCLUDED_IRIDIUM_TAGGED_BURST_TO_PDU_IMPL_H
 #define INCLUDED_IRIDIUM_TAGGED_BURST_TO_PDU_IMPL_H
 
+#include "burst_ack_counter.h"
 #include <iridium/tagged_burst_to_pdu.h>
 
 namespace gr {
@@ -51,6 +52,7 @@ private:
     int d_outstanding;
     int d_max_outstanding;
     int d_outstanding_limit;
+    burst_ack_counter d_acks;
     uint64_t d_n_dropped_bursts;
     bool d_drop_overflow;
     bool d_blocked;
@@ -70,6 +72,7 @@ private:
     int get_output_queue_size();
     int get_output_max_queue_size();
     void burst_handled(pmt::pmt_t msg);
+    void frame_handled(pmt::pmt_t msg);
 
 public:
     tagged_burst_to_pdu_impl(int max_burst_size,

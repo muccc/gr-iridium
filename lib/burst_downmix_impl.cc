@@ -91,7 +91,8 @@ burst_downmix::sptr burst_downmix::make(int sample_rate,
                                         size_t hard_max_queue_len,
                                         const std::vector<float>& input_taps,
                                         const std::vector<float>& start_finder_taps,
-                                        bool handle_multiple_frames_per_burst)
+                                        bool handle_multiple_frames_per_burst,
+                                        bool wait_for_demod)
 {
     return gnuradio::get_initial_sptr(
         new burst_downmix_impl(sample_rate,
@@ -99,7 +100,8 @@ burst_downmix::sptr burst_downmix::make(int sample_rate,
                                hard_max_queue_len,
                                input_taps,
                                start_finder_taps,
-                               handle_multiple_frames_per_burst));
+                               handle_multiple_frames_per_burst,
+                               wait_for_demod));
 }
 
 
@@ -111,7 +113,8 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
                                        size_t hard_max_queue_len,
                                        const std::vector<float>& input_taps,
                                        const std::vector<float>& start_finder_taps,
-                                       bool handle_multiple_frames_per_burst)
+                                       bool handle_multiple_frames_per_burst,
+                                       bool wait_for_demod)
     : gr::block("burst_downmix",
                 gr::io_signature::make(0, 0, 0),
                 gr::io_signature::make(0, 0, 0)),
@@ -157,7 +160,10 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
           1.0, d_output_sample_rate, ::iridium::SYMBOLS_PER_SECOND, .4, 51)),
       d_rc_fir(
           rcosfilter(51, 0.4, 1. / ::iridium::SYMBOLS_PER_SECOND, d_output_sample_rate)),
-      d_cfo_est_fft(d_cfo_est_fft_size * d_fft_over_size_facor)
+      d_cfo_est_fft(d_cfo_est_fft_size * d_fft_over_size_facor),
+      d_wait_for_demod(wait_for_demod),
+      d_burst_id(0),
+      d_n_frames(0)
 {
     d_dl_preamble_reversed_conj = generate_sync_word(::iridium::direction::DOWNLINK);
     d_ul_preamble_reversed_conj = generate_sync_word(::iridium::direction::UPLINK);
@@ -733,6 +739,10 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(sub_id));
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("noise"), pmt::mp(noise));
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("magnitude"), pmt::mp(magnitude));
+    if (d_wait_for_demod) {
+        // The demodulator reports this on its frame_handled port
+        pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("burst_id"), pmt::mp(d_burst_id));
+    }
 
     if (d_debug) {
         printf("center_frequency=%f, uw_start=%u\n", center_frequency, uw_start);
@@ -740,8 +750,24 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
 
     pmt::pmt_t out_msg = pmt::cons(pdu_meta, pdu_vector);
     message_port_pub(pmt::mp("cpdus"), out_msg);
+    d_n_frames++;
 
     return consumed_samples;
+}
+
+/*
+ * Acknowledge a burst to the burst source. With wait_for_demod the acknowledgement
+ * carries the number of frames published for the burst: (id . n_frames). The burst
+ * source then also waits for the demodulator to report these frames as handled.
+ */
+void burst_downmix_impl::burst_done(uint64_t id)
+{
+    if (d_wait_for_demod) {
+        message_port_pub(pmt::mp("burst_handled"),
+                         pmt::cons(pmt::from_uint64(id), pmt::from_long(d_n_frames)));
+    } else {
+        message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
+    }
 }
 
 void burst_downmix_impl::handler(pmt::pmt_t msg)
@@ -768,6 +794,9 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     float magnitude =
         pmt::to_float(pmt::dict_ref(meta, pmt::mp("magnitude"), pmt::PMT_NIL));
 
+    d_burst_id = id;
+    d_n_frames = 0;
+
     if (id == d_debug_id) {
         d_debug = true;
     }
@@ -785,7 +814,7 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
         std::cerr << "Warning: Dropping burst as hard queue length is reached!"
                   << std::endl;
         d_n_dropped_bursts++;
-        message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
+        burst_done(id);
         return;
     }
 
@@ -914,7 +943,7 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
                            magnitude);
     }
 
-    message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
+    burst_done(id);
 
     if (d_debug_id >= 0) {
         d_debug = false;

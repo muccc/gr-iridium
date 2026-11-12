@@ -28,9 +28,17 @@ namespace gr {
 namespace iridium {
 
 /*!
- * \brief <+description of block+>
+ * \brief Turns detected bursts into frames ready for demodulation.
  * \ingroup iridium
  *
+ * Mixes a burst to baseband, filters and decimates it, finds the start of the frame
+ * by correlating with the sync word and publishes the frame starting at the first
+ * symbol of the unique word (UW). Bursts can contain several frames.
+ *
+ * Every burst is acknowledged on burst_handled. With wait_for_demod the acknowledgement
+ * is (id . number of frames published) and the frames carry the burst id, so the burst
+ * source can wait until the demodulator has handled them too (connect the frame_handled
+ * output of the demodulator to the frame_handled input of the burst source).
  */
 class IRIDIUM_API burst_downmix : virtual public gr::block
 {
@@ -50,7 +58,8 @@ public:
                      size_t hard_max_queue_len,
                      const std::vector<float>& input_taps,
                      const std::vector<float>& start_finder_taps,
-                     bool handle_multiple_frames_per_burst);
+                     bool handle_multiple_frames_per_burst,
+                     bool wait_for_demod = false);
 
     virtual uint64_t get_n_dropped_bursts() = 0;
     virtual size_t get_input_queue_size() = 0;

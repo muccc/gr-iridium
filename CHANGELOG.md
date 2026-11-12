@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Support for ZeroMQ sources.
 - Support for USRP devices via UHD.
+- Backpressure from the demodulator: a burst only counts as handled once its frames are
+  demodulated (`wait_for_demod` of `burst_downmix`, `frame_handled` ports).
 
 ### Fixed
 - Use single "system" gain in BladeRF example.

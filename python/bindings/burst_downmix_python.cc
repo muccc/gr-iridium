@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(burst_downmix.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(91e06fe925fbe7999f89a1fb1d62e3b8)                     */
+/* BINDTOOL_HEADER_FILE_HASH(84d93a4994e6c25befe08e28fe47aaf3)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -43,6 +43,7 @@ void bind_burst_downmix(py::module& m)
            py::arg("input_taps"),
            py::arg("start_finder_taps"),
            py::arg("handle_multiple_frames_per_burst"),
+           py::arg("wait_for_demod") = false,
            D(burst_downmix,make)
         )
         

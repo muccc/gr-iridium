@@ -45,8 +45,11 @@ private:
     std::vector<uint8_t> d_bits;
     std::vector<uint64_t> d_channel_id;
 
+    std::vector<pmt::pmt_t> d_frame_handled_ports;
     upstream_done_counter d_upstream_done;
     void handler(int channel, pmt::pmt_t msg);
+    void demodulate(int channel, pmt::pmt_t msg);
+    void frame_handled(int channel, const pmt::pmt_t& meta);
     void update_buffer_sizes(size_t burst_size);
     int decimate(const gr_complex* in, int size, int sps, gr_complex* out);
     float qpskFirstOrderPLL(const gr_complex* x, int size, float alpha, gr_complex* y);
