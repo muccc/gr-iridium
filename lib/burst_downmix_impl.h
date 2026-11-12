@@ -36,6 +36,7 @@ class burst_downmix_impl : public burst_downmix
 private:
     static const int RRC_TAPS = 51;
     static const int RC_TAPS = 51;
+    static const int START_FINDER_STEP = 4;
 
     const tch_c_format* d_tch_c; // TCH_C burst format, nullptr for legacy bursts
     int d_symbols_per_second;
@@ -56,6 +57,7 @@ private:
     bool d_debug;
     int64_t d_debug_id;
 
+    gr_complex* d_input;
     gr_complex* d_frame;
     gr_complex* d_tmp_a;
     gr_complex* d_tmp_b;
@@ -78,10 +80,25 @@ private:
     volk::vector<gr_complex> d_ul_preamble_reversed_conj;
 
     blocks::rotator d_r;
+
+    // The input filter runs on demand, see filter_input()
+    blocks::rotator d_input_r;
+    const gr_complex* d_burst; // the burst being handled
+    int d_decimation;
+    size_t d_frame_size;  // its size after decimation
+    size_t d_frame_valid; // samples of d_frame filtered so far
+    size_t d_input_valid; // samples of d_input shifted so far
+    double d_input_phase_inc;
+    void filter_input(size_t from, size_t to);
+
+    // Normalized correlation a TCH_C UW needs to be taken for one
+    static constexpr float UW_MIN_CORRELATION = 0.25f;
+    float d_sync_word_energy;
     gr::fft::fft_complex_fwd d_cfo_est_fft;
 
     // Coarse UW search over a whole tracked burst window (TCH_C only)
     int d_track_fft_size;
+    int d_track_decimation;
     bool d_tracked; // the burst being handled is a window on a tracked channel
     std::unique_ptr<gr::fft::fft_complex_fwd> d_track_fwd;
     std::unique_ptr<gr::fft::fft_complex_rev> d_track_inv;
@@ -96,6 +113,7 @@ private:
     void burst_done(uint64_t id);
 
     void handler(pmt::pmt_t msg);
+    int find_start(size_t burst_size, uint64_t id);
     int process_next_frame(float sample_rate,
                            double center_frequency,
                            uint64_t timestamp,

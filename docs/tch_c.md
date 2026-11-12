@@ -54,6 +54,14 @@ protects all codewords of a burst.
   not a multiple of the symbol rate, it runs at the actual rate with a fractional number of
   samples per symbol. In tracked windows it searches the whole window for the UW at several
   frequency offsets.
+
+  Most bursts a TCH_C downmixer gets are not TCH_C bursts. So it first filters only the
+  samples it searches for the UW and normalizes the UW correlation to the energy of the
+  samples it covers (1 for a noise free UW). Below 0.25 it skips ahead by one burst length
+  and looks again (bursts of consecutive time slots can arrive as one detection); only
+  otherwise it filters the rest of the burst and passes it on. Other bursts and noise
+  mostly reach about 0.2, bursts passing the CRC had at least 0.27, nearly all of them more
+  than 0.55.
 - **Demodulation and decoding** (`tch_c_demod`). Phase and frequency come from a fit to the
   known symbols (UW and pilots). Gain and noise variance give soft bits (max-log for
   16APSK). These are then de-interleaved, turbo decoded (log-MAP, 8 iterations),
@@ -66,9 +74,11 @@ protects all codewords of a burst.
 - **Backpressure.** The demodulators report every handled frame back to the burst source
   (`frame_handled`), and the downmixers tell it how many frames they published per burst.
   A burst only counts as handled, and frees its place in the queue (`-q`), once all its
-  frames are demodulated. Offline this keeps the channels in step, so the sorter's 2 s
-  window still catches all duplicates; live, the queue limit drops bursts when the
-  demodulators fall behind.
+  frames are demodulated. Offline the burst source also waits while the oldest unhandled
+  burst is more than 1 s older than the newest one, and the TCH_C demodulator handles the
+  frames waiting on its inputs oldest first. This keeps the channels and the legacy and
+  TCH_C paths in step, so the sorter's 2 s window still catches all duplicates; live, the
+  queue limit drops bursts when the demodulators fall behind.
 
 ## Output
 
@@ -109,17 +119,20 @@ so expect occasional lines with a wrong payload from weak bursts.
 
   | Options | CPU time | TCH_C1 / C2 / C8 lines | `RAW:` lines |
   | --- | --- | --- | --- |
-  | (none) | 36 s | | 12,053 |
-  | `--tch-c --tch-c-types 1` | 98 s | 359 / – / – | 12,909 |
-  | `--tch-c --tch-c-types 1,2` | 135 s | 364 / 40 / – | 12,910 |
-  | `--tch-c` | 200 s | 364 / 40 / 10 | 12,910 |
+  | (none) | 27 s | | 12,078 |
+  | `--tch-c --tch-c-types 1` | 56 s | 364 / – / – | 12,910 |
+  | `--tch-c --tch-c-types 1,2` | 67 s | 364 / 41 / – | 12,910 |
+  | `--tch-c` | 102 s | 364 / 41 / 9 | 12,910 |
 
   The `RAW:` lines grow by 7% through the wideband detection; how many of them are valid
   legacy frames rather than misread TCH_C bursts was not checked. TCH_C8 is the most expensive
   part: its downmixer runs at up to 2.4 MS/s for every burst, and a 16APSK burst needs three
   turbo decodes. Use `--tch-c-types 1` or `1,2` on slow machines.
-- The TCH_C1 downmixer still processes every burst: its bandwidth is about that of a
+- The TCH_C1 downmixer still looks at every burst: its bandwidth is about that of a
   legacy burst, and neither the bandwidth nor the spectral line tell them apart reliably.
+  It only filters the part of a burst where the UW could be and drops the burst if the
+  correlation with the UW is poor (see Downmixing), which costs about a third of the full
+  processing.
 - The detector is the limit, not the demodulation: probing every TDMA slot of detected calls
   directly in the samples finds decodable bursts that are about 5 dB below the detection
   threshold.
