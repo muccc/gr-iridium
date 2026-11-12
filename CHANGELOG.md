@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NXD:` (downlink) / `NXU:` (uplink) lines carrying the decoded payload, see `docs/tch_c.md`.
 - `tagged_burst_to_pdu` and `fft_channelizer` take the number of acknowledgements per burst,
   for sources feeding several downmixers.
+- Tracking of TCH_C channels across TDMA frames in `fft_burst_tagger` (`--track-frames`, on
+  with `--tch-c`).
 
 ### Fixed
 - Use single "system" gain in BladeRF example.

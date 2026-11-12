@@ -137,6 +137,9 @@ void tagged_burst_to_pdu_impl::publish_burst(burst_data& burst)
     d_pdu_meta =
         pmt::dict_add(d_pdu_meta, pmt::mp("timestamp"), pmt::mp(burst.timestamp));
     d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("noise"), pmt::mp(burst.noise));
+    if (burst.tracked) {
+        d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("tracked"), pmt::PMT_T);
+    }
 
     pmt::pmt_t msg = pmt::cons(d_pdu_meta, d_pdu_vector);
 
@@ -176,6 +179,8 @@ void tagged_burst_to_pdu_impl::create_new_bursts(int noutput_items, const gr_com
                 pmt::dict_ref(tag.value, pmt::mp("timestamp"), pmt::PMT_NIL));
             float noise =
                 pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("noise"), pmt::PMT_NIL));
+            bool tracked =
+                pmt::to_bool(pmt::dict_ref(tag.value, pmt::mp("tracked"), pmt::PMT_F));
 
 
             // Adjust the values based on our position behind a potential filter bank
@@ -194,6 +199,7 @@ void tagged_burst_to_pdu_impl::create_new_bursts(int noutput_items, const gr_com
                                  sample_rate,
                                  timestamp,
                                  noise,
+                                 tracked,
                                  0 };
             burst.data = (gr_complex*)malloc(sizeof(gr_complex) * d_max_burst_size);
 

@@ -142,6 +142,10 @@ if __name__ == "__main__":
                         'Default: 6 dB with --tch-c, otherwise 0.')
     parser.add_argument('--wideband-width', dest='wideband_width', type=float, default=30000,
                         help='Bandwidth in Hz averaged by the wideband detection. Default: 30 kHz.')
+    parser.add_argument('--track-frames', dest='track_frames', type=int,
+                        help='After a TCH_C like burst, look for bursts on its channel in this many '
+                        'following TDMA frames even if nothing is detected there. Needs the '
+                        'wideband detection. 0 disables it. Default: 4 with --tch-c, otherwise 0.')
     parser.add_argument('--debug-id', dest='debug_id', type=int,
                         help='Write debug data for a certain frame ID. Last digit must be 0. See documentation for details.')
     parser.add_argument('-D', '--decimation', dest='decimation', type=int,
@@ -183,6 +187,9 @@ if __name__ == "__main__":
     wideband_threshold = args.wideband_threshold
     if wideband_threshold is None:
         wideband_threshold = 6 if tch_c else 0
+    track_frames = args.track_frames
+    if track_frames is None:
+        track_frames = 4 if tch_c else 0
 
     center = None
     fmt = None
@@ -439,6 +446,7 @@ if __name__ == "__main__":
                                                        config=cfg,
                                                        wideband_threshold=wideband_threshold,
                                                        wideband_width=args.wideband_width,
+                                                       track_frames=track_frames,
                                                        tch_c=tch_c)
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))

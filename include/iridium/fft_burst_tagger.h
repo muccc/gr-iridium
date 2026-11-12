@@ -58,7 +58,8 @@ public:
                      bool offline = false,
                      bool debug = false,
                      float wideband_threshold = 0,
-                     int wideband_width = 30000);
+                     int wideband_width = 30000,
+                     int track_frames = 0);
 
     virtual uint64_t get_n_tagged_bursts() = 0;
     virtual uint64_t get_sample_count() = 0;

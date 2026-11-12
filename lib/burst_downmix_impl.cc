@@ -155,6 +155,8 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
       d_rrc_fir(gr::filter::firdes::root_raised_cosine(
           1.0, d_output_sample_rate, d_symbols_per_second, rrc_alpha(), RRC_TAPS)),
       d_cfo_est_fft(d_cfo_est_fft_size * d_fft_over_size_facor),
+      d_track_fft_size(0),
+      d_tracked(false),
       d_wait_for_demod(wait_for_demod),
       d_burst_id(0),
       d_n_frames(0)
@@ -491,6 +493,81 @@ float burst_downmix_impl::interpolate(float alpha, float beta, float gamma)
     return correction;
 }
 
+/*
+ * Find the UW in a burst window opened on a tracked channel, where the burst can be
+ * anywhere in the window and the energy based start finder and the CFO estimate on
+ * the first samples do not work. Correlates the whole window with the DL and UL UW at
+ * a few frequency offsets. Returns the sample index of the UW start or -1.
+ */
+int burst_downmix_impl::find_uw_coarse(int start, size_t burst_size)
+{
+    const int len = burst_size - start;
+    const int tlen = d_dl_preamble_reversed_conj.size();
+    if (len < tlen) {
+        return -1;
+    }
+
+    int size = 1;
+    while (size < len + tlen - 1) {
+        size *= 2;
+    }
+    if (size != d_track_fft_size) {
+        d_track_fft_size = size;
+        d_track_fwd = std::make_unique<gr::fft::fft_complex_fwd>(size);
+        d_track_inv = std::make_unique<gr::fft::fft_complex_rev>(size);
+        d_track_dl_fft.resize(size);
+        d_track_ul_fft.resize(size);
+        for (int d = 0; d < 2; d++) {
+            const auto& t =
+                d == 0 ? d_dl_preamble_reversed_conj : d_ul_preamble_reversed_conj;
+            std::fill(d_track_fwd->get_inbuf(), d_track_fwd->get_inbuf() + size, 0);
+            std::copy(t.begin(), t.end(), d_track_fwd->get_inbuf());
+            d_track_fwd->execute();
+            std::copy(d_track_fwd->get_outbuf(),
+                      d_track_fwd->get_outbuf() + size,
+                      d == 0 ? d_track_dl_fft.begin() : d_track_ul_fft.begin());
+        }
+    }
+
+    // Matched filter once, then try the frequency offsets
+    int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
+    d_track_buf.assign(len + 2 * half_rrc_size, 0);
+    std::copy(d_frame + start, d_frame + burst_size, d_track_buf.begin() + half_rrc_size);
+    std::vector<gr_complex> filtered(len);
+    d_rrc_fir.filterN(&filtered[0], &d_track_buf[0], len);
+
+    float best = 0;
+    int best_index = -1;
+    // The rough frequency of a tracked channel is good to about one FFT bin of the tagger
+    for (int df = -1800; df <= 1800; df += 600) {
+        gr_complex* in = d_track_fwd->get_inbuf();
+        const gr_complex step =
+            std::polar(1.f, (float)(-2 * M_PI * df / d_burst_sample_rate));
+        gr_complex r = 1;
+        for (int i = 0; i < len; i++) {
+            in[i] = filtered[i] * r;
+            r *= step;
+        }
+        std::fill(in + len, in + size, 0);
+        d_track_fwd->execute();
+        for (int d = 0; d < 2; d++) {
+            const auto& t = d == 0 ? d_track_dl_fft : d_track_ul_fft;
+            volk_32fc_x2_multiply_32fc(
+                d_track_inv->get_inbuf(), d_track_fwd->get_outbuf(), &t[0], size);
+            d_track_inv->execute();
+            // Only positions where the whole UW is inside the window
+            for (int k = tlen - 1; k < len; k++) {
+                float m = std::norm(d_track_inv->get_outbuf()[k]);
+                if (m > best) {
+                    best = m;
+                    best_index = k - tlen + 1;
+                }
+            }
+        }
+    }
+    return best_index < 0 ? -1 : start + best_index;
+}
+
 int burst_downmix_impl::process_next_frame(float sample_rate,
                                            double center_frequency,
                                            uint64_t timestamp,
@@ -500,6 +577,15 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
                                            float noise,
                                            float magnitude)
 {
+    // Windows opened by the burst tagger on a tracked channel: the burst can be anywhere
+    if (d_tracked) {
+        int uw = find_uw_coarse(start, burst_size);
+        if (uw < 0) {
+            return 0;
+        }
+        start = std::max(uw - d_pre_start_samples, 0);
+    }
+
     /*
      * Use the center frequency to make some assumptions about the burst.
      */
@@ -827,8 +913,16 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     float magnitude =
         pmt::to_float(pmt::dict_ref(meta, pmt::mp("magnitude"), pmt::PMT_NIL));
 
+    d_tracked = pmt::to_bool(pmt::dict_ref(meta, pmt::mp("tracked"), pmt::PMT_F));
+
     d_burst_id = id;
     d_n_frames = 0;
+
+    // Windows opened on tracked TCH_C channels are not for the legacy downmixer
+    if (d_tracked && !d_tch_c) {
+        burst_done(id);
+        return;
+    }
 
     if (id == d_debug_id) {
         d_debug = true;
@@ -941,7 +1035,10 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
         }
     }
 
-    if (start > 0) {
+    if (d_tracked) {
+        // The UW search in process_next_frame() finds the start
+        start = 0;
+    } else if (start > 0) {
         start = std::max(start + half_fir_size - d_pre_start_samples, 0);
     }
 
@@ -953,7 +1050,7 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
                      id);
     }
 
-    if (d_handle_multiple_frames_per_burst) {
+    if (d_handle_multiple_frames_per_burst && !d_tracked) {
         int handled_samples;
         int sub_id = id;
         do {

@@ -50,7 +50,8 @@ fft_burst_tagger::sptr fft_burst_tagger::make(double center_frequency,
                                               bool offline,
                                               bool debug,
                                               float wideband_threshold,
-                                              int wideband_width)
+                                              int wideband_width,
+                                              int track_frames)
 {
     return gnuradio::get_initial_sptr(new fft_burst_tagger_impl(center_frequency,
                                                                 fft_size,
@@ -65,7 +66,8 @@ fft_burst_tagger::sptr fft_burst_tagger::make(double center_frequency,
                                                                 offline,
                                                                 debug,
                                                                 wideband_threshold,
-                                                                wideband_width));
+                                                                wideband_width,
+                                                                track_frames));
 }
 
 
@@ -85,7 +87,8 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
                                              bool offline,
                                              bool debug,
                                              float wideband_threshold,
-                                             int wideband_width)
+                                             int wideband_width,
+                                             int track_frames)
     : gr::sync_block("fft_burst_tagger",
                      gr::io_signature::make(1, 1, sizeof(gr_complex)),
                      gr::io_signature::make(1, 1, sizeof(gr_complex))),
@@ -179,7 +182,7 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
 
     d_peaks.reserve(d_fft_size);
 
-    // Wideband detection for bursts without a strong spectral line: the
+    // Wideband detection for bursts without a strong spectral line (TCH_C): the
     // relative magnitude averaged over wideband_width is compared to wideband_threshold.
     // Averaging over many bins lowers the variance of the noise, so the threshold can be
     // much lower than the one for a single bin.
@@ -191,6 +194,12 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
     d_wide_masked_f.resize(d_fft_size);
     d_wide_tmp_f.resize(d_fft_size);
 
+    // Tracking of TCH_C channels: after a wideband burst about as long as a TCH_C
+    // burst, open a burst window on its channel in each of the next track_frames TDMA
+    // frames, whether anything is detected there or not.
+    d_track_frames = d_wide_threshold > 0 ? track_frames : 0;
+    d_frame_len = (uint64_t)(TRACK_FRAME_LENGTH * sample_rate);
+    d_track_lead = (uint64_t)(TRACK_LEAD * sample_rate);
     if (d_debug) {
         fprintf(stderr,
                 "wideband_threshold=%f dB over %d bins\n",
@@ -295,6 +304,57 @@ void fft_burst_tagger_impl::moving_average(const float* in, float* out)
     }
 }
 
+void fft_burst_tagger_impl::add_watch(const burst& b)
+{
+    const uint64_t next = b.start + d_frame_len - d_track_lead;
+    const uint64_t until = b.start + d_track_frames * d_frame_len;
+    for (watch& w : d_watches) {
+        if (std::abs(w.bin - b.center_bin) < d_burst_width / 2) {
+            w.bin = b.center_bin;
+            w.next_trigger = next;
+            w.until = until;
+            return;
+        }
+    }
+    d_watches.push_back({ b.center_bin, next, until });
+}
+
+void fft_burst_tagger_impl::create_tracked_bursts(void)
+{
+    auto w = std::begin(d_watches);
+    while (w != std::end(d_watches)) {
+        if (d_index > w->until) {
+            w = d_watches.erase(w);
+            continue;
+        }
+        if (d_index >= w->next_trigger) {
+            w->next_trigger += d_frame_len;
+            // Only if no normally detected burst is going on there already
+            if (d_burst_mask_f[w->bin] != 0) {
+                burst b;
+                b.id = d_burst_id;
+                d_burst_id += 10;
+                b.center_bin = w->bin;
+                b.wide = false;
+                b.tracked = true;
+                b.magnitude =
+                    10 * log10(std::max(d_wide_f[w->bin], 1e-12f) * d_history_size);
+                b.start = d_index - d_burst_pre_len;
+                b.last_active = b.start;
+                // Open for the TDMA slot plus the uncertainty of the slot start
+                b.hard_stop = d_index + 2 * d_track_lead +
+                              (uint64_t)(TRACK_SLOT_LENGTH * d_sample_rate);
+                b.noise = 10 * log10(d_baseline_sum_f[b.center_bin] / d_history_size /
+                                     (d_fft_size * d_fft_size) / d_window_enbw /
+                                     (d_sample_rate / d_fft_size));
+                d_bursts.push_back(b);
+                d_new_bursts.push_back(b);
+            }
+        }
+        ++w;
+    }
+}
+
 void fft_burst_tagger_impl::create_wide_bursts(void)
 {
     // Only look at bins not covered by a burst yet (including the ones just created)
@@ -319,6 +379,8 @@ void fft_burst_tagger_impl::create_wide_bursts(void)
         d_burst_id += 10;
         b.center_bin = max_it - d_wide_masked_f.begin();
         b.wide = true;
+        b.tracked = false;
+        b.hard_stop = 0;
         b.magnitude = 10 * log10(*max_it * d_history_size);
         b.start = d_index - d_burst_pre_len;
         b.last_active = b.start;
@@ -352,7 +414,15 @@ void fft_burst_tagger_impl::delete_gone_bursts(void)
             }
         }
 
-        if ((b->last_active + d_burst_post_len) <= d_index || long_burst) {
+        if ((b->last_active + d_burst_post_len) <= d_index || long_burst ||
+            (b->tracked && d_index >= b->hard_stop)) {
+            // Watch the channel of wideband bursts about as long as a TCH_C burst
+            const uint64_t active = b->last_active - b->start;
+            if (d_track_frames && b->wide && !b->tracked &&
+                active >= TRACK_MIN_BURST_LENGTH * d_sample_rate &&
+                active <= TRACK_MAX_BURST_LENGTH * d_sample_rate) {
+                add_watch(*b);
+            }
             // printf("Deleting gone burst %" PRIu64 " (start=%" PRIu64 ", d_index=%"
             // PRIu64 ")\n", b->id, b->start, d_index);
             b->stop = d_index;
@@ -376,6 +446,8 @@ void fft_burst_tagger_impl::create_new_bursts(void)
             b.id = d_burst_id;
             b.center_bin = p.bin;
             b.wide = false;
+            b.tracked = false;
+            b.hard_stop = 0;
 
             // Allow downstream blocks to split this burst
             // and assign sub ids
@@ -451,7 +523,9 @@ void fft_burst_tagger_impl::update_burst_mask(void)
 {
     memcpy(d_burst_mask_f, d_ones_f, sizeof(float) * d_fft_size);
     for (burst b : d_bursts) {
-        mask_burst(b);
+        if (!b.tracked) {
+            mask_burst(b);
+        }
     }
 }
 
@@ -528,6 +602,9 @@ void fft_burst_tagger_impl::tag_new_bursts(void)
             pmt::dict_add(value, pmt::mp("sample_rate"), pmt::from_float(d_sample_rate));
         value = pmt::dict_add(value, pmt::mp("timestamp"), pmt::from_uint64(timestamp));
         value = pmt::dict_add(value, pmt::mp("noise"), pmt::from_float(b.noise));
+        if (b.tracked) {
+            value = pmt::dict_add(value, pmt::mp("tracked"), pmt::PMT_T);
+        }
 
         // Our output is lagging by d_burst_pre_len samples.
         // Compensate by moving the tag into the past
@@ -637,6 +714,9 @@ int fft_burst_tagger_impl::work(int noutput_items,
             create_new_bursts();
             if (d_wide_threshold > 0) {
                 create_wide_bursts();
+                if (d_track_frames) {
+                    create_tracked_bursts();
+                }
             }
         }
         update_filters_post(false);

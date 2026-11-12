@@ -36,6 +36,7 @@ struct burst_data {
     float sample_rate;
     uint64_t timestamp;
     float noise;
+    bool tracked; // window opened on a tracked TCH_C channel, see fft_burst_tagger
     size_t len;
     gr_complex* data;
 };

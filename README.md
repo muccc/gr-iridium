@@ -291,7 +291,7 @@ To convert a standard recording to a sigmf dataset, specify "--generate-sigmf-me
 #### `--tch-c`: TCH_C bursts
 additionally demodulate and decode TCH_C1, TCH_C2 and TCH_C8 bursts (coherent QPSK/16APSK traffic channels with turbo coding) and print their decoded payload as `NXD:` (downlink) and `NXU:` (uplink) lines. This costs several times the CPU time of legacy-only processing (on a test recording 2.7× with TCH_C1 only and 10× with all three types). `--tch-c-types` selects the types (default `1,2,8`), e.g. `--tch-c-types 1` to save CPU.
 
-`--tch-c` also enables a wideband burst detection (`--wideband-db`, default 6 dB with `--tch-c`, `--wideband-width`, default 30 kHz). It can be set without `--tch-c`; 0 disables it.
+`--tch-c` also enables a wideband burst detection (`--wideband-db`, default 6 dB with `--tch-c`, `--wideband-width`, default 30 kHz) and the tracking of TCH_C channels (`--track-frames`, default 4 with `--tch-c`). Both can be set without `--tch-c`; 0 disables them.
 
 See [docs/tch_c.md](docs/tch_c.md) for the burst formats, the receiver and the output format.
 

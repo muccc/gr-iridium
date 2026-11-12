@@ -36,6 +36,29 @@ struct burst {
     float noise;
     uint64_t id;
     bool wide;
+    bool tracked; // opened by a watch: does not mask, ends at hard_stop
+    uint64_t hard_stop;
+};
+
+/*
+ * Timing of the tracking of TCH_C channels in seconds. All TCH_C bursts (TCH_C1, C2 and
+ * C8) last 8.27 ms and a channel has one burst per 90 ms TDMA frame.
+ */
+// TDMA frame length
+const double TRACK_FRAME_LENGTH = 0.09;
+// A wideband burst active this long looks like a TCH_C burst and starts tracking
+const double TRACK_MIN_BURST_LENGTH = 0.006;
+const double TRACK_MAX_BURST_LENGTH = 0.012;
+// A tracked window opens this long before the expected start of the burst ...
+const double TRACK_LEAD = 0.004;
+// ... and stays open for the burst plus margin and the same time after it
+const double TRACK_SLOT_LENGTH = 0.0085;
+
+// A channel on which a TCH_C like burst was seen: open a burst every TDMA frame
+struct watch {
+    int bin;
+    uint64_t next_trigger;
+    uint64_t until;
 };
 
 struct peak {
@@ -80,6 +103,10 @@ private:
     std::vector<float> d_wide_f;
     std::vector<float> d_wide_masked_f;
     std::vector<float> d_wide_tmp_f;
+    int d_track_frames;    // 0: tracking disabled
+    uint64_t d_frame_len;  // TDMA frame length in samples (90 ms)
+    uint64_t d_track_lead; // open the window this many samples before the slot
+    std::vector<watch> d_watches;
     double d_center_frequency;
     float d_window_enbw;
 
@@ -102,6 +129,8 @@ private:
     void create_new_bursts(void);
     void moving_average(const float* in, float* out);
     void create_wide_bursts(void);
+    void add_watch(const burst& b);
+    void create_tracked_bursts(void);
     void mask_burst(burst& b);
     void tag_new_bursts(void);
     void tag_gone_bursts(int noutput_items);
@@ -120,7 +149,8 @@ public:
                           bool offline,
                           bool debug,
                           float wideband_threshold,
-                          int wideband_width);
+                          int wideband_width,
+                          int track_frames);
     ~fft_burst_tagger_impl();
 
     uint64_t get_n_tagged_bursts();

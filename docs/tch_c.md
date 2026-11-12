@@ -38,13 +38,16 @@ protects all codewords of a burst.
 - **Detection** (`fft_burst_tagger`). TCH_C bursts have no spectral line, so the single-bin
   detector misses most of them. The wideband detection (`--wideband-db`, `--wideband-width`)
   averages the relative magnitude over 30 kHz of bins and compares it to a much lower
-  threshold (6 dB).
+  threshold (6 dB). After a wideband burst 6–12 ms long, the tagger tracks its channel
+  (`--track-frames`): it opens a window on that frequency in each of the next TDMA frames,
+  whether anything is detected there or not.
 - **Downmixing** (`burst_downmix` with `tch_c_type` 1, 2 or 8). The legacy downmixer and
   one downmixer per TCH_C type process every burst of a channel. A TCH_C downmixer runs at
   10 samples per symbol (TCH_C8: as many as the channel allows), and the matched filter is RRC
   α=0.2. It searches for the 32 symbol UW and cuts out exactly one burst. If the channel rate is
   not a multiple of the symbol rate, it runs at the actual rate with a fractional number of
-  samples per symbol.
+  samples per symbol. In tracked windows it searches the whole window for the UW at several
+  frequency offsets.
 - **Demodulation and decoding** (`tch_c_demod`). Phase and frequency come from a fit to the
   known symbols (UW and pilots). Gain and noise variance give soft bits (max-log for
   16APSK). These are then de-interleaved, turbo decoded (log-MAP, 8 iterations),
@@ -91,6 +94,7 @@ so expect occasional lines with a wrong payload from weak bursts.
 | `--tch-c-types` | `1,2,8` | TCH_C types to look for |
 | `--wideband-db` | 6 with `--tch-c`, else 0 | Threshold of the wideband detection, 0 disables it |
 | `--wideband-width` | 30000 | Bandwidth in Hz averaged by the wideband detection |
+| `--track-frames` | 4 with `--tch-c`, else 0 | TDMA frames to look at after a TCH_C like burst, 0 disables tracking |
 
 ## Cost and limitations
 

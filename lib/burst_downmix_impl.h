@@ -26,6 +26,7 @@
 
 #include "tch_c_format.h"
 #include <iridium/burst_downmix.h>
+#include <memory>
 
 namespace gr {
 namespace iridium {
@@ -78,6 +79,16 @@ private:
 
     blocks::rotator d_r;
     gr::fft::fft_complex_fwd d_cfo_est_fft;
+
+    // Coarse UW search over a whole tracked burst window (TCH_C only)
+    int d_track_fft_size;
+    bool d_tracked; // the burst being handled is a window on a tracked channel
+    std::unique_ptr<gr::fft::fft_complex_fwd> d_track_fwd;
+    std::unique_ptr<gr::fft::fft_complex_rev> d_track_inv;
+    std::vector<gr_complex> d_track_dl_fft;
+    std::vector<gr_complex> d_track_ul_fft;
+    std::vector<gr_complex> d_track_buf;
+    int find_uw_coarse(int start, size_t burst_size);
 
     bool d_wait_for_demod;
     uint64_t d_burst_id; // the burst being handled

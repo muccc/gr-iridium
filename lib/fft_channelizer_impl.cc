@@ -222,6 +222,8 @@ burst_data fft_channelizer_impl::create_burst(tag_t& new_burst, int channel)
         pmt::dict_ref(new_burst.value, pmt::mp("timestamp"), pmt::PMT_NIL));
     float noise =
         pmt::to_float(pmt::dict_ref(new_burst.value, pmt::mp("noise"), pmt::PMT_NIL));
+    bool tracked =
+        pmt::to_bool(pmt::dict_ref(new_burst.value, pmt::mp("tracked"), pmt::PMT_F));
 
     // Adjust the values based on our position behind a potential filter bank
     center_frequency += channel_center(channel) * sample_rate;
@@ -236,6 +238,7 @@ burst_data fft_channelizer_impl::create_burst(tag_t& new_burst, int channel)
                          sample_rate,
                          timestamp,
                          noise,
+                         tracked,
                          0 };
     burst.data = (gr_complex*)malloc(sizeof(gr_complex) * d_max_burst_size);
     return burst;
@@ -274,6 +277,9 @@ void fft_channelizer_impl::publish_burst(burst_data& burst)
     d_pdu_meta =
         pmt::dict_add(d_pdu_meta, pmt::mp("timestamp"), pmt::mp(burst.timestamp));
     d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("noise"), pmt::mp(burst.noise));
+    if (burst.tracked) {
+        d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("tracked"), pmt::PMT_T);
+    }
 
     pmt::pmt_t msg = pmt::cons(d_pdu_meta, d_pdu_vector);
     message_port_pub(pmt::mp("cpdus" + std::to_string(d_next_pdu_port)), msg);
