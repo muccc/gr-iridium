@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve suppression of long lasting interference.
 - Install example configurations.
 - Better center frequency estimates
+- `frame_sorter` prefers frames with a valid CRC.
 
 ### Added
 - Support for ZeroMQ sources.

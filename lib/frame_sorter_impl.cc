@@ -51,6 +51,13 @@ void frame_sorter_impl::handler(const pmt::pmt_t& msg)
     int confidence =
         pmt::to_long(pmt::dict_ref(meta, pmt::mp("confidence"), pmt::PMT_NIL));
 
+    // A TCH_C frame with a valid CRC proves the burst is TCH_C: legacy frames at the
+    // same time and frequency are the legacy demodulator misreading it and are dropped.
+    // Otherwise legacy and TCH_C frames are never duplicates of each other.
+    // Among duplicates of the same kind a frame with a valid CRC beats one without.
+    bool tch_c = pmt::dict_has_key(meta, pmt::mp("tch_type"));
+    bool crc_ok = pmt::to_bool(pmt::dict_ref(meta, pmt::mp("crc_ok"), pmt::PMT_F));
+
     auto it = frames.begin();
 
     while (it != frames.end()) {
@@ -70,20 +77,34 @@ void frame_sorter_impl::handler(const pmt::pmt_t& msg)
     it = frames.upper_bound((frame){ .timestamp = f.timestamp - max_dt });
 
     // Loop over all elements possibly within our search window (time and frequency)
-    for (; it != frames.end() && abs(it->first.timestamp - f.timestamp) < max_dt;
-         it = std::next(it)) {
+    while (it != frames.end() && abs(it->first.timestamp - f.timestamp) < max_dt) {
         if (std::abs(it->first.center_frequency - f.center_frequency) < max_df) {
             pmt::pmt_t meta_old = pmt::car(it->second);
+            bool tch_c_old = pmt::dict_has_key(meta_old, pmt::mp("tch_type"));
+            bool crc_ok_old =
+                pmt::to_bool(pmt::dict_ref(meta_old, pmt::mp("crc_ok"), pmt::PMT_F));
+            if (tch_c_old != tch_c) {
+                if (tch_c && crc_ok) {
+                    it = frames.erase(it);
+                    continue;
+                }
+                if (tch_c_old && crc_ok_old) {
+                    return;
+                }
+                it = std::next(it);
+                continue;
+            }
             int confidence_old = pmt::to_long(
                 pmt::dict_ref(meta_old, pmt::mp("confidence"), pmt::PMT_NIL));
 
-            if (confidence > confidence_old) {
+            if (std::tie(crc_ok, confidence) > std::tie(crc_ok_old, confidence_old)) {
                 // insert_or_assign with it2 as a hint would be nice but is C++17
                 frames.erase(it);
                 frames.insert({ f, msg });
             }
             return;
         }
+        it = std::next(it);
     }
     frames.insert({ f, msg });
 }

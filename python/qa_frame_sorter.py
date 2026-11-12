@@ -41,10 +41,15 @@ class qa_frame_sorter(gr_unittest.TestCase):
     def test_instance(self):
         instance = frame_sorter()
 
-    def send_frame(self, timestamp, center_frequency, confidence):
+    def send_frame(self, timestamp, center_frequency, confidence, tch_type=None, crc_ok=None):
         msg_meta = pmt.dict_add(pmt.make_dict(), pmt.intern('timestamp'), pmt.from_uint64(timestamp))
         msg_meta = pmt.dict_add(msg_meta, pmt.intern('center_frequency'), pmt.from_float(center_frequency))
         msg_meta = pmt.dict_add(msg_meta, pmt.intern('confidence'), pmt.from_long(confidence))
+        if tch_type is not None:
+            # Like tch_c_demod: TCH_C frames carry their type, legacy frames do not
+            msg_meta = pmt.dict_add(msg_meta, pmt.intern('tch_type'), pmt.from_long(tch_type))
+        if crc_ok is not None:
+            msg_meta = pmt.dict_add(msg_meta, pmt.intern('crc_ok'), pmt.from_bool(crc_ok))
         msg = pmt.cons(msg_meta, pmt.init_u8vector(2, range(2)))
         if timestamp > self.max_timestamp:
             self.max_timestamp = timestamp
@@ -127,6 +132,51 @@ class qa_frame_sorter(gr_unittest.TestCase):
 
         self.expect_frames([
             {'timestamp': 26457929700, 'center_frequency': 1626074240, 'confidence': 100},
+        ])
+
+    def test_007_valid_tch_c_frame_drops_legacy_frame(self):
+        # A legacy frame on top of a TCH_C frame with a valid CRC is a misreading of the
+        # TCH_C burst and is dropped, whatever the confidence and the order
+        self.send_frame(1000, 4000, 100)
+        self.send_frame(1000 + 100, 4000, 60, tch_type=1, crc_ok=True)
+        self.send_frame(5 * 10**6, 4000, 60, tch_type=1, crc_ok=True)
+        self.send_frame(5 * 10**6 + 100, 4000, 100)
+
+        self.expect_frames([
+            {'timestamp': 1100, 'center_frequency': 4000, 'confidence': 60, 'tch_type': 1, 'crc_ok': True},
+            {'timestamp': 5 * 10**6, 'center_frequency': 4000, 'confidence': 60, 'tch_type': 1, 'crc_ok': True},
+        ])
+
+    def test_007b_invalid_tch_c_frame_keeps_legacy_frame(self):
+        # Without a valid CRC, legacy and TCH_C frames are not duplicates of each other
+        self.send_frame(1000, 4000, 100)
+        self.send_frame(1000 + 100, 4000, 60, tch_type=1, crc_ok=False)
+
+        self.expect_frames([
+            {'timestamp': 1000, 'center_frequency': 4000, 'confidence': 100},
+            {'timestamp': 1100, 'center_frequency': 4000, 'confidence': 60, 'tch_type': 1, 'crc_ok': False},
+        ])
+
+    def test_008_crc_beats_confidence(self):
+        # Two copies of a TCH_C frame: the one with a valid CRC wins, even with a lower
+        # confidence, in either order
+        self.send_frame(1000, 4000, 90, tch_type=1, crc_ok=False)
+        self.send_frame(1000 + 100, 4001, 80, tch_type=1, crc_ok=True)
+        self.send_frame(5 * 10**6, 4000, 80, tch_type=1, crc_ok=True)
+        self.send_frame(5 * 10**6 + 100, 4001, 90, tch_type=1, crc_ok=False)
+
+        self.expect_frames([
+            {'timestamp': 1100, 'center_frequency': 4001, 'confidence': 80, 'tch_type': 1, 'crc_ok': True},
+            {'timestamp': 5 * 10**6, 'center_frequency': 4000, 'confidence': 80, 'tch_type': 1, 'crc_ok': True},
+        ])
+
+    def test_009_confidence_between_valid_frames(self):
+        # Both copies pass the CRC: the higher confidence wins as before
+        self.send_frame(1000, 4000, 80, tch_type=1, crc_ok=True)
+        self.send_frame(1000 + 100, 4001, 90, tch_type=1, crc_ok=True)
+
+        self.expect_frames([
+            {'timestamp': 1100, 'center_frequency': 4001, 'confidence': 90, 'tch_type': 1, 'crc_ok': True},
         ])
 
 
