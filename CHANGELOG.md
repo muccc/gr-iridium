@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for USRP devices via UHD.
 - Backpressure from the demodulator: a burst only counts as handled once its frames are
   demodulated (`wait_for_demod` of `burst_downmix`, `frame_handled` ports).
+- Wideband detection in `fft_burst_tagger` for bursts without a strong spectral line
+  (`--wideband-db`, off by default).
 
 ### Fixed
 - Use single "system" gain in BladeRF example.

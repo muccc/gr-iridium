@@ -29,7 +29,7 @@ class FlowGraph(gr.top_block):
     def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0,
                  burst_width=40e3, offline=False, max_queue_len=500, handle_multiple_frames_per_burst=False,
                  raw_capture_filename=None, debug_id=None, max_bursts=0, verbose=False, file_info="",
-                 samples_per_symbol=10, config={}):
+                 samples_per_symbol=10, config={}, wideband_threshold=0, wideband_width=30000):
         gr.top_block.__init__(self, "Top Block")
         self.handle_sigint = False
         self._center_frequency = center_frequency
@@ -37,6 +37,8 @@ class FlowGraph(gr.top_block):
         self._input_sample_rate = sample_rate
         self._verbose = verbose
         self._threshold = threshold
+        self._wideband_threshold = wideband_threshold
+        self._wideband_width = wideband_width
         self._filename = filename
         self._offline = offline
         self._max_queue_len = max_queue_len
@@ -510,7 +512,9 @@ class FlowGraph(gr.top_block):
                                                           threshold=self._threshold,
                                                           history_size=512,
                                                           offline=self._offline,
-                                                          debug=self._verbose)
+                                                          debug=self._verbose,
+                                                          wideband_threshold=self._wideband_threshold,
+                                                          wideband_width=int(self._wideband_width))
         self._fft_burst_tagger.set_min_output_buffer(1024 * 64)
 
         # Initial filter to filter the detected bursts. Runs at burst_sample_rate. Used to decimate the signal.

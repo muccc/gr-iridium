@@ -56,7 +56,9 @@ public:
                      float threshold = 7,
                      int history_size = 512,
                      bool offline = false,
-                     bool debug = false);
+                     bool debug = false,
+                     float wideband_threshold = 0,
+                     int wideband_width = 30000);
 
     virtual uint64_t get_n_tagged_bursts() = 0;
     virtual uint64_t get_sample_count() = 0;

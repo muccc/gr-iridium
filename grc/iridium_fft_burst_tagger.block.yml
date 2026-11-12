@@ -48,6 +48,14 @@ parameters:
     label: Debug Output
     dtype: bool
     default: 'False'
+-   id: wideband_threshold
+    label: Wideband Threshold (dB, 0 = off)
+    dtype: float
+    default: '0'
+-   id: wideband_width
+    label: Wideband Width (Hz)
+    dtype: int
+    default: '30000'
 
 inputs:
 -   domain: stream
@@ -59,8 +67,9 @@ outputs:
 
 templates:
     imports: import iridium
-    make: "iridium.fft_burst_tagger(${center_frequency}, ${fft_size}, ${sample_rate},\
-        \ ${burst_pre_len}, ${burst_post_len},\n                            ${burst_width},\
-        \ ${max_bursts}, ${max_burst_len}, ${threshold}, ${history_size}, ${debug})\n  "
+    make: iridium.fft_burst_tagger(${center_frequency}, ${fft_size}, ${sample_rate},
+        ${burst_pre_len}, ${burst_post_len}, ${burst_width}, ${max_bursts}, ${max_burst_len},
+        ${threshold}, ${history_size}, debug=${debug},
+        wideband_threshold=${wideband_threshold}, wideband_width=${wideband_width})
 
 file_format: 1

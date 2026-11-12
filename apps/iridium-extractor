@@ -129,6 +129,11 @@ if __name__ == "__main__":
                         help='Center frequency for the source or the file in Hz.')
     parser.add_argument('-d', '--db', dest='threshold', type=float, default=18,
                         help='Burst detection threshold in dB. Default: 18 dB.')
+    parser.add_argument('--wideband-db', dest='wideband_threshold', type=float, default=0,
+                        help='Threshold in dB for the additional detection of bursts with a flat '
+                        'spectrum, averaged over --wideband-width. 0 disables it. Default: 0.')
+    parser.add_argument('--wideband-width', dest='wideband_width', type=float, default=30000,
+                        help='Bandwidth in Hz averaged by the wideband detection. Default: 30 kHz.')
     parser.add_argument('--debug-id', dest='debug_id', type=int,
                         help='Write debug data for a certain frame ID. Last digit must be 0. See documentation for details.')
     parser.add_argument('-D', '--decimation', dest='decimation', type=int,
@@ -410,7 +415,9 @@ if __name__ == "__main__":
                                                        verbose=args.verbose,
                                                        file_info=args.file_info,
                                                        samples_per_symbol=samples_per_symbol,
-                                                       config=cfg)
+                                                       config=cfg,
+                                                       wideband_threshold=args.wideband_threshold,
+                                                       wideband_width=args.wideband_width)
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))
     statistics_thread.daemon = True

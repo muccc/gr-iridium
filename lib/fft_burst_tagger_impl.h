@@ -35,6 +35,7 @@ struct burst {
     float magnitude;
     float noise;
     uint64_t id;
+    bool wide;
 };
 
 struct peak {
@@ -74,6 +75,11 @@ private:
     float* d_burst_mask_f;
     float* d_ones_f;
     float d_threshold;
+    float d_wide_threshold; // 0: wideband detection disabled
+    int d_wide_bins;
+    std::vector<float> d_wide_f;
+    std::vector<float> d_wide_masked_f;
+    std::vector<float> d_wide_tmp_f;
     double d_center_frequency;
     float d_window_enbw;
 
@@ -94,6 +100,8 @@ private:
     void update_bursts(void);
     void delete_gone_bursts(void);
     void create_new_bursts(void);
+    void moving_average(const float* in, float* out);
+    void create_wide_bursts(void);
     void mask_burst(burst& b);
     void tag_new_bursts(void);
     void tag_gone_bursts(int noutput_items);
@@ -110,7 +118,9 @@ public:
                           float threshold,
                           int history_size,
                           bool offline,
-                          bool debug);
+                          bool debug,
+                          float wideband_threshold,
+                          int wideband_width);
     ~fft_burst_tagger_impl();
 
     uint64_t get_n_tagged_bursts();
