@@ -53,7 +53,8 @@ protects all codewords of a burst.
   α=0.2. It searches for the 32 symbol UW and cuts out exactly one burst. If the channel rate is
   not a multiple of the symbol rate, it runs at the actual rate with a fractional number of
   samples per symbol. In tracked windows it searches the whole window for the UW at several
-  frequency offsets.
+  frequency offsets. This search and the search for the start of a burst run on every
+  2nd to 4th sample (about 2.6 samples per symbol), taken straight from the input filter.
 
   Most bursts a TCH_C downmixer gets are not TCH_C bursts. So it first filters only the
   samples it searches for the UW and normalizes the UW correlation to the energy of the

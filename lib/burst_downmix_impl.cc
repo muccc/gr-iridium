@@ -137,6 +137,7 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
       d_debug(false),
 
       d_input(NULL),
+      d_coarse(NULL),
       d_frame(NULL),
       d_tmp_a(NULL),
       d_tmp_b(NULL),
@@ -155,6 +156,8 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
       d_start_finder_fir(start_finder_taps),
       d_rrc_fir(gr::filter::firdes::root_raised_cosine(
           1.0, d_output_sample_rate, d_symbols_per_second, rrc_alpha(), RRC_TAPS)),
+      d_start_finder_coarse_fir(start_finder_taps),
+      d_rrc_coarse_fir(start_finder_taps),
       d_cfo_est_fft(d_cfo_est_fft_size * d_fft_over_size_facor),
       d_track_fft_size(0),
       d_track_decimation(0),
@@ -169,6 +172,7 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
     initialize_cfo_est_fft();
 
     initialize_correlation_filter();
+    initialize_coarse_filters(start_finder_taps);
 
     message_port_register_in(pmt::mp("cpdus"));
     message_port_register_out(pmt::mp("cpdus"));
@@ -189,6 +193,9 @@ burst_downmix_impl::~burst_downmix_impl()
 {
     if (d_input) {
         volk_free(d_input);
+    }
+    if (d_coarse) {
+        volk_free(d_coarse);
     }
     if (d_frame) {
         volk_free(d_frame);
@@ -279,6 +286,7 @@ void burst_downmix_impl::set_burst_sample_rate(float sample_rate)
     d_ul_preamble_reversed_conj = generate_sync_word(::iridium::direction::UPLINK);
     free_correlation_filter();
     initialize_correlation_filter();
+    initialize_coarse_filters(d_start_finder_fir.taps());
 }
 
 /*
@@ -451,6 +459,12 @@ void burst_downmix_impl::update_buffer_sizes(size_t burst_size)
         d_input = (gr_complex*)volk_malloc(d_max_burst_size * sizeof(gr_complex),
                                            volk_get_alignment());
 
+        if (d_coarse) {
+            volk_free(d_coarse);
+        }
+        d_coarse = (gr_complex*)volk_malloc(d_max_burst_size * sizeof(gr_complex),
+                                            volk_get_alignment());
+
         if (d_frame) {
             volk_free(d_frame);
         }
@@ -484,36 +498,84 @@ void burst_downmix_impl::update_buffer_sizes(size_t burst_size)
 }
 
 /*
- * Shift the burst to the rough CFO estimate, apply the initial low pass filter and
- * decimate it. Done on demand: makes the samples [from, to) of d_frame valid. Most bursts
- * are not for a TCH_C downmixer, which only looks at the parts of them where a UW could
- * be. Samples before from are not asked for again.
+ * The burst is shifted to the rough CFO estimate, low pass filtered and decimated on
+ * demand: most bursts are not for a TCH_C downmixer, which only looks closely at the
+ * parts of them where a UW could be.
  */
+
+// Shift the first n samples of the burst
+void burst_downmix_impl::shift_input(size_t n)
+{
+    if (n > d_input_valid) {
+        d_input_r.rotateN(
+            d_input + d_input_valid, d_burst + d_input_valid, n - d_input_valid);
+        d_input_valid = n;
+    }
+}
+
+// Make the samples [from, to) of d_frame valid. Samples before from are not asked for
+// again.
 void burst_downmix_impl::filter_input(size_t from, size_t to)
 {
     to = std::min(to, d_frame_size);
-    if (from > d_frame_valid) {
-        // Skip the samples in between. The FIR filter may read (and ignore) a few
-        // samples before its input to get an aligned address: have valid ones there.
-        d_frame_valid = from;
-        d_input_valid = from * d_decimation - std::min(from * d_decimation, (size_t)16);
-        d_input_r.set_phase(gr_complex(
-            std::polar(1.0, std::fmod(d_input_phase_inc * d_input_valid, 2 * M_PI))));
-    }
+    d_frame_valid = std::max(d_frame_valid, from);
     if (to <= d_frame_valid) {
         return;
     }
 
-    const size_t n_input = (to - 1) * d_decimation + d_input_fir.ntaps();
-    d_input_r.rotateN(
-        d_input + d_input_valid, d_burst + d_input_valid, n_input - d_input_valid);
-    d_input_valid = n_input;
-
+    shift_input((to - 1) * d_decimation + d_input_fir.ntaps());
     d_input_fir.filterNdec(d_frame + d_frame_valid,
                            d_input + d_frame_valid * d_decimation,
                            to - d_frame_valid,
                            d_decimation);
     d_frame_valid = to;
+}
+
+/*
+ * Every d_coarse_step-th sample of what d_frame would hold, straight from the input
+ * filter: enough to find the start of a burst and to look for the UW in a window on a
+ * tracked channel, at a fraction of the cost. Makes the first n samples of d_coarse
+ * valid and returns how many there are.
+ */
+size_t burst_downmix_impl::filter_input_coarse(size_t n)
+{
+    n = std::min(n, (d_frame_size - 1) / d_coarse_step + 1);
+    if (n > d_coarse_valid) {
+        const int decimation = d_decimation * d_coarse_step;
+        shift_input((n - 1) * decimation + d_input_fir.ntaps());
+        d_input_fir.filterNdec(d_coarse + d_coarse_valid,
+                               d_input + d_coarse_valid * decimation,
+                               n - d_coarse_valid,
+                               decimation);
+        d_coarse_valid = n;
+    }
+    return n;
+}
+
+/*
+ * The filters for d_coarse: the start finder filter and the matched filter at
+ * 1 / d_coarse_step of the rate. Legacy bursts do not use them.
+ */
+void burst_downmix_impl::initialize_coarse_filters(
+    const std::vector<float>& start_finder_taps)
+{
+    d_coarse_step = d_tch_c ? std::max(1, (int)(d_samples_per_symbol / 2.5f)) : 1;
+
+    // Every d_coarse_step-th tap, including the one in the middle
+    const int half = (start_finder_taps.size() - 1) / 2;
+    std::vector<float> taps;
+    for (size_t i = half % d_coarse_step; i < start_finder_taps.size();
+         i += d_coarse_step) {
+        taps.push_back(start_finder_taps[i] * d_coarse_step);
+    }
+    d_start_finder_coarse_fir.set_taps(taps);
+
+    d_rrc_coarse_fir.set_taps(gr::filter::firdes::root_raised_cosine(
+        1.0,
+        (double)d_burst_sample_rate / d_coarse_step,
+        d_symbols_per_second,
+        rrc_alpha(),
+        (RRC_TAPS - 1) / d_coarse_step / 2 * 2 + 1));
 }
 
 size_t burst_downmix_impl::get_input_queue_size() { return nmsgs(pmt::mp("cpdus")); }
@@ -561,12 +623,12 @@ float burst_downmix_impl::interpolate(float alpha, float beta, float gamma)
  * a few frequency offsets. Returns the sample index of the UW start or -1.
  *
  * This only has to be good to a symbol or so, process_next_frame() searches again from
- * there. So it runs at 2.5 to 5 samples per symbol.
+ * there. So it works on d_coarse, at 2.5 to 5 samples per symbol.
  */
-int burst_downmix_impl::find_uw_coarse(int start, size_t burst_size)
+int burst_downmix_impl::find_uw_coarse(size_t burst_size)
 {
-    const int dec = std::max(1, (int)(d_samples_per_symbol / 2.5f));
-    const int len = (burst_size - start) / dec;
+    const int dec = d_coarse_step;
+    const int len = filter_input_coarse(burst_size);
     const int full_tlen = d_dl_preamble_reversed_conj.size();
     const int tlen = (full_tlen - 1) / dec + 1;
     if (len < tlen) {
@@ -600,22 +662,24 @@ int burst_downmix_impl::find_uw_coarse(int start, size_t burst_size)
     }
 
     // Matched filter
-    const int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
-    const int n_samples = burst_size - start;
-    d_track_buf.assign(n_samples + 2 * half_rrc_size, 0);
-    std::copy(d_frame + start, d_frame + burst_size, d_track_buf.begin() + half_rrc_size);
+    const int half_rrc_size = (d_rrc_coarse_fir.ntaps() - 1) / 2;
+    d_track_buf.assign(len + 2 * half_rrc_size, 0);
+    std::copy(d_coarse, d_coarse + len, d_track_buf.begin() + half_rrc_size);
     gr_complex* in = d_track_fwd->get_inbuf();
-    d_rrc_fir.filterNdec(in, &d_track_buf[0], len, dec);
+    d_rrc_coarse_fir.filterN(in, &d_track_buf[0], len);
     std::fill(in + len, in + size, 0);
     d_track_fwd->execute();
 
     // The rough frequency of a tracked channel is good to about one FFT bin of the
-    // tagger: try offsets of up to +-1800 Hz in steps of 600 Hz by shifting the spectrum
-    const float bins_per_step = 600 * dec * size / d_burst_sample_rate;
+    // tagger: try offsets of up to +-1800 Hz by shifting the spectrum. The UW of TCH_C1
+    // lasts 1 ms and needs steps of 600 Hz, at higher symbol rates fewer offsets do.
+    const float step_hz = 600.f * d_symbols_per_second / 30000;
+    const int n_steps = 1800 / step_hz;
+    const float bins_per_step = step_hz * dec * size / d_burst_sample_rate;
     const gr_complex* spectrum = d_track_fwd->get_outbuf();
     float best = 0;
     int best_index = -1;
-    for (int step = -3; step <= 3; step++) {
+    for (int step = -n_steps; step <= n_steps; step++) {
         const int shift = ((int)std::lround(step * bins_per_step) + size) % size;
         for (int d = 0; d < 2; d++) {
             const auto& t = d == 0 ? d_track_dl_fft : d_track_ul_fft;
@@ -637,7 +701,7 @@ int burst_downmix_impl::find_uw_coarse(int start, size_t burst_size)
     if (best_index < 0) {
         return -1;
     }
-    return std::max(start + best_index * dec - (full_tlen - 1), start);
+    return std::max(best_index * dec - (full_tlen - 1), 0);
 }
 
 int burst_downmix_impl::process_next_frame(float sample_rate,
@@ -651,8 +715,7 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
 {
     // Windows opened by the burst tagger on a tracked channel: the burst can be anywhere
     if (d_tracked) {
-        filter_input(start, burst_size);
-        int uw = find_uw_coarse(start, burst_size);
+        int uw = find_uw_coarse(burst_size);
         if (uw < 0) {
             return 0;
         }
@@ -702,20 +765,29 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     }
 
     /*
-     * Most bursts a TCH_C downmixer gets are not TCH_C bursts. It only processes the
-     * samples searched for the sync word (UW) until it finds one there.
+     * Only the samples searched for the sync word are RRC filtered until it is found,
+     * then the rest of the frame: not the whole burst, which can hold several frames.
+     * Most bursts a TCH_C downmixer gets are not TCH_C bursts, so it also runs the input
+     * filter and the frequency shift only that far before it has found a UW.
      */
     const int available = burst_size - start;
     const int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
     const int search_len = std::min(d_sync_search_len, available);
+    // Legacy bursts: the UW follows the preamble. TCH_C bursts: the sync word is the UW.
+    const int uw_offset =
+        d_tch_c ? 0 : ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
     int n_search = available;   // samples shifted to the fine CFO estimate
     int n_filtered = available; // samples RRC filtered
     int n_frame = available;    // samples needed for the longest frame
-    if (d_tch_c && !d_debug) {
-        n_search =
-            std::min(available, std::max(search_len + half_rrc_size, d_cfo_est_fft_size));
+    if (!d_debug) {
         n_filtered = search_len;
-        n_frame = std::min(available, search_len + max_frame_length + half_rrc_size);
+        n_frame = std::min(available,
+                           search_len + uw_offset + max_frame_length + half_rrc_size);
+        n_search = n_frame;
+        if (d_tch_c) {
+            n_search = std::min(available,
+                                std::max(search_len + half_rrc_size, d_cfo_est_fft_size));
+        }
     }
     filter_input(start, start + n_search);
 
@@ -878,11 +950,7 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     // Careful: The correlation might have found the start of the sync word
     // before the first sample => preamble_offset might be negative
     int preamble_offset = corr_offset - d_dl_preamble_reversed_conj.size() + 1;
-    // Legacy bursts: skip the preamble. TCH_C bursts: the sync word is the UW.
-    int uw_start = preamble_offset;
-    if (!d_tch_c) {
-        uw_start += ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
-    }
+    int uw_start = preamble_offset + uw_offset;
 
     // If the UW starts at an offset < 0, we will not be able to demodulate the signal
     if (uw_start < 0) {
@@ -1013,34 +1081,40 @@ void burst_downmix_impl::burst_done(uint64_t id)
  */
 int burst_downmix_impl::find_start(size_t burst_size, uint64_t id)
 {
-    int half_fir_size = (d_start_finder_fir.ntaps() - 1) / 2;
-    int fir_size = d_start_finder_fir.ntaps();
+    // TCH_C downmixers get many bursts which are not for them: the filtered magnitude
+    // changes slowly, so they look at d_coarse only
+    const bool coarse = d_tch_c && !d_debug;
+    const int step = coarse ? d_coarse_step : 1;
+    auto& fir = coarse ? d_start_finder_coarse_fir : d_start_finder_fir;
+
+    int fir_size = fir.ntaps();
+    int half_fir_size = (fir_size - 1) / 2;
 
     // The burst might be shorter than d_search_depth.
-    int N = std::min(d_search_depth, (int)burst_size - (fir_size - 1));
+    const gr_complex* samples = d_frame;
+    int available = burst_size;
+    if (coarse) {
+        samples = d_coarse;
+        available =
+            filter_input_coarse((d_search_depth + step - 1) / step + fir_size - 1);
+    } else {
+        filter_input(0, burst_size);
+    }
+    int N = std::min((d_search_depth + step - 1) / step, available - (fir_size - 1));
 
-    // TCH_C downmixers filter the rest of the burst once they found a UW
-    filter_input(0, d_tch_c ? N + fir_size - 1 : burst_size);
-
-    volk_32fc_magnitude_squared_32f(d_magnitude_f, d_frame, N + fir_size - 1);
+    volk_32fc_magnitude_squared_32f(d_magnitude_f, samples, N + fir_size - 1);
 
     if (d_debug) {
         write_data_f(d_magnitude_f, N + fir_size - 1, (char*)"signal-mag", id);
     }
 
-    // The filtered magnitude changes slowly. TCH_C downmixers, which get many bursts
-    // that are not for them, only evaluate every few samples of it.
-    const int step = (d_tch_c && !d_debug) ? START_FINDER_STEP : 1;
-    const int n_steps = (N + step - 1) / step;
-
-    d_start_finder_fir.filterNdec(d_magnitude_filtered_f, d_magnitude_f, n_steps, step);
+    fir.filterN(d_magnitude_filtered_f, d_magnitude_f, N);
 
     if (d_debug) {
         write_data_f(d_magnitude_filtered_f, N, (char*)"signal-mag-filter", id);
     }
 
-    float* max =
-        std::max_element(d_magnitude_filtered_f, d_magnitude_filtered_f + n_steps);
+    float* max = std::max_element(d_magnitude_filtered_f, d_magnitude_filtered_f + N);
     float threshold = *max * 0.28;
     if (d_debug) {
         std::cout << "Threshold:" << threshold << " Max:" << *max << "("
@@ -1048,19 +1122,26 @@ int burst_downmix_impl::find_start(size_t burst_size, uint64_t id)
     }
 
     int start;
-    for (start = 0; start < n_steps; start++) {
+    for (start = 0; start < N; start++) {
         if (d_magnitude_filtered_f[start] >= threshold) {
             break;
         }
     }
-    start *= step;
 
-    // The exact sample among the ones left out
-    for (int i = std::max(start - step + 1, 0); i < start; i++) {
-        if (d_start_finder_fir.filter(d_magnitude_f + i) >= threshold) {
-            start = i;
-            break;
+    if (coarse && start > 0) {
+        // The exact sample: one of those since the previous one looked at
+        const int dense_fir_size = d_start_finder_fir.ntaps();
+        const int last = start * step - (dense_fir_size - 1) / 2 % step;
+        const int first = std::max(last - step + 1, 0);
+        filter_input(first, last + dense_fir_size);
+        volk_32fc_magnitude_squared_32f(
+            d_magnitude_f, d_frame + first, last - first + dense_fir_size);
+        for (start = first; start < last; start++) {
+            if (d_start_finder_fir.filter(d_magnitude_f + start - first) >= threshold) {
+                break;
+            }
         }
+        half_fir_size = (dense_fir_size - 1) / 2;
     }
 
     if (start > 0) {
@@ -1146,8 +1227,8 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     /*
      * Shift the center frequency of the burst to the provided rough CFO estimate.
      */
-    d_input_phase_inc = 2 * M_PI * -relative_frequency;
-    d_input_r.set_phase_incr(exp(gr_complex(0, (float)d_input_phase_inc)));
+    float phase_inc = 2 * M_PI * -relative_frequency;
+    d_input_r.set_phase_incr(exp(gr_complex(0, phase_inc)));
     d_input_r.set_phase(gr_complex(1, 0));
     center_frequency += relative_frequency * sample_rate;
 
@@ -1177,6 +1258,7 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     d_decimation = decimation;
     d_frame_size = burst_size;
     d_frame_valid = 0;
+    d_coarse_valid = 0;
     d_input_valid = 0;
 
     sample_rate /= decimation;

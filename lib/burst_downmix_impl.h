@@ -36,7 +36,6 @@ class burst_downmix_impl : public burst_downmix
 private:
     static const int RRC_TAPS = 51;
     static const int RC_TAPS = 51;
-    static const int START_FINDER_STEP = 4;
 
     const tch_c_format* d_tch_c; // TCH_C burst format, nullptr for legacy bursts
     int d_symbols_per_second;
@@ -58,6 +57,7 @@ private:
     int64_t d_debug_id;
 
     gr_complex* d_input;
+    gr_complex* d_coarse;
     gr_complex* d_frame;
     gr_complex* d_tmp_a;
     gr_complex* d_tmp_b;
@@ -75,6 +75,8 @@ private:
     filter::kernel::fir_filter_ccf d_input_fir;
     filter::kernel::fir_filter_fff d_start_finder_fir;
     filter::kernel::fir_filter_ccf d_rrc_fir;
+    filter::kernel::fir_filter_fff d_start_finder_coarse_fir;
+    filter::kernel::fir_filter_ccf d_rrc_coarse_fir;
 
     volk::vector<gr_complex> d_dl_preamble_reversed_conj;
     volk::vector<gr_complex> d_ul_preamble_reversed_conj;
@@ -88,8 +90,12 @@ private:
     size_t d_frame_size;  // its size after decimation
     size_t d_frame_valid; // samples of d_frame filtered so far
     size_t d_input_valid; // samples of d_input shifted so far
-    double d_input_phase_inc;
+    size_t d_coarse_valid; // samples of d_coarse filtered so far
+    int d_coarse_step;
+    void shift_input(size_t n);
     void filter_input(size_t from, size_t to);
+    size_t filter_input_coarse(size_t n);
+    void initialize_coarse_filters(const std::vector<float>& start_finder_taps);
 
     // Normalized correlation a TCH_C UW needs to be taken for one
     static constexpr float UW_MIN_CORRELATION = 0.25f;
@@ -105,7 +111,7 @@ private:
     std::vector<gr_complex> d_track_dl_fft;
     std::vector<gr_complex> d_track_ul_fft;
     std::vector<gr_complex> d_track_buf;
-    int find_uw_coarse(int start, size_t burst_size);
+    int find_uw_coarse(size_t burst_size);
 
     bool d_wait_for_demod;
     uint64_t d_burst_id; // the burst being handled
