@@ -210,6 +210,15 @@ tch_c_known_symbols(const tch_c_format& f, const int* uw, int* pos, float* sign)
 static const int TCH_C_MAX_KNOWN = 32 + TCH_C_MAX_PILOTS * TCH_C_PILOT_LENGTH;
 
 /*
+ * 16APSK bursts (three codewords) are only decoded up to this noise variance on the
+ * known symbols: every 16APSK burst passing the CRC on test recordings had less than 0.2
+ * (rate 2/3 needs about 0.11), except three which were not 16APSK bursts at all but
+ * failed decodes passing the CRC-10 by chance. Most TCH_C8 bursts with a valid UW which
+ * fail the CRC are above this.
+ */
+static const float APSK16_MAX_NOISE = 0.25f;
+
+/*
  * Phase and frequency correction for TCH_C bursts using the known symbols (UW and
  * pilots). The phase is modelled as phi0 + omega * k over the burst.
  * Returns omega in radians per symbol.
@@ -332,14 +341,13 @@ int tch_c_demod_impl::decimate(
 
 /*
  * Soft bits of the data symbols of a phase corrected TCH_C burst. Gain and noise variance
- * come from the known (QPSK) symbols. Returns the gain; writes f.bits_per_symbol LLRs per
+ * (relative to the symbol energy, written to noise) come from the known (QPSK) symbols.
+ * Returns the gain; writes f.bits_per_symbol LLRs per
  * data symbol, L = log P(0) / P(1). QPSK: c[2k] from I, c[2k+1] from Q. 16APSK: max-log
  * over the 16 points for the 4 bits of the point index (MSB first).
  */
-float tch_c_demod_impl::soft_bits(const tch_c_format& f,
-                                  const gr_complex* y,
-                                  const int* uw,
-                                  float* llr)
+float tch_c_demod_impl::soft_bits(
+    const tch_c_format& f, const gr_complex* y, const int* uw, float* llr, float* noise)
 {
     const gr_complex s0 = gr_complex(M_SQRT1_2, M_SQRT1_2);
     int pos[TCH_C_MAX_KNOWN];
@@ -360,6 +368,7 @@ float tch_c_demod_impl::soft_bits(const tch_c_format& f,
         sigma2 += std::norm(y[pos[i]] / gain - sign[i] * s0);
     }
     sigma2 = std::max(sigma2 / n_known, 1e-3f);
+    *noise = sigma2;
 
     int p = 0;
     if (f.bits_per_symbol == 2) {
@@ -534,7 +543,8 @@ void tch_c_demod_impl::handle_burst(int channel,
         const tch_c_format* formats[2] = { &layout, nullptr };
         int n_formats = 1;
         if (tch_type == 8) {
-            float gain = soft_bits(TCH_C8Q, d_burst_after_pll, uw, d_llr);
+            float noise;
+            float gain = soft_bits(TCH_C8Q, d_burst_after_pll, uw, d_llr, &noise);
             bool apsk_first = tch_c_fit(TCH_C8A, d_burst_after_pll, gain, 4) <
                               tch_c_fit(TCH_C8Q, d_burst_after_pll, gain, 2);
             formats[0] = apsk_first ? &TCH_C8A : &TCH_C8Q;
@@ -544,7 +554,11 @@ void tch_c_demod_impl::handle_burst(int channel,
 
         for (int fi = 0; fi < n_formats; fi++) {
             const tch_c_format& f = *formats[fi];
-            float gain = soft_bits(f, d_burst_after_pll, uw, d_llr);
+            float noise;
+            float gain = soft_bits(f, d_burst_after_pll, uw, d_llr, &noise);
+            if (f.bits_per_symbol == 4 && noise > APSK16_MAX_NOISE) {
+                continue;
+            }
             bool ok = decode_tch_c(f, decoder_for(f), d_llr, d_msg);
 
             // Keep the first try passing the UW check, unless a later one passes the CRC

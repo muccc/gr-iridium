@@ -71,8 +71,11 @@ private:
                     float* level,
                     int* confidence);
     bool uw_ok(const int* demodulated_burst, const int* uw);
-    float
-    soft_bits(const tch_c_format& f, const gr_complex* y, const int* uw, float* llr);
+    float soft_bits(const tch_c_format& f,
+                    const gr_complex* y,
+                    const int* uw,
+                    float* llr,
+                    float* noise);
     tch_c_decoder& decoder_for(const tch_c_format& f);
     void decode_gray_qpsk(int* demodulated_burst, size_t n_symbols);
     void map_symbols_to_bits(const int* demodulated_burst,

@@ -346,7 +346,8 @@ void tch_c_decoder::decode_raw(const float* llr, uint8_t* bits)
             bits[2 * k] = best >> 1;
             bits[2 * k + 1] = best & 1;
         }
-        unchanged = changed ? 0 : unchanged + 1;
+        // (bits holds anything before the first iteration)
+        unchanged = (changed || it == 0) ? 0 : unchanged + 1;
         if (unchanged == 2) {
             break;
         }
