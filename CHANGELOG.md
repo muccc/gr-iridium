@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   demodulated (`wait_for_demod` of `burst_downmix`, `frame_handled` ports).
 - Wideband detection in `fft_burst_tagger` for bursts without a strong spectral line
   (`--wideband-db`, off by default).
+- Reception of TCH_C1, TCH_C2 and TCH_C8 bursts with `--tch-c` (off by default): a
+  `tch_c_type` parameter for `burst_downmix` and a new `tch_c_demod` block (known-symbol
+  carrier recovery, QPSK/16APSK soft demapping, turbo decoding, CRC-10). Output as
+  `NXD:` (downlink) / `NXU:` (uplink) lines carrying the decoded payload, see `docs/tch_c.md`.
+- `tagged_burst_to_pdu` and `fft_channelizer` take the number of acknowledgements per burst,
+  for sources feeding several downmixers.
 
 ### Fixed
 - Use single "system" gain in BladeRF example.

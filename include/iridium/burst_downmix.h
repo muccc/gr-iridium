@@ -35,6 +35,10 @@ namespace iridium {
  * by correlating with the sync word and publishes the frame starting at the first
  * symbol of the unique word (UW). Bursts can contain several frames.
  *
+ * By default it looks for legacy Iridium frames (25 ksym/s DE-QPSK with a preamble and
+ * a 12 symbol UW). With tch_c_type set to 1, 2 or 8 it looks for TCH_C1, TCH_C2 or
+ * TCH_C8 bursts instead (n * 30 ksym/s, 32 symbol UW, fixed length).
+ *
  * Every burst is acknowledged on burst_handled. With wait_for_demod the acknowledgement
  * is (id . number of frames published) and the frames carry the burst id, so the burst
  * source can wait until the demodulator has handled them too (connect the frame_handled
@@ -59,7 +63,8 @@ public:
                      const std::vector<float>& input_taps,
                      const std::vector<float>& start_finder_taps,
                      bool handle_multiple_frames_per_burst,
-                     bool wait_for_demod = false);
+                     bool wait_for_demod = false,
+                     int tch_c_type = 0);
 
     virtual uint64_t get_n_dropped_bursts() = 0;
     virtual size_t get_input_queue_size() = 0;

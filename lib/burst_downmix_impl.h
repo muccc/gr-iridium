@@ -24,6 +24,7 @@
 #include <gnuradio/blocks/rotator.h>
 #include <gnuradio/filter/fir_filter.h>
 
+#include "tch_c_format.h"
 #include <iridium/burst_downmix.h>
 
 namespace gr {
@@ -32,8 +33,15 @@ namespace iridium {
 class burst_downmix_impl : public burst_downmix
 {
 private:
+    static const int RRC_TAPS = 51;
+    static const int RC_TAPS = 51;
+
+    const tch_c_format* d_tch_c; // TCH_C burst format, nullptr for legacy bursts
+    int d_symbols_per_second;
     int d_output_sample_rate;
     int d_output_samples_per_symbol;
+    float d_samples_per_symbol; // at the actual burst sample rate
+    float d_burst_sample_rate;
     size_t d_max_burst_size;
     int d_search_depth;
     int d_pre_start_samples;
@@ -64,7 +72,6 @@ private:
     filter::kernel::fir_filter_ccf d_input_fir;
     filter::kernel::fir_filter_fff d_start_finder_fir;
     filter::kernel::fir_filter_ccf d_rrc_fir;
-    filter::kernel::fir_filter_ccf d_rc_fir;
 
     volk::vector<gr_complex> d_dl_preamble_reversed_conj;
     volk::vector<gr_complex> d_ul_preamble_reversed_conj;
@@ -90,6 +97,11 @@ private:
     void update_buffer_sizes(size_t burst_size);
     void initialize_cfo_est_fft(void);
     void initialize_correlation_filter(void);
+    void free_correlation_filter(void);
+    void set_burst_sample_rate(float sample_rate);
+    int pre_start_samples() const;
+    int sync_search_len() const;
+    double rrc_alpha() const;
     volk::vector<gr_complex> generate_sync_word(::iridium::direction direction);
     int fft_shift_index(int index, int fft_size);
     int fft_unshift_index(int index, int fft_size);
@@ -102,7 +114,8 @@ public:
                        const std::vector<float>& input_taps,
                        const std::vector<float>& start_finder_taps,
                        bool handle_multiple_frames_per_burst,
-                       bool wait_for_demod);
+                       bool wait_for_demod,
+                       int tch_c_type);
     ~burst_downmix_impl();
 
     size_t get_input_queue_size();

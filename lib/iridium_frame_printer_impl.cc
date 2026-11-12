@@ -76,23 +76,53 @@ void iridium_frame_printer_impl::handler(const pmt::pmt_t& msg)
         pmt::to_long(pmt::dict_ref(meta, pmt::mp("confidence"), pmt::PMT_NIL));
     float level = pmt::to_float(pmt::dict_ref(meta, pmt::mp("level"), pmt::PMT_NIL));
     int n_symbols = pmt::to_long(pmt::dict_ref(meta, pmt::mp("n_symbols"), pmt::PMT_NIL));
+    // Only frames from tch_c_demod have a TCH_C type (1, 2 or 8)
+    bool tch_c = pmt::dict_has_key(meta, pmt::mp("tch_type"));
+
+    // A TCH_C payload that failed the CRC is noise: drop the frame
+    if (tch_c && !pmt::to_bool(pmt::dict_ref(meta, pmt::mp("crc_ok"), pmt::PMT_F))) {
+        return;
+    }
 
     if (d_file_info == "") {
         d_t0 = (timestamp / 1000000000ULL) * 1000000000ULL;
         d_file_info = "i-" + std::to_string(d_t0 / 1000000000ULL) + "-t1";
     }
 
-    std::cout << "RAW: " << d_file_info << " ";
+    if (tch_c) {
+        bool uplink = pmt::to_bool(pmt::dict_ref(meta, pmt::mp("uplink"), pmt::PMT_F));
+        std::cout << (uplink ? "NXU: " : "NXD: ");
+    } else {
+        std::cout << "RAW: ";
+    }
+
+    std::cout << d_file_info << " ";
     std::cout << format("%012.4f ") % ((timestamp - d_t0) / 1000000.);
     std::cout << format("%010d ") % int(center_frequency + 0.5);
     std::cout << format("N:%05.2f%+06.2f ") % magnitude % noise;
     std::cout << format("I:%011d ") % id;
     std::cout << format("%3d%% ") % confidence;
     std::cout << format("%.5f ") % level;
-    std::cout << format("%3d ") % (n_symbols - ::iridium::UW_LENGTH);
 
-
-    auto bits = pmt::u8vector_elements(symbols);
+    // RAW frames: number of symbols after the UW, then the demodulated bits.
+    // TCH_C frames: number of payload bits, the burst type (NC1, NC2, NC8 for TCH_C8
+    // QPSK, NCA for TCH_C8 16APSK), then the decoded and descrambled payload without the
+    // CRC-10 (310 bits for TCH_C1, 566 for TCH_C2, 2422 / 4838 for TCH_C8 QPSK / 16APSK)
+    auto bits = pmt::u8vector_elements(
+        tch_c ? pmt::dict_ref(meta, pmt::mp("payload"), pmt::PMT_NIL) : symbols);
+    std::cout << format("%3d ") %
+                     (tch_c ? bits.size() : n_symbols - ::iridium::UW_LENGTH);
+    if (tch_c) {
+        int tch_type =
+            pmt::to_long(pmt::dict_ref(meta, pmt::mp("tch_type"), pmt::PMT_NIL));
+        int bps = pmt::to_long(
+            pmt::dict_ref(meta, pmt::mp("bits_per_symbol"), pmt::from_long(2)));
+        if (bps == 4) {
+            std::cout << "NCA ";
+        } else {
+            std::cout << "NC" << tch_type << " ";
+        }
+    }
     for (const auto i : bits) {
         std::cout << std::to_string(i);
     }

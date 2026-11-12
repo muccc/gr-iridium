@@ -24,6 +24,7 @@ namespace py = pybind11;
     void bind_burst_downmix(py::module& m);
     void bind_fft_burst_tagger(py::module& m);
     void bind_iridium_qpsk_demod(py::module& m);
+    void bind_tch_c_demod(py::module& m);
     void bind_iuchar_to_complex(py::module& m);
     void bind_pdu_null_sink(py::module& m);
     void bind_pdu_round_robin(py::module& m);
@@ -62,6 +63,7 @@ PYBIND11_MODULE(iridium_python, m)
     bind_burst_downmix(m);
     bind_fft_burst_tagger(m);
     bind_iridium_qpsk_demod(m);
+    bind_tch_c_demod(m);
     bind_iuchar_to_complex(m);
     bind_pdu_null_sink(m);
     bind_pdu_round_robin(m);

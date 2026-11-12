@@ -4,7 +4,7 @@ category: '[Iridium]'
 
 templates:
   imports: import iridium
-  make: iridium.fft_channelizer(${fft_size}, ${decimation}, ${activate_streams}, ${pdu_ports}, ${max_burst_size}, ${max_outstanding}, ${drop_overflow})
+  make: iridium.fft_channelizer(${fft_size}, ${decimation}, ${activate_streams}, ${pdu_ports}, ${max_burst_size}, ${max_outstanding}, ${drop_overflow}, ${acks_per_burst})
 
 parameters:
 - id: fft_size
@@ -35,6 +35,10 @@ parameters:
   label: Drop Overflowing Bursts
   dtype: bool
   default: False
+- id: acks_per_burst
+  label: Acknowledgements per Burst
+  dtype: int
+  default: 1
 
 inputs:
 - label: in

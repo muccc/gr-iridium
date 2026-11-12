@@ -28,6 +28,12 @@ parameters:
     label: Wait For Demodulator
     dtype: bool
     default: 'False'
+-   id: tch_c_type
+    label: Burst Type
+    dtype: int
+    default: '0'
+    options: ['0', '1', '2', '8']
+    option_labels: [Legacy, TCH_C1, TCH_C2, TCH_C8]
 
 inputs:
 -   domain: message
@@ -43,6 +49,6 @@ templates:
     imports: import iridium
     make: iridium.burst_downmix(${output_sample_rate}, ${search_depth}, ${hard_max_queue_len},
         ${input_taps}, ${start_finder_taps}, ${handle_multiple_frames_per_burst},
-        ${wait_for_demod})
+        ${wait_for_demod}, ${tch_c_type})
 
 file_format: 1

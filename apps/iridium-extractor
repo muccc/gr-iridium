@@ -129,9 +129,17 @@ if __name__ == "__main__":
                         help='Center frequency for the source or the file in Hz.')
     parser.add_argument('-d', '--db', dest='threshold', type=float, default=18,
                         help='Burst detection threshold in dB. Default: 18 dB.')
-    parser.add_argument('--wideband-db', dest='wideband_threshold', type=float, default=0,
+    parser.add_argument('--tch-c', dest='tch_c', action='store_true',
+                        help='Also demodulate and decode TCH_C bursts (NXD/NXU output lines). '
+                        'Costs several times the CPU time of legacy bursts alone (10x on a test '
+                        'recording with all types, 3x with TCH_C1 only).')
+    parser.add_argument('--tch-c-types', dest='tch_c_types', default='1,2,8',
+                        help='Comma separated list of the TCH_C types to look for with --tch-c. '
+                        'Default: 1,2,8.')
+    parser.add_argument('--wideband-db', dest='wideband_threshold', type=float,
                         help='Threshold in dB for the additional detection of bursts with a flat '
-                        'spectrum, averaged over --wideband-width. 0 disables it. Default: 0.')
+                        'spectrum (TCH_C), averaged over --wideband-width. 0 disables it. '
+                        'Default: 6 dB with --tch-c, otherwise 0.')
     parser.add_argument('--wideband-width', dest='wideband_width', type=float, default=30000,
                         help='Bandwidth in Hz averaged by the wideband detection. Default: 30 kHz.')
     parser.add_argument('--debug-id', dest='debug_id', type=int,
@@ -162,6 +170,19 @@ if __name__ == "__main__":
     parser.add_argument('filename', action="store", nargs='?', default='-',
                         help='File containing either raw samples or a configuration for an SDR. If not present stdin will be used to read raw samples.')
     args = parser.parse_args()
+
+    # TCH_C reception is opt-in: it costs several times the CPU time
+    tch_c = []
+    if args.tch_c:
+        try:
+            tch_c = [int(t) for t in args.tch_c_types.split(',') if t.strip()]
+        except ValueError:
+            tch_c = None
+        if not tch_c or any(t not in (1, 2, 8) for t in tch_c):
+            parser.error('--tch-c-types takes a comma separated list of 1, 2 and 8')
+    wideband_threshold = args.wideband_threshold
+    if wideband_threshold is None:
+        wideband_threshold = 6 if tch_c else 0
 
     center = None
     fmt = None
@@ -416,8 +437,9 @@ if __name__ == "__main__":
                                                        file_info=args.file_info,
                                                        samples_per_symbol=samples_per_symbol,
                                                        config=cfg,
-                                                       wideband_threshold=args.wideband_threshold,
-                                                       wideband_width=args.wideband_width)
+                                                       wideband_threshold=wideband_threshold,
+                                                       wideband_width=args.wideband_width,
+                                                       tch_c=tch_c)
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))
     statistics_thread.daemon = True

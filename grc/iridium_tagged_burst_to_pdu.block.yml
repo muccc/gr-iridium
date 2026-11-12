@@ -33,6 +33,10 @@ parameters:
     label: Drop Overflowing Bursts
     dtype: bool
     default: 'False'
+-   id: acks_per_burst
+    label: Acknowledgements per Burst
+    dtype: int
+    default: '1'
 
 inputs:
 -   domain: stream
@@ -50,6 +54,7 @@ outputs:
 templates:
     imports: import iridium
     make: iridium.tagged_burst_to_pdu(${max_burst_size}, ${relative_center_frequency},
-        ${relative_span}, ${relative_sample_rate}, ${sample_offset}, ${max_outstanding}, ${drop_overflow})
+        ${relative_span}, ${relative_sample_rate}, ${sample_offset}, ${max_outstanding}, ${drop_overflow},
+        ${acks_per_burst})
 
 file_format: 1

@@ -12,6 +12,7 @@ install(FILES
     iridium_burst_downmix.block.yml
     iridium_pdu_null_sink.block.yml
     iridium_iridium_qpsk_demod.block.yml
+    iridium_tch_c_demod.block.yml
     iridium_pdu_round_robin.block.yml
     iridium_frame_sorter.block.yml
     iridium_iridium_frame_printer.block.yml

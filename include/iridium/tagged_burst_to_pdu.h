@@ -44,6 +44,12 @@ public:
      * constructor is in a private implementation
      * class. iridium::tagged_burst_to_pdu::make is the public interface for
      * creating new instances.
+     *
+     * \param acks_per_burst Number of blocks acknowledging every burst on the
+     *        burst_handled port, one per connected burst_downmix block. A burst is
+     *        outstanding until all of them have acknowledged it.
+     *        Downmixers running with wait_for_demod also make it wait until the
+     *        demodulators have reported all frames of the burst on frame_handled.
      */
     static sptr make(int max_burst_size,
                      float relative_center_frequency,
@@ -51,7 +57,8 @@ public:
                      float d_relative_sample_rate,
                      double sample_offset,
                      int outstanding_limit,
-                     bool drop_overflow);
+                     bool drop_overflow,
+                     int acks_per_burst = 1);
 
     virtual uint64_t get_n_dropped_bursts() = 0;
     virtual int get_output_queue_size() = 0;

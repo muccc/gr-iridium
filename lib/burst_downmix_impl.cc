@@ -75,24 +75,14 @@ float raised_cosine_h(float t, float Ts, float alpha)
            (1 - powf((2 * alpha * t / Ts), 2));
 }
 
-std::vector<float> rcosfilter(int ntaps, float alpha, float Ts, float Fs)
-{
-    std::vector<float> taps(ntaps);
-
-    for (int i = -ntaps / 2 + 1; i < ntaps / 2 + 1; i++) {
-        taps[i + (ntaps + 1) / 2 - 1] = raised_cosine_h(i / Fs, Ts, alpha) * Ts;
-    }
-
-    return taps;
-}
-
 burst_downmix::sptr burst_downmix::make(int sample_rate,
                                         int search_depth,
                                         size_t hard_max_queue_len,
                                         const std::vector<float>& input_taps,
                                         const std::vector<float>& start_finder_taps,
                                         bool handle_multiple_frames_per_burst,
-                                        bool wait_for_demod)
+                                        bool wait_for_demod,
+                                        int tch_c_type)
 {
     return gnuradio::get_initial_sptr(
         new burst_downmix_impl(sample_rate,
@@ -101,7 +91,8 @@ burst_downmix::sptr burst_downmix::make(int sample_rate,
                                input_taps,
                                start_finder_taps,
                                handle_multiple_frames_per_burst,
-                               wait_for_demod));
+                               wait_for_demod,
+                               tch_c_type));
 }
 
 
@@ -114,15 +105,21 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
                                        const std::vector<float>& input_taps,
                                        const std::vector<float>& start_finder_taps,
                                        bool handle_multiple_frames_per_burst,
-                                       bool wait_for_demod)
+                                       bool wait_for_demod,
+                                       int tch_c_type)
     : gr::block("burst_downmix",
                 gr::io_signature::make(0, 0, 0),
                 gr::io_signature::make(0, 0, 0)),
+      d_tch_c(tch_c_type ? &tch_c_format_by_type(tch_c_type) : nullptr),
+      d_symbols_per_second(d_tch_c ? d_tch_c->symbols_per_second
+                                   : ::iridium::SYMBOLS_PER_SECOND),
       d_output_sample_rate(output_sample_rate),
-      d_output_samples_per_symbol(d_output_sample_rate / ::iridium::SYMBOLS_PER_SECOND),
+      d_output_samples_per_symbol(d_output_sample_rate / d_symbols_per_second),
+      d_samples_per_symbol((float)d_output_sample_rate / d_symbols_per_second),
+      d_burst_sample_rate(d_output_sample_rate),
       d_max_burst_size(0),
       d_search_depth(search_depth),
-      d_pre_start_samples(int(0.1e-3 * d_output_sample_rate)),
+      d_pre_start_samples(pre_start_samples()),
       d_n_dropped_bursts(0),
       d_debug_id(-1),
 
@@ -130,12 +127,11 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
       // (Frames with a 64 symbol preamble will use 26 symbols of the preamble)
       d_cfo_est_fft_size(pow(
           2,
-          int(log(d_output_samples_per_symbol*(::iridium::PREAMBLE_LENGTH_SHORT + 10)) /
+          int(log(d_output_samples_per_symbol * (::iridium::PREAMBLE_LENGTH_SHORT + 10)) /
               log(2)))),
 
       d_fft_over_size_facor(16),
-      d_sync_search_len((::iridium::PREAMBLE_LENGTH_LONG + ::iridium::UW_LENGTH + 8) *
-                        d_output_samples_per_symbol),
+      d_sync_search_len(sync_search_len()),
       d_hard_max_queue_len(hard_max_queue_len),
       d_handle_multiple_frames_per_burst(handle_multiple_frames_per_burst),
       d_debug(false),
@@ -157,9 +153,7 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
       d_input_fir(input_taps),
       d_start_finder_fir(start_finder_taps),
       d_rrc_fir(gr::filter::firdes::root_raised_cosine(
-          1.0, d_output_sample_rate, ::iridium::SYMBOLS_PER_SECOND, .4, 51)),
-      d_rc_fir(
-          rcosfilter(51, 0.4, 1. / ::iridium::SYMBOLS_PER_SECOND, d_output_sample_rate)),
+          1.0, d_output_sample_rate, d_symbols_per_second, rrc_alpha(), RRC_TAPS)),
       d_cfo_est_fft(d_cfo_est_fft_size * d_fft_over_size_facor),
       d_wait_for_demod(wait_for_demod),
       d_burst_id(0),
@@ -207,101 +201,125 @@ burst_downmix_impl::~burst_downmix_impl()
     if (d_cfo_est_window_f) {
         free(d_cfo_est_window_f);
     }
-    if (d_dl_preamble_reversed_conj_fft) {
-        volk_free(d_dl_preamble_reversed_conj_fft);
-    }
-    if (d_ul_preamble_reversed_conj_fft) {
-        volk_free(d_ul_preamble_reversed_conj_fft);
-    }
-    if (d_corr_fft) {
-        delete d_corr_fft;
-    }
-    if (d_corr_dl_ifft) {
-        delete d_corr_dl_ifft;
-    }
-    if (d_corr_ul_ifft) {
-        delete d_corr_ul_ifft;
-    }
+    free_correlation_filter();
 }
 
+void burst_downmix_impl::free_correlation_filter(void)
+{
+    volk_free(d_dl_preamble_reversed_conj_fft);
+    d_dl_preamble_reversed_conj_fft = NULL;
+    volk_free(d_ul_preamble_reversed_conj_fft);
+    d_ul_preamble_reversed_conj_fft = NULL;
+    delete d_corr_fft;
+    d_corr_fft = NULL;
+    delete d_corr_dl_ifft;
+    d_corr_dl_ifft = NULL;
+    delete d_corr_ul_ifft;
+    d_corr_ul_ifft = NULL;
+}
+
+// Start the burst this many samples before the detected rise of the magnitude
+int burst_downmix_impl::pre_start_samples() const
+{
+    if (d_tch_c) {
+        // The fine CFO estimate looks at the following ~26 symbols, so this has to scale
+        // with the symbol rate: 3 symbols (0.1 ms for TCH_C1).
+        return int(3 * d_samples_per_symbol);
+    }
+    return int(0.1e-3 * d_output_sample_rate);
+}
+
+// Number of samples searched for the sync word: the same slack for every burst type
+int burst_downmix_impl::sync_search_len() const
+{
+    const int uw_length = d_tch_c ? TCH_C_UW_LENGTH : ::iridium::UW_LENGTH;
+    return (::iridium::PREAMBLE_LENGTH_LONG + uw_length + 8) * d_samples_per_symbol;
+}
+
+// Roll-off of the matched filter
+double burst_downmix_impl::rrc_alpha() const { return d_tch_c ? 0.2 : 0.4; }
+
+/*
+ * Bursts can arrive at a rate which is not a multiple of the symbol rate (for example
+ * TCH_C1 at 30 ksym/s from channels of 1.25 MHz). Run the filters and the sync word
+ * correlation at the actual rate with a fractional number of samples per symbol then.
+ * The demodulator interpolates the symbols accordingly. Only done when the rate changes.
+ */
+void burst_downmix_impl::set_burst_sample_rate(float sample_rate)
+{
+    if (sample_rate == d_burst_sample_rate) {
+        return;
+    }
+
+    d_burst_sample_rate = sample_rate;
+    d_samples_per_symbol = sample_rate / d_symbols_per_second;
+    d_pre_start_samples = pre_start_samples();
+    d_sync_search_len = sync_search_len();
+
+    d_rrc_fir.set_taps(gr::filter::firdes::root_raised_cosine(
+        1.0, sample_rate, d_symbols_per_second, rrc_alpha(), RRC_TAPS));
+
+    d_dl_preamble_reversed_conj = generate_sync_word(::iridium::direction::DOWNLINK);
+    d_ul_preamble_reversed_conj = generate_sync_word(::iridium::direction::UPLINK);
+    free_correlation_filter();
+    initialize_correlation_filter();
+}
+
+/*
+ * The correlation template for the start of a burst: legacy bursts start with the
+ * 16 symbol preamble followed by the 12 symbol UW, TCH_C bursts with the 32 symbol UW.
+ * Built from raised cosine pulses at the (possibly fractional) symbol positions,
+ * truncated to RC_TAPS samples.
+ */
 volk::vector<gr_complex>
 burst_downmix_impl::generate_sync_word(::iridium::direction direction)
 {
     gr_complex s1 = gr_complex(-1, -1);
     gr_complex s0 = -s1;
     std::vector<gr_complex> sync_word;
-    std::vector<gr_complex> uw_dl = { s0, s1, s1, s1, s1, s0, s0, s0, s1, s0, s0, s1 };
-    std::vector<gr_complex> uw_ul = { s1, s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1 };
     int i;
 
-    if (direction == ::iridium::direction::DOWNLINK) {
+    if (d_tch_c) {
+        const int* uw =
+            (direction == ::iridium::direction::DOWNLINK) ? TCH_C_UW_DL : TCH_C_UW_UL;
+        for (i = 0; i < TCH_C_UW_LENGTH; i++) {
+            sync_word.push_back(uw[i] ? s1 : s0);
+        }
+    } else if (direction == ::iridium::direction::DOWNLINK) {
         for (i = 0; i < ::iridium::PREAMBLE_LENGTH_SHORT; i++) {
             sync_word.push_back(s0);
         }
-        sync_word.insert(std::end(sync_word), std::begin(uw_dl), std::end(uw_dl));
+        for (i = 0; i < ::iridium::UW_LENGTH; i++) {
+            sync_word.push_back(::iridium::UW_DL[i] ? s1 : s0);
+        }
     } else if (direction == ::iridium::direction::UPLINK) {
         for (i = 0; i < ::iridium::PREAMBLE_LENGTH_SHORT; i += 2) {
             sync_word.push_back(s1);
             sync_word.push_back(s0);
         }
-        sync_word.insert(std::end(sync_word), std::begin(uw_ul), std::end(uw_ul));
+        for (i = 0; i < ::iridium::UW_LENGTH; i++) {
+            sync_word.push_back(::iridium::UW_UL[i] ? s1 : s0);
+        }
     }
 
-#if 1
-    volk::vector<gr_complex> sync_word_padded;
-    std::vector<gr_complex> padding;
-    for (i = 0; i < d_output_samples_per_symbol - 1; i++) {
-        padding.push_back(0);
+    const int half_rc_size = (RC_TAPS - 1) / 2;
+    const float Ts = 1. / d_symbols_per_second;
+    const int len = (int)((sync_word.size() - 1) * d_samples_per_symbol) + 1;
+    volk::vector<gr_complex> sync_word_padded(len);
+
+    for (int n = 0; n < len; n++) {
+        gr_complex v = 0;
+        for (size_t k = 0; k < sync_word.size(); k++) {
+            // The span of the 51 tap filter the legacy template was made with:
+            // half_rc_size samples after the symbol and one less before it
+            float x = n - k * d_samples_per_symbol;
+            if (x > -half_rc_size && x <= half_rc_size) {
+                v +=
+                    sync_word[k] * raised_cosine_h(x / d_burst_sample_rate, Ts, 0.4) * Ts;
+            }
+        }
+        sync_word_padded[n] = v;
     }
-
-    for (gr_complex s : sync_word) {
-        sync_word_padded.push_back(s);
-        sync_word_padded.insert(
-            std::end(sync_word_padded), std::begin(padding), std::end(padding));
-    }
-
-    // Remove the padding after the last symbol
-    sync_word_padded.erase(std::end(sync_word_padded) - d_output_samples_per_symbol + 1,
-                           std::end(sync_word_padded));
-#endif
-#if 0
-      fft::fft_complex_fwd fft_engine(sync_word.size());
-      memcpy(fft_engine.get_inbuf(), &sync_word[0], sizeof(gr_complex) * sync_word.size());
-      fft_engine.execute();
-
-      fft::fft_complex_rev ifft_engine(sync_word.size() * d_output_samples_per_symbol);
-      memset(ifft_engine.get_inbuf(), 0, sizeof(gr_complex) * sync_word.size() * d_output_samples_per_symbol);
-      memcpy(ifft_engine.get_inbuf(), fft_engine.get_outbuf(), sizeof(gr_complex) * sync_word.size() / 2);
-      memcpy(ifft_engine.get_inbuf() + sync_word.size() * d_output_samples_per_symbol - sync_word.size()/2 ,fft_engine.get_outbuf() + sync_word.size()/2, sizeof(gr_complex) * sync_word.size() / 2);
-      ifft_engine.execute();
-      std::vector<gr_complex> sync_word_padded(ifft_engine.get_outbuf(), ifft_engine.get_outbuf() + + sync_word.size() * d_output_samples_per_symbol);
-#endif
-
-#if 0
-      int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
-      std::vector<gr_complex> tmp(sync_word_padded);
-
-      for(i = 0; i < half_rrc_size; i++) {
-        tmp.push_back(0);
-        tmp.insert(tmp.begin(), 0);
-      }
-
-      // TODO: Maybe do a 'full' convolution including the borders
-      d_rrc_fir.filterN(&sync_word_padded[0], &tmp[0], sync_word_padded.size());
-#endif
-
-#if 1
-    int half_rc_size = (d_rc_fir.ntaps() - 1) / 2;
-    volk::vector<gr_complex> tmp(sync_word_padded);
-
-    for (i = 0; i < half_rc_size; i++) {
-        tmp.push_back(0);
-        tmp.insert(tmp.begin(), 0);
-    }
-
-    // TODO: Maybe do a 'full' convolution including the borders
-    d_rc_fir.filterN(&sync_word_padded[0], &tmp[0], sync_word_padded.size());
-#endif
 
     if (d_debug) {
         std::cout << "Sync Word Unpadded: ";
@@ -488,9 +506,13 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     int max_frame_length = 0;
     int min_frame_length = 0;
 
-    // Simplex transmissions and broadcast frames might have a 64 symbol preamble.
-    // We ignore that and cut away the extra 48 symbols.
-    if (center_frequency > ::iridium::SIMPLEX_FREQUENCY_MIN) {
+    if (d_tch_c) {
+        // TCH_C bursts have a fixed length (8.27 ms)
+        max_frame_length = std::ceil(d_tch_c->n_symbols * d_samples_per_symbol);
+        min_frame_length = max_frame_length;
+    } else if (center_frequency > ::iridium::SIMPLEX_FREQUENCY_MIN) {
+        // Simplex transmissions and broadcast frames might have a 64 symbol preamble.
+        // We ignore that and cut away the extra 48 symbols.
         // Frames above this frequency must be downlink and simplex frames.
         // XXX: If the SDR is not configured well, there might be aliasing from low
         // frequencies in this region.
@@ -611,7 +633,12 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
      * Uses an FFT to perform the correlation.
      */
 
-    memcpy(d_corr_fft->get_inbuf(), d_tmp_a, sizeof(gr_complex) * d_sync_search_len);
+    // The burst might be shorter than the search window
+    const int search_len = std::min(d_sync_search_len, (int)(burst_size - start));
+    memcpy(d_corr_fft->get_inbuf(), d_tmp_a, sizeof(gr_complex) * search_len);
+    memset(d_corr_fft->get_inbuf() + search_len,
+           0,
+           sizeof(gr_complex) * (d_corr_fft_size - search_len));
     d_corr_fft->execute();
 
     // We use the initial FFT for both correlations (DL and UL)
@@ -680,8 +707,11 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     // Careful: The correlation might have found the start of the sync word
     // before the first sample => preamble_offset might be negative
     int preamble_offset = corr_offset - d_dl_preamble_reversed_conj.size() + 1;
-    int uw_start =
-        preamble_offset + ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
+    // Legacy bursts: skip the preamble. TCH_C bursts: the sync word is the UW.
+    int uw_start = preamble_offset;
+    if (!d_tch_c) {
+        uw_start += ::iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
+    }
 
     // If the UW starts at an offset < 0, we will not be able to demodulate the signal
     if (uw_start < 0) {
@@ -708,7 +738,7 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
 
     /*
      * Align the burst so the first sample of the burst is the first symbol
-     * of the 16 symbol preamble after the RRC filter.
+     * of the UW after the RRC filter.
      *
      */
 
@@ -739,6 +769,9 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(sub_id));
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("noise"), pmt::mp(noise));
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("magnitude"), pmt::mp(magnitude));
+    if (d_tch_c) {
+        pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("tch_type"), pmt::mp(d_tch_c->type));
+    }
     if (d_wait_for_demod) {
         // The demodulator reports this on its frame_handled port
         pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("burst_id"), pmt::mp(d_burst_id));
@@ -840,7 +873,8 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     /*
      * Apply the initial low pass filter and decimate the burst.
      */
-    int decimation = std::lround(sample_rate) / d_output_sample_rate;
+    // TCH_C8 may run at fewer samples per symbol than the channel offers: never below 1
+    int decimation = std::max(1, (int)(std::lround(sample_rate) / d_output_sample_rate));
 
 #if 0
       // Option for additional padding. Probably not needed.
@@ -859,6 +893,9 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     d_input_fir.filterNdec(d_frame, d_tmp_a, burst_size, decimation);
 
     sample_rate /= decimation;
+
+    // Only does something if the rate is not a multiple of the symbol rate
+    set_burst_sample_rate(sample_rate);
 
     if (d_debug) {
         printf("---------------> id:%" PRIu64 " len:%lu\n",

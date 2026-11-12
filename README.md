@@ -288,6 +288,13 @@ additionally write a file in sigmf-meta format describing the processed input.
 
 To convert a standard recording to a sigmf dataset, specify "--generate-sigmf-meta NEWNAME.sigmf-meta" and then after the extractor ends, manually rename your recording to "NEWNAME.sigmf-data"
 
+#### `--tch-c`: TCH_C bursts
+additionally demodulate and decode TCH_C1, TCH_C2 and TCH_C8 bursts (coherent QPSK/16APSK traffic channels with turbo coding) and print their decoded payload as `NXD:` (downlink) and `NXU:` (uplink) lines. This costs several times the CPU time of legacy-only processing (on a test recording 2.7× with TCH_C1 only and 10× with all three types). `--tch-c-types` selects the types (default `1,2,8`), e.g. `--tch-c-types 1` to save CPU.
+
+`--tch-c` also enables a wideband burst detection (`--wideband-db`, default 6 dB with `--tch-c`, `--wideband-width`, default 30 kHz). It can be set without `--tch-c`; 0 disables it.
+
+See [docs/tch_c.md](docs/tch_c.md) for the burst formats, the receiver and the output format.
+
 ### Interactive Output
 During normal operation `iridium-extractor` will output a status line once per second on `stderr`.
 #### SDR / live mode
@@ -340,6 +347,8 @@ During normal operation `iridium-extractor` will output one line of bits per "ok
 |  8|0.13551       |Signal level of the demodulated signal[^signal]|
 |  9|179           |Length of the signal in symbols (i.e. `len(bits)/2`)|
 | 10|...           |Raw bits[^bits]|
+
+With `--tch-c` there are also `NXD:` and `NXU:` lines for TCH_C bursts. Their format is described in [docs/tch_c.md](docs/tch_c.md#output).
 
 [^fileinfo]: In live mode: `i-<timestamp>-t1` whereas `timestamp` is a unix `time_t` representing the start of the recording.
 [^time]: Time in `3` is defined as the middle of the first symbol of the 12-symbol BPSK Iridium sync word.

@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(fft_channelizer.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(136d91ee4ea27e1203e77a71f54bdc1e)                     */
+/* BINDTOOL_HEADER_FILE_HASH(1bcbdedd0bacc2bbb4ba1c6cf0f80c9f)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -44,6 +44,7 @@ void bind_fft_channelizer(py::module& m)
            py::arg("max_burst_size"),
            py::arg("outstanding_limit"),
            py::arg("drop_overflow"),
+           py::arg("acks_per_burst") = 1,
            D(fft_channelizer,make)
         )
         

@@ -81,7 +81,8 @@ public:
                              float d_relative_sample_rate,
                              double sample_offset,
                              int outstanding_limit,
-                             bool drop_overflow);
+                             bool drop_overflow,
+                             int acks_per_burst);
     ~tagged_burst_to_pdu_impl();
 
     uint64_t get_n_dropped_bursts();
