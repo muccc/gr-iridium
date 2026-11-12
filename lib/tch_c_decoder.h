@@ -80,6 +80,8 @@ private:
 
     int d_next_state[4][8];
     int d_parity[4][8];
+    int d_prev_state[4][8];
+    int d_prev_parity[4][8];
     int d_ilv_src[MAX_COUPLES];
     int d_chan_src[MAX_CODED];
 
@@ -89,11 +91,12 @@ private:
     float d_in[MAX_COUPLES][4];
     float d_out1[MAX_COUPLES][4];
     float d_out2[MAX_COUPLES][4];
-    float d_gamma[MAX_COUPLES][8][4];
     float d_alpha[MAX_COUPLES][8];
-    float d_beta[MAX_COUPLES][8];
+    // State metrics where the recursions of the two constituent decoders start
+    float d_alpha_start[2][8];
+    float d_beta_start[2][8];
 
-    void siso(const float (*in)[4], const float* parity_llr, float (*out)[4]);
+    void siso(int c, const float (*in)[4], const float* parity_llr, float (*out)[4]);
 };
 
 } // namespace iridium

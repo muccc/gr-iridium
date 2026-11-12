@@ -64,7 +64,7 @@ protects all codewords of a burst.
   than 0.55.
 - **Demodulation and decoding** (`tch_c_demod`). Phase and frequency come from a fit to the
   known symbols (UW and pilots). Gain and noise variance give soft bits (max-log for
-  16APSK). These are then de-interleaved, turbo decoded (log-MAP, 8 iterations),
+  16APSK). These are then de-interleaved, turbo decoded (log-MAP, up to 8 iterations),
   descrambled and checked against the CRC-10. If the UW matches but the CRC fails, a
   decision-directed PLL and the fit followed by the PLL are tried as well.
   For TCH_C8, the modulation that fits the data symbols better is tried first.

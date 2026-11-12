@@ -28,26 +28,22 @@ const int SWAP_AB[4] = { 0, 2, 1, 3 };
 
 const float NEG_INF = -1e9f;
 
-// log(1 + exp(-d)) for d = 0 .. 8 in steps of 1/8 (beyond that it is < 3.4e-4)
-struct correction_table {
-    float t[65];
-    correction_table()
-    {
-        for (int i = 0; i <= 64; i++) {
-            t[i] = std::log1p(std::exp(-i / 8.f));
-        }
-    }
-};
-const correction_table CORRECTION;
-
-// Jacobian logarithm log(exp(a) + exp(b)). The table is ~5x faster than
-// computing the correction and decodes just as well; max-log alone loses ~0.2 dB.
-inline float max_star(float a, float b)
+/*
+ * Jacobian logarithm log(exp(a) + exp(b)) = max(a, b) + log(1 + exp(-|a - b|)) for the
+ * n elements of a and b. The correction term is approximated by a parabola (within
+ * 0.04). Without a table lookup the compiler can vectorize this; max-log alone, without
+ * the correction, loses ~0.2 dB.
+ */
+inline void max_star(float* out, const float* a, const float* b, int n)
 {
-    float m = std::max(a, b);
-    float d = std::fabs(a - b) * 8;
-    return d < 64 ? m + CORRECTION.t[(int)(d + 0.5f)] : m;
+    for (int i = 0; i < n; i++) {
+        const float t = std::max(0.f, 3.46f - std::fabs(a[i] - b[i]));
+        out[i] = std::max(a[i], b[i]) + 0.05484f * t * t;
+    }
 }
+
+// Couples of warm-up before the start of the ring, see siso()
+const int PROLOG = 32;
 
 } // namespace
 
@@ -70,6 +66,9 @@ tch_c_decoder::tch_c_decoder(const tch_c_code& code, int iterations)
             int fb = A ^ B ^ s1 ^ s3;
             d_next_state[u][s] = (fb << 2) | ((s1 ^ B) << 1) | (s2 ^ B);
             d_parity[u][s] = fb ^ s2 ^ s3;
+            // Every state has one predecessor per couple value
+            d_prev_state[u][d_next_state[u][s]] = s;
+            d_prev_parity[u][d_next_state[u][s]] = d_parity[u][s];
         }
     }
 
@@ -150,79 +149,108 @@ uint16_t tch_c_decoder::crc10(const uint8_t* bits, int n)
 }
 
 /*
- * One log-MAP pass over the tail-biting trellis.
+ * One log-MAP pass over the tail-biting trellis of constituent code c (0 or 1).
  * in[k][v]: log probability of couple value v at step k (channel systematic + a priori).
  * Writes the extrinsic log probabilities to out.
+ *
+ * The trellis is a ring without a known start state. The forward recursion starts
+ * PROLOG couples before its start (the backward recursion after its end) from the state
+ * metrics the previous iteration had there.
  */
-void tch_c_decoder::siso(const float (*in)[4], const float* parity_llr, float (*out)[4])
+void tch_c_decoder::siso(int c,
+                         const float (*in)[4],
+                         const float* parity_llr,
+                         float (*out)[4])
 {
-    for (int k = 0; k < d_n_couples; k++) {
-        for (int s = 0; s < 8; s++) {
-            for (int v = 0; v < 4; v++) {
-                d_gamma[k][s][v] = in[k][v] + (d_parity[v][s] ? -parity_llr[k] : 0);
-            }
-        }
-    }
+    const int N = d_n_couples;
+    const int prolog = std::min(PROLOG, N - 1);
 
-    std::fill(&d_alpha[0][0], &d_alpha[0][0] + d_n_couples * 8, 0.f);
-    std::fill(&d_beta[0][0], &d_beta[0][0] + d_n_couples * 8, 0.f);
-
-    // No known start state: run around the ring a few times to let the metrics settle
-    for (int pass = 0; pass < 3; pass++) {
-        float a[8];
-        std::copy(d_alpha[0], d_alpha[0] + 8, a);
-        for (int k = 0; k < d_n_couples; k++) {
-            float na[8];
-            std::fill(na, na + 8, NEG_INF);
-            for (int s = 0; s < 8; s++) {
-                for (int v = 0; v < 4; v++) {
-                    int ns = d_next_state[v][s];
-                    na[ns] = max_star(na[ns], a[s] + d_gamma[k][s][v]);
-                }
-            }
-            float m = *std::max_element(na, na + 8);
-            for (int s = 0; s < 8; s++) {
-                na[s] -= m;
-            }
-            std::copy(na, na + 8, d_alpha[(k + 1) % d_n_couples]);
-            std::copy(na, na + 8, a);
-        }
-    }
-
-    for (int pass = 0; pass < 3; pass++) {
-        float b[8];
-        std::copy(d_beta[0], d_beta[0] + 8, b);
-        for (int k = d_n_couples - 1; k >= 0; k--) {
-            float nb[8];
-            std::fill(nb, nb + 8, NEG_INF);
-            for (int s = 0; s < 8; s++) {
-                for (int v = 0; v < 4; v++) {
-                    nb[s] = max_star(nb[s], b[d_next_state[v][s]] + d_gamma[k][s][v]);
-                }
-            }
-            float m = *std::max_element(nb, nb + 8);
-            for (int s = 0; s < 8; s++) {
-                nb[s] -= m;
-            }
-            std::copy(nb, nb + 8, d_beta[k]);
-            std::copy(nb, nb + 8, b);
-        }
-    }
-
-    for (int k = 0; k < d_n_couples; k++) {
-        const float* beta_next = d_beta[(k + 1) % d_n_couples];
-        float m[4] = { NEG_INF, NEG_INF, NEG_INF, NEG_INF };
-        for (int s = 0; s < 8; s++) {
-            for (int v = 0; v < 4; v++) {
-                m[v] = max_star(m[v],
-                                d_alpha[k][s] + d_gamma[k][s][v] +
-                                    beta_next[d_next_state[v][s]]);
-            }
-        }
+    // Metrics of the 4 branches into every state (forward) or out of it (backward) at
+    // step k: branch metric g[parity][v] plus the metric of the state at the other end
+    float g[2][4];
+    float cand[4][8];
+    float tmp[2][8];
+    auto branch_metrics = [&](int k) {
         for (int v = 0; v < 4; v++) {
-            out[k][v] = m[v] - in[k][v];
+            g[0][v] = in[k][v];
+            g[1][v] = in[k][v] - parity_llr[k];
         }
-        float mx = *std::max_element(out[k], out[k] + 4);
+    };
+    auto forward = [&](int k, float* a) {
+        branch_metrics(k);
+        for (int v = 0; v < 4; v++) {
+            for (int s = 0; s < 8; s++) {
+                cand[v][s] = a[d_prev_state[v][s]] + g[d_prev_parity[v][s]][v];
+            }
+        }
+        max_star(tmp[0], cand[0], cand[1], 8);
+        max_star(tmp[1], cand[2], cand[3], 8);
+        max_star(a, tmp[0], tmp[1], 8);
+        const float a0 = a[0];
+        for (int s = 0; s < 8; s++) {
+            a[s] -= a0;
+        }
+    };
+    auto backward = [&](int k, float* b) {
+        branch_metrics(k);
+        for (int v = 0; v < 4; v++) {
+            for (int s = 0; s < 8; s++) {
+                cand[v][s] = b[d_next_state[v][s]] + g[d_parity[v][s]][v];
+            }
+        }
+        max_star(tmp[0], cand[0], cand[1], 8);
+        max_star(tmp[1], cand[2], cand[3], 8);
+        max_star(b, tmp[0], tmp[1], 8);
+        const float b0 = b[0];
+        for (int s = 0; s < 8; s++) {
+            b[s] -= b0;
+        }
+    };
+
+    float a[8];
+    std::copy(d_alpha_start[c], d_alpha_start[c] + 8, a);
+    for (int k = N - prolog; k < N; k++) {
+        forward(k, a);
+    }
+    for (int k = 0; k < N; k++) {
+        if (k == N - prolog) {
+            std::copy(a, a + 8, d_alpha_start[c]);
+        }
+        std::copy(a, a + 8, d_alpha[k]);
+        forward(k, a);
+    }
+
+    float b[8];
+    std::copy(d_beta_start[c], d_beta_start[c] + 8, b);
+    for (int k = prolog - 1; k >= 0; k--) {
+        backward(k, b);
+    }
+    for (int k = N - 1; k >= 0; k--) {
+        // Leaves the metrics of the branches of step k behind in cand
+        backward(k, b);
+        if (k == prolog) {
+            std::copy(b, b + 8, d_beta_start[c]);
+        }
+
+        // A posteriori metric of every couple value: over all branches with that value
+        float e[8][4];
+        for (int s = 0; s < 8; s++) {
+            for (int v = 0; v < 4; v++) {
+                e[s][v] = d_alpha[k][s] + cand[v][s];
+            }
+        }
+        for (int s = 0; s < 8; s += 2) {
+            max_star(e[s], e[s], e[s + 1], 4);
+        }
+        max_star(e[0], e[0], e[2], 4);
+        max_star(e[4], e[4], e[6], 4);
+        max_star(e[0], e[0], e[4], 4);
+
+        float mx = -1e30f;
+        for (int v = 0; v < 4; v++) {
+            out[k][v] = e[0][v] - in[k][v];
+            mx = std::max(mx, out[k][v]);
+        }
         for (int v = 0; v < 4; v++) {
             out[k][v] -= mx;
         }
@@ -269,13 +297,17 @@ void tch_c_decoder::decode_raw(const float* llr, uint8_t* bits)
         }
     }
 
+    std::fill(&d_alpha_start[0][0], &d_alpha_start[0][0] + 2 * 8, 0.f);
+    std::fill(&d_beta_start[0][0], &d_beta_start[0][0] + 2 * 8, 0.f);
+
+    int unchanged = 0;
     for (int it = 0; it < d_iterations; it++) {
         for (int k = 0; k < d_n_couples; k++) {
             for (int v = 0; v < 4; v++) {
                 d_in[k][v] = d_chan[k][v] + d_ext[k][v];
             }
         }
-        siso(d_in, ly1, d_out1);
+        siso(0, d_in, ly1, d_out1);
 
         // To encoder 2 order, swapping A/B of odd source couples
         for (int j = 0; j < d_n_couples; j++) {
@@ -285,7 +317,7 @@ void tch_c_decoder::decode_raw(const float* llr, uint8_t* bits)
                 d_in[j][v] = d_chan[m][u] + d_out1[m][u];
             }
         }
-        siso(d_in, ly2, d_out2);
+        siso(1, d_in, ly2, d_out2);
 
         // Back to natural order
         for (int j = 0; j < d_n_couples; j++) {
@@ -295,21 +327,29 @@ void tch_c_decoder::decode_raw(const float* llr, uint8_t* bits)
                 d_ext[m][v] = d_out2[j][u];
             }
         }
-    }
 
-    // Decide each couple on its a posteriori metric
-    for (int k = 0; k < d_n_couples; k++) {
-        int best = 0;
-        float best_metric = NEG_INF;
-        for (int v = 0; v < 4; v++) {
-            float metric = d_chan[k][v] + d_out1[k][v] + d_ext[k][v];
-            if (metric > best_metric) {
-                best_metric = metric;
-                best = v;
+        // Decide each couple on its a posteriori metric. Done once three iterations in a
+        // row agree on every bit: more iterations do not change anything then (stopping
+        // after two costs TCH_C1 frames).
+        bool changed = false;
+        for (int k = 0; k < d_n_couples; k++) {
+            int best = 0;
+            float best_metric = NEG_INF;
+            for (int v = 0; v < 4; v++) {
+                float metric = d_chan[k][v] + d_out1[k][v] + d_ext[k][v];
+                if (metric > best_metric) {
+                    best_metric = metric;
+                    best = v;
+                }
             }
+            changed |= bits[2 * k] != (best >> 1) || bits[2 * k + 1] != (best & 1);
+            bits[2 * k] = best >> 1;
+            bits[2 * k + 1] = best & 1;
         }
-        bits[2 * k] = best >> 1;
-        bits[2 * k + 1] = best & 1;
+        unchanged = changed ? 0 : unchanged + 1;
+        if (unchanged == 2) {
+            break;
+        }
     }
 }
 
