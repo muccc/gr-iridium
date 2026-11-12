@@ -8,6 +8,7 @@
 #ifndef INCLUDED_IRIDIUM_FRAME_SORTER_CPP_IMPL_H
 #define INCLUDED_IRIDIUM_FRAME_SORTER_CPP_IMPL_H
 
+#include "upstream_done_counter.h"
 #include <iridium/frame_sorter.h>
 
 namespace gr {
@@ -32,6 +33,7 @@ class frame_sorter_impl : public frame_sorter
 {
 private:
     std::map<frame, pmt::pmt_t> frames;
+    upstream_done_counter d_upstream_done;
 
     void handler(const pmt::pmt_t& msg);
 
@@ -41,6 +43,7 @@ public:
     ~frame_sorter_impl();
 
     bool stop();
+    void set_upstream_count(int n) { d_upstream_done.set_upstream_count(n); }
 
     // Where all the action really happens
     int work(int noutput_items,

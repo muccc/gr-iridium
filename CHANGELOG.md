@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a bug which only allowed multiples of 128 Hz as detected frequency.
 - Add a missing boost include which prevented building on some systems.
 - Improved duplicate suppression.
+- Frames lost at the end of a recording when several downmixers feed one demodulator.
 
 ## [1.0.0] - 2022-04-30
 ### Added

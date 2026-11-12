@@ -59,6 +59,7 @@ iridium_qpsk_demod_impl::iridium_qpsk_demod_impl(int n_channels)
       d_channel_id(n_channels, UINT64_MAX)
 {
     message_port_register_out(pmt::mp("pdus"));
+    d_upstream_done.install(this);
 
     if (n_channels > 1) {
         for (int i = 0; i < n_channels; i++) {

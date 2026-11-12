@@ -33,6 +33,12 @@ public:
      * creating new instances.
      */
     static sptr make();
+
+    /*!
+     * \brief Number of message connections into this block (default 1). The block
+     * only finishes once all of them are done, instead of after the first one.
+     */
+    virtual void set_upstream_count(int n) = 0;
 };
 
 } // namespace iridium

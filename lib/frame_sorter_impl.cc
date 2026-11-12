@@ -26,6 +26,7 @@ frame_sorter_impl::frame_sorter_impl()
                 gr::io_signature::make(0, 0, 0))
 {
     message_port_register_out(pmt::mp("pdus"));
+    d_upstream_done.install(this);
     auto port_name = pmt::mp("pdus");
     message_port_register_in(port_name);
     set_msg_handler(port_name, [this](const pmt::pmt_t& msg) { this->handler(msg); });

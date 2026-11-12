@@ -37,3 +37,6 @@
  static const char *__doc_gr_iridium_iridium_qpsk_demod_get_n_access_ok_sub_bursts = R"doc()doc";
 
   
+
+
+ static const char *__doc_gr_iridium_iridium_qpsk_demod_set_upstream_count = R"doc()doc";

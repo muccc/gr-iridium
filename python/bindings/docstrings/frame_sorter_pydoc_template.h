@@ -25,3 +25,6 @@
  static const char *__doc_gr_iridium_frame_sorter_make = R"doc()doc";
 
   
+
+
+ static const char *__doc_gr_iridium_frame_sorter_set_upstream_count = R"doc()doc";

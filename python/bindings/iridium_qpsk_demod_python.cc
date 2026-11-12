@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(iridium_qpsk_demod.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(a02087d339b0625fcbe45cb37303ab41)                     */
+/* BINDTOOL_HEADER_FILE_HASH(a344664f10ff306935a5abb8e97ce055)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -60,6 +60,12 @@ void bind_iridium_qpsk_demod(py::module& m)
         
         .def("get_n_access_ok_sub_bursts",&iridium_qpsk_demod::get_n_access_ok_sub_bursts,       
             D(iridium_qpsk_demod,get_n_access_ok_sub_bursts)
+        )
+
+
+        .def("set_upstream_count",&iridium_qpsk_demod::set_upstream_count,
+            py::arg("n"),
+            D(iridium_qpsk_demod,set_upstream_count)
         )
 
         ;

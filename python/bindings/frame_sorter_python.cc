@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(frame_sorter.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(9ca07ea56547963084c816cba7f70632)                     */
+/* BINDTOOL_HEADER_FILE_HASH(46b53ce1c2b86d2a92ed8fe3c1697739)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -42,6 +42,12 @@ void bind_frame_sorter(py::module& m)
         
 
 
+
+
+        .def("set_upstream_count",&frame_sorter::set_upstream_count,
+            py::arg("n"),
+            D(frame_sorter,set_upstream_count)
+        )
 
         ;
 

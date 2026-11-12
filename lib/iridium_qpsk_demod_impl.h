@@ -21,6 +21,7 @@
 #ifndef INCLUDED_IRIDIUM_IRIDIUM_QPSK_DEMOD_CPP_IMPL_H
 #define INCLUDED_IRIDIUM_IRIDIUM_QPSK_DEMOD_CPP_IMPL_H
 
+#include "upstream_done_counter.h"
 #include <iridium/iridium_qpsk_demod.h>
 
 namespace gr {
@@ -44,6 +45,7 @@ private:
     std::vector<uint8_t> d_bits;
     std::vector<uint64_t> d_channel_id;
 
+    upstream_done_counter d_upstream_done;
     void handler(int channel, pmt::pmt_t msg);
     void update_buffer_sizes(size_t burst_size);
     int decimate(const gr_complex* in, int size, int sps, gr_complex* out);
@@ -68,6 +70,7 @@ public:
     uint64_t get_n_handled_bursts();
     uint64_t get_n_access_ok_bursts();
     uint64_t get_n_access_ok_sub_bursts();
+    void set_upstream_count(int n) { d_upstream_done.set_upstream_count(n); }
 
     int work(int noutput_items,
              gr_vector_const_void_star& input_items,

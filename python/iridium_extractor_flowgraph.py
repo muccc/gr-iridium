@@ -628,6 +628,11 @@ class FlowGraph(gr.top_block):
         tb.msg_connect((self._iridium_qpsk_demod, 'pdus'), (self._frame_sorter, 'pdus'))
         tb.msg_connect((self._frame_sorter, 'pdus'), (self._iridium_frame_printer, 'pdus'))
 
+        # Blocks fed by several message connections must only finish once all of them are
+        # done (one downmixer per connected channel).
+        n_sets = self._n_burst_downmixers if self._use_channelizer else 1
+        self._iridium_qpsk_demod.set_upstream_count(n_sets)
+
     def get_n_detected_bursts(self):
         return self._fft_burst_tagger.get_n_tagged_bursts()
 

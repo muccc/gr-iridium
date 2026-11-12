@@ -50,6 +50,12 @@ public:
     virtual uint64_t get_n_handled_bursts() = 0;
     virtual uint64_t get_n_access_ok_bursts() = 0;
     virtual uint64_t get_n_access_ok_sub_bursts() = 0;
+
+    /*!
+     * \brief Number of message connections into this block (default 1). The block
+     * only finishes once all of them are done, instead of after the first one.
+     */
+    virtual void set_upstream_count(int n) = 0;
 };
 
 } // namespace iridium
