@@ -44,6 +44,7 @@ tch_c_demod_impl::tch_c_demod_impl(int n_channels)
         for (int i = 0; i < n_channels; i++) {
             auto port_name = pmt::mp("cpdus" + std::to_string(i));
             message_port_register_in(port_name);
+            d_input_ports.push_back(port_name);
             set_msg_handler(port_name,
                             [this, i](pmt::pmt_t msg) { this->handler(i, msg); });
             d_frame_handled_ports.push_back(pmt::mp("frame_handled" + std::to_string(i)));
@@ -51,6 +52,7 @@ tch_c_demod_impl::tch_c_demod_impl(int n_channels)
     } else {
         auto port_name = pmt::mp("cpdus");
         message_port_register_in(port_name);
+        d_input_ports.push_back(port_name);
         set_msg_handler(port_name, [this](pmt::pmt_t msg) { this->handler(0, msg); });
         d_frame_handled_ports.push_back(pmt::mp("frame_handled"));
     }
@@ -645,10 +647,39 @@ void tch_c_demod_impl::frame_handled(int channel, const pmt::pmt_t& meta)
     }
 }
 
+void tch_c_demod_impl::enqueue(int channel, const pmt::pmt_t& msg)
+{
+    uint64_t timestamp =
+        pmt::to_uint64(pmt::dict_ref(pmt::car(msg), pmt::mp("timestamp"), pmt::PMT_NIL));
+    d_pending.emplace(timestamp, std::make_pair(channel, msg));
+}
+
+/*
+ * GNU Radio hands a block all the messages waiting on one port before it looks at the
+ * next port. With a backlog (many TCH_C bursts at once) the frames of the channels
+ * would be handled seconds apart, too far for the frame sorter to find the duplicates
+ * of bursts on the border of two channels. So take what is waiting on all ports and
+ * always handle the oldest frame.
+ */
 void tch_c_demod_impl::handler(int channel, pmt::pmt_t msg)
 {
-    demodulate(channel, msg);
-    frame_handled(channel, pmt::car(msg));
+    enqueue(channel, msg);
+
+    while (!d_pending.empty()) {
+        for (size_t i = 0; i < d_input_ports.size(); i++) {
+            while ((msg = delete_head_nowait(d_input_ports[i]))) {
+                enqueue(i, msg);
+            }
+        }
+
+        auto oldest = d_pending.begin();
+        channel = oldest->second.first;
+        msg = oldest->second.second;
+        d_pending.erase(oldest);
+
+        demodulate(channel, msg);
+        frame_handled(channel, pmt::car(msg));
+    }
 }
 
 void tch_c_demod_impl::demodulate(int channel, pmt::pmt_t msg)

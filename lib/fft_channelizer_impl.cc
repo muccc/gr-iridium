@@ -291,6 +291,7 @@ void fft_channelizer_impl::publish_burst(burst_data& burst)
 
     d_next_pdu_port = (d_next_pdu_port + 1) % d_pdu_ports;
 
+    d_acks.published(burst.id, burst.timestamp);
     d_outstanding++;
     if (d_outstanding > d_max_outstanding) {
         d_max_outstanding = d_outstanding;
@@ -306,7 +307,8 @@ int fft_channelizer_impl::work(int noutput_items,
 
     int ninput_items = noutput_items * d_decimation;
 
-    if (d_outstanding >= d_outstanding_limit && !d_drop_overflow) {
+    if (!d_drop_overflow && (d_outstanding >= d_outstanding_limit ||
+                             d_acks.backlog() > burst_ack_counter::MAX_BACKLOG)) {
         // We need to wait a bit until our queue is not full anymore
         std::this_thread::sleep_for(std::chrono::microseconds(100000));
 

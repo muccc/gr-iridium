@@ -11,6 +11,7 @@
 #include "tch_c_format.h"
 #include "upstream_done_counter.h"
 #include <iridium/tch_c_demod.h>
+#include <map>
 
 namespace gr {
 namespace iridium {
@@ -40,8 +41,13 @@ private:
     gr_complex d_best_corrected[TCH_C_MAX_SYMBOLS];
     std::vector<uint8_t> d_bits;
 
+    std::vector<pmt::pmt_t> d_input_ports;
     std::vector<pmt::pmt_t> d_frame_handled_ports;
     upstream_done_counter d_upstream_done;
+
+    // Frames taken from the input ports, by timestamp: (channel, frame)
+    std::multimap<uint64_t, std::pair<int, pmt::pmt_t>> d_pending;
+    void enqueue(int channel, const pmt::pmt_t& msg);
     void handler(int channel, pmt::pmt_t msg);
     void demodulate(int channel, pmt::pmt_t msg);
     void frame_handled(int channel, const pmt::pmt_t& meta);

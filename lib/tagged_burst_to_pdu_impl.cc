@@ -147,6 +147,7 @@ void tagged_burst_to_pdu_impl::publish_burst(burst_data& burst)
 
     pmt::pmt_t msg = pmt::cons(d_pdu_meta, d_pdu_vector);
 
+    d_acks.published(burst.id, burst.timestamp);
     d_outstanding++;
     if (d_outstanding >= d_outstanding_limit) {
         d_blocked = true;
@@ -311,6 +312,12 @@ int tagged_burst_to_pdu_impl::work(int noutput_items,
             // Tell the scheduler that we have not consumed any input
             return 0;
         }
+    }
+
+    // Not too far ahead of the demodulators, see burst_ack_counter
+    if (!d_drop_overflow && d_acks.backlog() > burst_ack_counter::MAX_BACKLOG) {
+        std::this_thread::sleep_for(std::chrono::microseconds(10000));
+        return 0;
     }
 
     d_blocked = false;
