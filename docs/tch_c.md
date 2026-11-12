@@ -68,7 +68,9 @@ protects all codewords of a burst.
   16APSK). These are then de-interleaved, turbo decoded (log-MAP, up to 8 iterations),
   descrambled and checked against the CRC-10. If the UW matches but the CRC fails, a
   decision-directed PLL and the fit followed by the PLL are tried as well.
-  For TCH_C8, the modulation that fits the data symbols better is tried first.
+  For TCH_C8, the modulation that fits the data symbols better is tried first. 16APSK is
+  only decoded if the noise variance on the known symbols is below 0.25 of the symbol
+  energy (it needs about 0.11): most TCH_C8 bursts failing the CRC are above that.
 - **Sorting** (`frame_sorter`). A TCH_C frame with a valid CRC removes legacy frames at the
   same time and frequency: those are the legacy demodulator misreading the TCH_C burst.
   Among copies of a TCH_C frame, one with a valid CRC beats one without.
@@ -120,20 +122,20 @@ so expect occasional lines with a wrong payload from weak bursts.
 
   | Options | CPU time | TCH_C1 / C2 / C8 lines | `RAW:` lines |
   | --- | --- | --- | --- |
-  | (none) | 27 s | | 12,078 |
-  | `--tch-c --tch-c-types 1` | 56 s | 364 / – / – | 12,910 |
-  | `--tch-c --tch-c-types 1,2` | 67 s | 364 / 41 / – | 12,910 |
-  | `--tch-c` | 102 s | 364 / 41 / 9 | 12,910 |
+  | (none) | 22 s | | 12,078 |
+  | `--tch-c --tch-c-types 1` | 44 s | 365 / – / – | 12,910 |
+  | `--tch-c --tch-c-types 1,2` | 52 s | 365 / 40 / – | 12,910 |
+  | `--tch-c` | 63 s | 365 / 40 / 10 | 12,910 |
 
   The `RAW:` lines grow by 7% through the wideband detection; how many of them are valid
-  legacy frames rather than misread TCH_C bursts was not checked. TCH_C8 is the most expensive
-  part: its downmixer runs at up to 2.4 MS/s for every burst, and a 16APSK burst needs three
-  turbo decodes. Use `--tch-c-types 1` or `1,2` on slow machines.
+  legacy frames rather than misread TCH_C bursts was not checked. TCH_C1 is the most expensive
+  part, as its downmixer looks at every burst. Use `--tch-c-types 1` or `1,2` on slow
+  machines.
 - The TCH_C1 downmixer still looks at every burst: its bandwidth is about that of a
   legacy burst, and neither the bandwidth nor the spectral line tell them apart reliably.
   It only filters the part of a burst where the UW could be and drops the burst if the
-  correlation with the UW is poor (see Downmixing), which costs about a third of the full
-  processing.
+  correlation with the UW is poor (see Downmixing), which costs about half of what the
+  legacy downmixer needs for a burst.
 - The detector is the limit, not the demodulation: probing every TDMA slot of detected calls
   directly in the samples finds decodable bursts that are about 5 dB below the detection
   threshold.
