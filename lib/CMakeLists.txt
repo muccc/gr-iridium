@@ -18,6 +18,7 @@ list(APPEND iridium_sources
     burst_downmix_impl.cc
     pdu_null_sink_impl.cc
     iridium_qpsk_demod_impl.cc
+    tch_c_decoder.cc
     pdu_round_robin_impl.cc
     frame_sorter_impl.cc
     iridium_frame_printer_impl.cc
@@ -61,21 +62,12 @@ message(STATUS "Building for version: ${VERSION} / ${LIBVER}")
 ########################################################################
 include(GrTest)
 
-# If your unit tests require special include paths, add them here
-#include_directories()
-# List all files that contain Boost.UTF unit tests here
-list(APPEND test_iridium_sources
-)
-# Anything we need to link to for the unit tests go here
-list(APPEND GR_TEST_TARGET_DEPS gnuradio-iridium)
-
-if(NOT test_iridium_sources)
-    MESSAGE(STATUS "No C++ unit tests... skipping")
-    return()
-endif(NOT test_iridium_sources)
-
-foreach(qa_file ${test_iridium_sources})
-    GR_ADD_CPP_TEST("iridium_${qa_file}"
-        ${CMAKE_CURRENT_SOURCE_DIR}/${qa_file}
+# tch_c_decoder is not exported from the library: build it into its test
+find_package(Boost QUIET COMPONENTS unit_test_framework)
+if(TARGET Boost::unit_test_framework)
+    GR_ADD_CPP_TEST(iridium_qa_tch_c_decoder
+        "${CMAKE_CURRENT_SOURCE_DIR}/qa_tch_c_decoder.cc;${CMAKE_CURRENT_SOURCE_DIR}/tch_c_decoder.cc"
     )
-endforeach(qa_file)
+else()
+    message(STATUS "Boost.Test not found, skipping the C++ unit tests")
+endif()
