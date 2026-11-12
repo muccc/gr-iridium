@@ -178,8 +178,9 @@ float iridium_qpsk_demod_impl::qpskFirstOrderPLL(const gr_complex* x,
         // loop filter to update phase estimate
         er = std::conj(xHat) * y[ii];
         phiHatT = er / std::abs(er);
-        total_phase += std::arg(std::pow(phiHatT, alpha));
-        phiHat = std::conj(std::pow(phiHatT, alpha)) * phiHat;
+        const gr_complex correction = std::pow(phiHatT, alpha);
+        total_phase += std::arg(correction);
+        phiHat = std::conj(correction) * phiHat;
         phiHat = phiHat / std::abs(phiHat);
     }
     return total_phase;
@@ -294,6 +295,38 @@ void iridium_qpsk_demod_impl::map_symbols_to_bits(const int* demodulated_burst,
     }
 }
 
+/*
+ * Whether the frame can pass check_sync_word(): demodulates only the UW.
+ */
+bool iridium_qpsk_demod_impl::sync_word_possible(const gr_complex* decimated_burst,
+                                                 size_t n_symbols)
+{
+    if (n_symbols < ::iridium::UW_LENGTH) {
+        return false;
+    }
+
+    gr_complex after_pll[::iridium::UW_LENGTH];
+    int demodulated[::iridium::UW_LENGTH];
+    qpskFirstOrderPLL(decimated_burst, ::iridium::UW_LENGTH, d_alpha, after_pll);
+    for (int i = 0; i < ::iridium::UW_LENGTH; i++) {
+        // As in demod_qpsk()
+        if (after_pll[i].real() >= 0 && after_pll[i].imag() >= 0) {
+            demodulated[i] = d_symbol_mapping[0];
+        } else if (after_pll[i].real() >= 0 && after_pll[i].imag() < 0) {
+            demodulated[i] = d_symbol_mapping[3];
+        } else if (after_pll[i].real() < 0 && after_pll[i].imag() < 0) {
+            demodulated[i] = d_symbol_mapping[2];
+        } else {
+            demodulated[i] = d_symbol_mapping[1];
+        }
+    }
+
+    return check_sync_word(
+               demodulated, ::iridium::UW_LENGTH, ::iridium::direction::DOWNLINK) ||
+           check_sync_word(
+               demodulated, ::iridium::UW_LENGTH, ::iridium::direction::UPLINK);
+}
+
 bool iridium_qpsk_demod_impl::check_sync_word(int* demodulated_burst,
                                               size_t n_symbols,
                                               ::iridium::direction direction)
@@ -385,6 +418,13 @@ void iridium_qpsk_demod_impl::demodulate(int channel, pmt::pmt_t msg)
     // Decimate the burst to one sample per symbol.
     // The first sample is assumed to be the center of the first symbol
     size_t n_symbols = decimate(burst, burst_size, sps, d_decimated_burst);
+
+    // Most frames do not start with a sync word. The PLL only looks back, so its first
+    // symbols show that without demodulating the whole frame.
+    if (!sync_word_possible(d_decimated_burst, n_symbols)) {
+        d_n_handled_bursts++;
+        return;
+    }
 
 #if 1
     // Apply a PLL to the signal to remove any remaining

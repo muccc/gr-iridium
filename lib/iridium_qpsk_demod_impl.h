@@ -58,6 +58,7 @@ private:
                       int* out,
                       float* level,
                       int* confidence);
+    bool sync_word_possible(const gr_complex* decimated_burst, size_t n_symbols);
     bool check_sync_word(int* d_demodulated_burst,
                          size_t n_symbols,
                          ::iridium::direction direction);
