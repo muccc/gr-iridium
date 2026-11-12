@@ -140,6 +140,10 @@ void tagged_burst_to_pdu_impl::publish_burst(burst_data& burst)
     if (burst.tracked) {
         d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("tracked"), pmt::PMT_T);
     }
+    if (burst.width_class >= 0) {
+        d_pdu_meta = pmt::dict_add(
+            d_pdu_meta, pmt::mp("width_class"), pmt::from_long(burst.width_class));
+    }
 
     pmt::pmt_t msg = pmt::cons(d_pdu_meta, d_pdu_vector);
 
@@ -200,6 +204,7 @@ void tagged_burst_to_pdu_impl::create_new_bursts(int noutput_items, const gr_com
                                  timestamp,
                                  noise,
                                  tracked,
+                                 -1,
                                  0 };
             burst.data = (gr_complex*)malloc(sizeof(gr_complex) * d_max_burst_size);
 
@@ -235,6 +240,8 @@ void tagged_burst_to_pdu_impl::publish_and_remove_old_bursts(int noutput_items,
 
         if (d_bursts.count(id)) {
             burst_data& burst = d_bursts[id];
+            burst.width_class = pmt::to_long(
+                pmt::dict_ref(tag.value, pmt::mp("width_class"), pmt::from_long(-1)));
             int relative_offset = tag.offset - nitems_read(0);
             append_to_burst(burst, in, relative_offset);
             if (d_debug) {

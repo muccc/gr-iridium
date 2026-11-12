@@ -131,7 +131,7 @@ if __name__ == "__main__":
                         help='Burst detection threshold in dB. Default: 18 dB.')
     parser.add_argument('--tch-c', dest='tch_c', action='store_true',
                         help='Also demodulate and decode TCH_C bursts (NXD/NXU output lines). '
-                        'Costs several times the CPU time of legacy bursts alone (10x on a test '
+                        'Costs several times the CPU time of legacy bursts alone (5.5x on a test '
                         'recording with all types, 3x with TCH_C1 only).')
     parser.add_argument('--tch-c-types', dest='tch_c_types', default='1,2,8',
                         help='Comma separated list of the TCH_C types to look for with --tch-c. '

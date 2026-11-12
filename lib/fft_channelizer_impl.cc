@@ -239,6 +239,7 @@ burst_data fft_channelizer_impl::create_burst(tag_t& new_burst, int channel)
                          timestamp,
                          noise,
                          tracked,
+                         -1,
                          0 };
     burst.data = (gr_complex*)malloc(sizeof(gr_complex) * d_max_burst_size);
     return burst;
@@ -279,6 +280,10 @@ void fft_channelizer_impl::publish_burst(burst_data& burst)
     d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("noise"), pmt::mp(burst.noise));
     if (burst.tracked) {
         d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("tracked"), pmt::PMT_T);
+    }
+    if (burst.width_class >= 0) {
+        d_pdu_meta = pmt::dict_add(
+            d_pdu_meta, pmt::mp("width_class"), pmt::from_long(burst.width_class));
     }
 
     pmt::pmt_t msg = pmt::cons(d_pdu_meta, d_pdu_vector);
@@ -438,6 +443,8 @@ int fft_channelizer_impl::work(int noutput_items,
 
                         if (d_bursts[j].count(id)) {
                             burst_data& burst = d_bursts[j][id];
+                            burst.width_class = pmt::to_long(pmt::dict_ref(
+                                tag.value, pmt::mp("width_class"), pmt::from_long(-1)));
                             publish_burst(burst);
                             free(d_bursts[j][id].data);
                             d_bursts[j].erase(id);

@@ -41,8 +41,14 @@ protects all codewords of a burst.
   threshold (6 dB). After a wideband burst 6–12 ms long, the tagger tracks its channel
   (`--track-frames`): it opens a window on that frequency in each of the next TDMA frames,
   whether anything is detected there or not.
+- **Routing.** With TCH_C2 or TCH_C8 enabled, the tagger classifies the width of every
+  burst from its spectrum averaged over 9 ms: occupied 22 to 34 kHz off center (class 1), or
+  also 50 to 130 kHz off center (class 2). The TCH_C2 downmixer only processes bursts of
+  class 1 or 2, the TCH_C8 downmixer only those of class 2, and windows on tracked channels
+  take the class of the burst that started the tracking. This halves the CPU time without
+  losing a TCH_C2 or TCH_C8 burst on the test recordings.
 - **Downmixing** (`burst_downmix` with `tch_c_type` 1, 2 or 8). The legacy downmixer and
-  one downmixer per TCH_C type process every burst of a channel. A TCH_C downmixer runs at
+  one downmixer per TCH_C type get every burst of a channel. A TCH_C downmixer runs at
   10 samples per symbol (TCH_C8: as many as the channel allows), and the matched filter is RRC
   α=0.2. It searches for the 32 symbol UW and cuts out exactly one burst. If the channel rate is
   not a multiple of the symbol rate, it runs at the actual rate with a fractional number of
@@ -105,15 +111,15 @@ so expect occasional lines with a wrong payload from weak bursts.
   | --- | --- | --- | --- |
   | (none) | 36 s | | 12,053 |
   | `--tch-c --tch-c-types 1` | 98 s | 359 / – / – | 12,909 |
-  | `--tch-c --tch-c-types 1,2` | 168 s | 364 / 40 / – | 12,910 |
-  | `--tch-c` | 370 s | 364 / 40 / 10 | 12,910 |
+  | `--tch-c --tch-c-types 1,2` | 135 s | 364 / 40 / – | 12,910 |
+  | `--tch-c` | 200 s | 364 / 40 / 10 | 12,910 |
 
   The `RAW:` lines grow by 7% through the wideband detection; how many of them are valid
   legacy frames rather than misread TCH_C bursts was not checked. TCH_C8 is the most expensive
   part: its downmixer runs at up to 2.4 MS/s for every burst, and a 16APSK burst needs three
   turbo decodes. Use `--tch-c-types 1` or `1,2` on slow machines.
-- Every burst goes through all downmixers, which reject non-matching bursts only after
-  filtering. Routing bursts by bandwidth in the tagger would save most of that.
+- The TCH_C1 downmixer still processes every burst: its bandwidth is about that of a
+  legacy burst, and neither the bandwidth nor the spectral line tell them apart reliably.
 - The detector is the limit, not the demodulation: probing every TDMA slot of detected calls
   directly in the samples finds decodable bursts that are about 5 dB below the detection
   threshold.

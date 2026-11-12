@@ -528,7 +528,9 @@ class FlowGraph(gr.top_block):
                                                           debug=self._verbose,
                                                           wideband_threshold=self._wideband_threshold,
                                                           wideband_width=int(self._wideband_width),
-                                                          track_frames=self._track_frames)
+                                                          track_frames=self._track_frames,
+                                                          # Route wide bursts to the wide TCH_C types only
+                                                          classify_width=bool({2, 8} & set(self._tch_c_types)))
         self._fft_burst_tagger.set_min_output_buffer(1024 * 64)
 
         # Initial filter to filter the detected bursts. Runs at burst_sample_rate. Used to decimate the signal.

@@ -238,6 +238,15 @@ int burst_downmix_impl::sync_search_len() const
     return (::iridium::PREAMBLE_LENGTH_LONG + uw_length + 8) * d_samples_per_symbol;
 }
 
+// Width class a burst needs to be looked at by this downmixer, see fft_burst_tagger
+int burst_downmix_impl::min_width_class() const
+{
+    if (!d_tch_c) {
+        return 0;
+    }
+    return d_tch_c->type == 8 ? 2 : d_tch_c->type == 2 ? 1 : 0;
+}
+
 // Roll-off of the matched filter
 double burst_downmix_impl::rrc_alpha() const { return d_tch_c ? 0.2 : 0.4; }
 
@@ -917,6 +926,15 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
 
     d_burst_id = id;
     d_n_frames = 0;
+
+    // The burst tagger can classify the width of a burst: wide TCH_C types need not
+    // look at narrow bursts (0: narrow, 1: +-34 kHz, 2: +-130 kHz occupied)
+    const int width_class =
+        pmt::to_long(pmt::dict_ref(meta, pmt::mp("width_class"), pmt::from_long(-1)));
+    if (d_tch_c && width_class >= 0 && width_class < min_width_class()) {
+        burst_done(id);
+        return;
+    }
 
     // Windows opened on tracked TCH_C channels are not for the legacy downmixer
     if (d_tracked && !d_tch_c) {

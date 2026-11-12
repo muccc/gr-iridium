@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for sources feeding several downmixers.
 - Tracking of TCH_C channels across TDMA frames in `fft_burst_tagger` (`--track-frames`, on
   with `--tch-c`).
+- Width classification in `fft_burst_tagger` (`classify_width`), so that the TCH_C2 and
+  TCH_C8 downmixers only process bursts wide enough for them.
 
 ### Fixed
 - Use single "system" gain in BladeRF example.

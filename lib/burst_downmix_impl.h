@@ -113,6 +113,7 @@ private:
     int pre_start_samples() const;
     int sync_search_len() const;
     double rrc_alpha() const;
+    int min_width_class() const;
     volk::vector<gr_complex> generate_sync_word(::iridium::direction direction);
     int fft_shift_index(int index, int fft_size);
     int fft_unshift_index(int index, int fft_size);
