@@ -158,7 +158,7 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
           1.0, d_output_sample_rate, d_symbols_per_second, rrc_alpha(), RRC_TAPS)),
       d_start_finder_coarse_fir(start_finder_taps),
       d_rrc_coarse_fir(start_finder_taps),
-      d_cfo_est_fft(d_cfo_est_fft_size * d_fft_over_size_facor),
+      d_cfo_est_fft(d_cfo_est_fft_size),
       d_track_fft_size(0),
       d_track_decimation(0),
       d_tracked(false),
@@ -367,11 +367,17 @@ burst_downmix_impl::generate_sync_word(::iridium::direction direction)
 
 void burst_downmix_impl::initialize_cfo_est_fft(void)
 {
-    // Only the first d_cfo_est_fft_size samples will be filled with data.
-    // Zero out everyting first.
-    memset(d_cfo_est_fft.get_inbuf(),
-           0,
-           d_cfo_est_fft_size * d_fft_over_size_facor * sizeof(gr_complex));
+    // See find_cfo_peak()
+    const int fine_size = d_cfo_est_fft_size * d_fft_over_size_facor;
+    d_cfo_fine_phase.resize(fine_size);
+    for (int i = 0; i < fine_size; i++) {
+        d_cfo_fine_phase[i] = std::polar(1.0, -2 * M_PI * i / fine_size);
+    }
+    d_cfo_fine_step.resize(d_cfo_est_fft_size);
+    d_cfo_fine_row.resize(d_cfo_est_fft_size);
+    for (int i = 0; i < d_cfo_est_fft_size; i++) {
+        d_cfo_fine_step[i] = d_cfo_fine_phase[i];
+    }
 
     // Compute window and move it into aligned buffer
     std::vector<float> window =
@@ -385,6 +391,67 @@ void burst_downmix_impl::initialize_cfo_est_fft(void)
                d_cfo_est_fft_size,
                d_output_samples_per_symbol * (::iridium::PREAMBLE_LENGTH_SHORT + 10));
     }
+}
+
+/*
+ * The peak of the spectrum of the windowed samples in the input buffer of d_cfo_est_fft,
+ * at d_fft_over_size_facor times the resolution of that FFT: what a zero padded FFT of
+ * that many times the size would give, but only the bins around the peak of the short
+ * FFT are computed. Returns the index of the peak in [-N/2 .. (N/2)-1] notation and
+ * leaves the magnitudes of the bin before, at and after the peak in d_cfo_peak.
+ */
+int burst_downmix_impl::find_cfo_peak(void)
+{
+    const int size = d_cfo_est_fft_size;
+    const int over = d_fft_over_size_facor;
+    const int fine_size = size * over;
+
+    d_cfo_est_fft.execute();
+    volk_32fc_magnitude_squared_32f(d_magnitude_f, d_cfo_est_fft.get_outbuf(), size);
+    const float coarse_max = *std::max_element(d_magnitude_f, d_magnitude_f + size);
+
+    // The peak is within one bin of a local maximum of the short FFT, which shows at
+    // least 78% of it (the scalloping loss of the Blackman window is 1.1 dB)
+    const int n = 2 * over + 3;
+    float magnitude[2 * 64 + 3];
+    const gr_complex* in = d_cfo_est_fft.get_inbuf();
+    int max_index = 0;
+    d_cfo_peak[1] = -1;
+    for (int coarse = 0; coarse < size; coarse++) {
+        if (d_magnitude_f[coarse] < 0.75f * coarse_max ||
+            d_magnitude_f[coarse] < d_magnitude_f[(coarse + size - 1) % size] ||
+            d_magnitude_f[coarse] < d_magnitude_f[(coarse + 1) % size]) {
+            continue;
+        }
+
+        // Fine bins from one coarse bin below to one above, and one more on each side
+        const int first = coarse * over - over - 1;
+        for (int i = 0; i < size; i++) {
+            d_cfo_fine_row[i] =
+                d_cfo_fine_phase[((long)(first + fine_size) * i) % fine_size];
+        }
+        for (int i = 0; i < n; i++) {
+            gr_complex bin;
+            volk_32fc_x2_dot_prod_32fc(&bin, in, &d_cfo_fine_row[0], size);
+            magnitude[i] = std::norm(bin);
+            volk_32fc_x2_multiply_32fc(
+                &d_cfo_fine_row[0], &d_cfo_fine_row[0], &d_cfo_fine_step[0], size);
+        }
+
+        const int peak = std::max_element(magnitude + 1, magnitude + n - 1) - magnitude;
+        if (magnitude[peak] <= d_cfo_peak[1]) {
+            continue;
+        }
+        max_index = fft_unshift_index((first + peak + fine_size) % fine_size, fine_size);
+
+        // The spectrum does not wrap around for the interpolation
+        d_cfo_peak[0] =
+            max_index == -fine_size / 2 ? magnitude[peak] : magnitude[peak - 1];
+        d_cfo_peak[1] = magnitude[peak];
+        d_cfo_peak[2] =
+            max_index == fine_size / 2 - 1 ? magnitude[peak] : magnitude[peak + 1];
+    }
+    return max_index;
 }
 
 void burst_downmix_impl::initialize_correlation_filter(void)
@@ -791,22 +858,11 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     }
     filter_input(start, start + n_search);
 
-    // TODO: Not sure which way to square is faster.
-    // volk_32fc_x2_multiply_32fc(d_tmp_a, d_frame + start, d_frame + start,
-    // d_cfo_est_fft_size);
-    volk_32fc_s32f_power_32fc(d_tmp_a, d_frame + start, 2, d_cfo_est_fft_size);
+    volk_32fc_x2_multiply_32fc(
+        d_tmp_a, d_frame + start, d_frame + start, d_cfo_est_fft_size);
     volk_32fc_32f_multiply_32fc(
         d_cfo_est_fft.get_inbuf(), d_tmp_a, d_cfo_est_window_f, d_cfo_est_fft_size);
-    d_cfo_est_fft.execute();
-    volk_32fc_magnitude_squared_32f(d_magnitude_f,
-                                    d_cfo_est_fft.get_outbuf(),
-                                    d_cfo_est_fft_size * d_fft_over_size_facor);
-    float* x = std::max_element(
-        d_magnitude_f, d_magnitude_f + d_cfo_est_fft_size * d_fft_over_size_facor);
-    const int max_index_shifted = x - d_magnitude_f;
-
-    const int max_index =
-        fft_unshift_index(max_index_shifted, d_cfo_est_fft_size * d_fft_over_size_facor);
+    const int max_index = find_cfo_peak();
     if (d_debug) {
         printf("max_index=%d\n", max_index);
     }
@@ -817,16 +873,9 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     // TODO: The window should be Gaussian and the output should be put on a log scale
     // https://ccrma.stanford.edu/~jos/sasp/Quadratic_Interpolation_Spectral_Peaks.html
 
-    // To access d_magnitude_f we have to shift the index back to how the FFT output works
-    const int alpha_index =
-        fft_shift_index(max_index - 1, d_cfo_est_fft_size * d_fft_over_size_facor);
-    const int beta_index =
-        fft_shift_index(max_index, d_cfo_est_fft_size * d_fft_over_size_facor);
-    const int gamma_index =
-        fft_shift_index(max_index + 1, d_cfo_est_fft_size * d_fft_over_size_facor);
-    const float alpha = d_magnitude_f[alpha_index];
-    const float beta = d_magnitude_f[beta_index];
-    const float gamma = d_magnitude_f[gamma_index];
+    const float alpha = d_cfo_peak[0];
+    const float beta = d_cfo_peak[1];
+    const float gamma = d_cfo_peak[2];
     const float interpolated_index = max_index + interpolate(alpha, beta, gamma);
 
     // Normalize the result.

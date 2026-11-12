@@ -101,6 +101,11 @@ private:
     static constexpr float UW_MIN_CORRELATION = 0.25f;
     float d_sync_word_energy;
     gr::fft::fft_complex_fwd d_cfo_est_fft;
+    volk::vector<gr_complex> d_cfo_fine_phase; // exp(-2 pi j i / fine size)
+    volk::vector<gr_complex> d_cfo_fine_step;  // one fine bin up
+    volk::vector<gr_complex> d_cfo_fine_row;
+    float d_cfo_peak[3];
+    int find_cfo_peak(void);
 
     // Coarse UW search over a whole tracked burst window (TCH_C only)
     int d_track_fft_size;
