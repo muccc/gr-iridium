@@ -17,10 +17,7 @@ namespace gr {
 namespace iridium {
 
 /*
- * The burst sources can publish every burst to several downmixers (one per burst type).
- * Each of them acknowledges the burst on burst_handled. A burst only counts as handled
- * once all of them have acknowledged it, so the source sees the backlog of the slowest
- * one.
+ * The downmixer acknowledges every burst of a source on burst_handled.
  *
  * Downmixers running with wait_for_demod acknowledge with (id . n_frames): the number of
  * frames they published for the burst. The demodulators report every handled frame
@@ -39,10 +36,7 @@ namespace iridium {
 class burst_ack_counter
 {
 public:
-    explicit burst_ack_counter(int acks_per_burst)
-        : d_acks_per_burst(std::max(acks_per_burst, 1))
-    {
-    }
+    burst_ack_counter() {}
 
     static constexpr uint64_t MAX_BACKLOG = 1000000000; // ns
 
@@ -83,12 +77,11 @@ public:
 private:
     struct pending {
         int published = 0; // times the source published it and it is not completed yet
-        int acks = 0;      // acknowledgements from downmixers
+        int acks = 0;      // acknowledgements from the downmixer
         int frames = 0;    // frames published but not yet handled by a demodulator
         uint64_t timestamp = 0;
     };
 
-    const int d_acks_per_burst;
     std::map<uint64_t, pending> d_pending;
     uint64_t d_newest = 0; // timestamp of the newest burst published
 
@@ -99,8 +92,8 @@ private:
         // A frame can be handled before its downmixer acknowledged the burst
         p.frames += frames;
         int completed = 0;
-        while (p.acks >= d_acks_per_burst && p.frames == 0) {
-            p.acks -= d_acks_per_burst;
+        while (p.acks >= 1 && p.frames == 0) {
+            p.acks--;
             p.published--;
             completed++;
         }

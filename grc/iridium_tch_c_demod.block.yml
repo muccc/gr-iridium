@@ -2,31 +2,23 @@ id: iridium_tch_c_demod
 label: TCH_C Demod
 category: '[Iridium]'
 
-parameters:
--   id: channels
-    label: Channels
-    dtype: int
-    default: '1'
-
 inputs:
 -   domain: message
-    id: cpdus
-    multiplicity: ${channels}
+    id: probes
 
 outputs:
 -   domain: message
     id: pdus
 -   domain: message
-    id: frame_handled
-    multiplicity: ${channels}
+    id: probe_handled
     optional: true
 
 templates:
     imports: import iridium
-    make: "iridium.tch_c_demod(${channels})"
+    make: "iridium.tch_c_demod()"
 
 documentation: |-
-    Demodulates and decodes TCH_C1, TCH_C2 and TCH_C8 bursts from burst_downmix blocks
-    running with a TCH_C burst type.
+    Demodulates and decodes the TCH_C1, TCH_C2 and TCH_C8 bursts tch_c_slot_prober
+    finds.
 
 file_format: 1

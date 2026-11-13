@@ -24,10 +24,7 @@
 #include <gnuradio/blocks/rotator.h>
 #include <gnuradio/filter/fir_filter.h>
 
-#include "tch_c_format.h"
 #include <iridium/burst_downmix.h>
-#include <map>
-#include <memory>
 
 namespace gr {
 namespace iridium {
@@ -36,10 +33,9 @@ class burst_downmix_impl : public burst_downmix
 {
 private:
     static const int RRC_TAPS = 51;
-    static constexpr double TCH_C_RRC_SPAN = 8; // symbols on each side
+    static constexpr double RRC_ALPHA = 0.4;
     static const int RC_TAPS = 51;
 
-    const tch_c_format* d_tch_c; // TCH_C burst format, nullptr for legacy bursts
     int d_symbols_per_second;
     int d_output_sample_rate;
     int d_output_samples_per_symbol;
@@ -59,7 +55,6 @@ private:
     int64_t d_debug_id;
 
     gr_complex* d_input;
-    gr_complex* d_coarse;
     gr_complex* d_frame;
     gr_complex* d_tmp_a;
     gr_complex* d_tmp_b;
@@ -77,8 +72,6 @@ private:
     filter::kernel::fir_filter_ccf d_input_fir;
     filter::kernel::fir_filter_fff d_start_finder_fir;
     filter::kernel::fir_filter_ccf d_rrc_fir;
-    filter::kernel::fir_filter_fff d_start_finder_coarse_fir;
-    filter::kernel::fir_filter_ccf d_rrc_coarse_fir;
 
     volk::vector<gr_complex> d_dl_preamble_reversed_conj;
     volk::vector<gr_complex> d_ul_preamble_reversed_conj;
@@ -92,86 +85,15 @@ private:
     size_t d_frame_size;  // its size after decimation
     size_t d_frame_valid; // samples of d_frame filtered so far
     size_t d_input_valid; // samples of d_input shifted so far
-    size_t d_coarse_valid; // samples of d_coarse filtered so far
-    int d_coarse_step;
     void shift_input(size_t n);
     void filter_input(size_t from, size_t to);
-    size_t filter_input_coarse(size_t n);
-    void initialize_coarse_filters(const std::vector<float>& start_finder_taps);
 
-    // Normalized correlation a TCH_C UW needs to be taken for one
-    static constexpr float UW_MIN_CORRELATION = 0.25f;
-    // Samples before the UW start sent on with a TCH_C frame, see tch_c_demod
-    static constexpr int TCH_C_PRE_SAMPLES = 2;
-    // Above this a TCH_C sync word is taken as certain (nearly all CRC passes)
-    static constexpr float UW_GOOD_CORRELATION = 0.5f;
-    float d_sync_word_energy;
     gr::fft::fft_complex_fwd d_cfo_est_fft;
     volk::vector<gr_complex> d_cfo_fine_phase; // exp(-2 pi j i / fine size)
     volk::vector<gr_complex> d_cfo_fine_step;  // one fine bin up
     volk::vector<gr_complex> d_cfo_fine_row;
     float d_cfo_peak[3];
     int find_cfo_peak(void);
-
-    // Coarse UW search over a whole tracked burst window (TCH_C only)
-    int d_track_fft_size;
-    int d_track_decimation;
-    bool d_tracked; // the burst being handled is a window on a tracked channel
-    std::unique_ptr<gr::fft::fft_complex_fwd> d_track_fwd;
-    std::unique_ptr<gr::fft::fft_complex_rev> d_track_inv;
-    std::vector<gr_complex> d_track_dl_fft;
-    std::vector<gr_complex> d_track_ul_fft;
-    std::vector<gr_complex> d_track_buf;
-    int find_uw_coarse(size_t burst_size);
-
-    // Coarse look-ahead for the next TCH_C UW in a detection, see find_next_uw_coarse()
-    struct coarse_plan {
-        std::unique_ptr<gr::fft::fft_complex_fwd> fwd;
-        std::unique_ptr<gr::fft::fft_complex_rev> inv;
-        std::vector<gr_complex> dl_fft;
-        std::vector<gr_complex> ul_fft;
-    };
-    std::map<int, coarse_plan> d_next_plans; // by FFT size
-    std::vector<gr_complex> d_next_buf;
-    std::vector<float> d_next_energy;
-    static constexpr float NEXT_UW_MIN_CORRELATION = 0.3f;
-    int find_next_uw_coarse(size_t burst_size, int from, float center_offset);
-    void scan_next_uw_coarse(size_t burst_size, int from_c, float center_offset);
-    bool d_next_valid = false; // d_next_best holds the scan of the current detection
-    int d_next_base = 0;       // coarse index of d_next_best[0]
-    std::vector<float> d_next_best;
-
-    // TCH_C2/C8: UW timing independent of the frequency offset, see
-    // find_uw_differential()
-    static constexpr float DIFF_UW_MIN_CORRELATION = 0.45f;
-    std::vector<gr_complex> d_diff;
-    std::vector<gr_complex> d_diff_dl;
-    std::vector<gr_complex> d_diff_ul;
-    std::vector<float> d_diff_abs;
-    std::vector<float> d_diff_sum;
-    struct uw_candidate {
-        int start;  // d_frame index of the UW start
-        float freq; // frequency offset there, cycles per sample of d_frame
-    };
-    // Places tried in a window on a tracked TCH_C2/C8 channel
-    static constexpr int TRACK_CANDIDATES = 3;
-    int find_uw_differential(size_t burst_size,
-                             int from,
-                             std::vector<uw_candidate>* candidates = nullptr);
-    float d_input_shift = 0;    // shift of the input, cycles per input sample
-    double d_center_shift = 0;  // Hz the input filter was moved by for this frame
-    bool d_fixed_start = false; // process_next_frame(): start is at a UW found already
-    void set_input_shift(float shift);
-    // TCH_C: coherent UW search for retry_coherent() in process_next_frame()
-    static constexpr int COH_FFT_SIZE = 64;
-    static constexpr float COH_RANGE = 30; // symbols around the differential result
-    // Real bursts reach 0.5 to 0.9 on test recordings, noise mostly 0.3 to 0.4
-    static constexpr float COH_MIN_CORRELATION = 0.5f;
-    std::unique_ptr<gr::fft::fft_complex_fwd> d_coh_fft;
-    bool d_cfo_skip = false; // the next CFO estimate is not needed
-    bool d_in_retry = false; // process_next_frame() called by retry_coherent
-    bool
-    find_uw_coherent(size_t burst_size, int center, int* pos, float* freq, float* metric);
 
     bool d_wait_for_demod;
     uint64_t d_burst_id; // the burst being handled
@@ -196,9 +118,6 @@ private:
     void set_burst_sample_rate(float sample_rate);
     int pre_start_samples() const;
     int sync_search_len() const;
-    double rrc_alpha() const;
-    int rrc_taps(double sample_rate) const;
-    int min_width_class() const;
     volk::vector<gr_complex> generate_sync_word(::iridium::direction direction);
     int fft_shift_index(int index, int fft_size);
     int fft_unshift_index(int index, int fft_size);
@@ -211,8 +130,7 @@ public:
                        const std::vector<float>& input_taps,
                        const std::vector<float>& start_finder_taps,
                        bool handle_multiple_frames_per_burst,
-                       bool wait_for_demod,
-                       int tch_c_type);
+                       bool wait_for_demod);
     ~burst_downmix_impl();
 
     size_t get_input_queue_size();

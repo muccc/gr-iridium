@@ -48,22 +48,6 @@ parameters:
     label: Debug Output
     dtype: bool
     default: 'False'
--   id: wideband_threshold
-    label: Wideband Threshold (dB, 0 = off)
-    dtype: float
-    default: '0'
--   id: wideband_width
-    label: Wideband Width (Hz)
-    dtype: int
-    default: '30000'
--   id: track_frames
-    label: Track TCH_C Channels (TDMA frames)
-    dtype: int
-    default: '0'
--   id: classify_width
-    label: Classify Burst Width
-    dtype: bool
-    default: 'False'
 
 inputs:
 -   domain: stream
@@ -75,10 +59,8 @@ outputs:
 
 templates:
     imports: import iridium
-    make: iridium.fft_burst_tagger(${center_frequency}, ${fft_size}, ${sample_rate},
-        ${burst_pre_len}, ${burst_post_len}, ${burst_width}, ${max_bursts}, ${max_burst_len},
-        ${threshold}, ${history_size}, debug=${debug},
-        wideband_threshold=${wideband_threshold}, wideband_width=${wideband_width},
-        track_frames=${track_frames}, classify_width=${classify_width})
+    make: "iridium.fft_burst_tagger(${center_frequency}, ${fft_size}, ${sample_rate},\
+        \ ${burst_pre_len}, ${burst_post_len},\n                            ${burst_width},\
+        \ ${max_bursts}, ${max_burst_len}, ${threshold}, ${history_size}, ${debug})\n  "
 
 file_format: 1

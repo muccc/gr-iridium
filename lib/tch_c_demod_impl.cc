@@ -18,12 +18,12 @@
 namespace gr {
 namespace iridium {
 
-tch_c_demod::sptr tch_c_demod::make(int n_channels, bool probe_port)
+tch_c_demod::sptr tch_c_demod::make()
 {
-    return gnuradio::make_block_sptr<tch_c_demod_impl>(n_channels, probe_port);
+    return gnuradio::make_block_sptr<tch_c_demod_impl>();
 }
 
-tch_c_demod_impl::tch_c_demod_impl(int n_channels, bool probe_port)
+tch_c_demod_impl::tch_c_demod_impl()
     : gr::block("tch_c_demod",
                 gr::io_signature::make(0, 0, 0),
                 gr::io_signature::make(0, 0, 0)),
@@ -31,7 +31,7 @@ tch_c_demod_impl::tch_c_demod_impl(int n_channels, bool probe_port)
       d_n_handled_bursts(0),
       d_n_access_ok_bursts(0),
       d_n_access_ok_sub_bursts(0),
-      d_channel_id(n_channels + (probe_port ? 1 : 0), UINT64_MAX),
+      d_channel_id(1, UINT64_MAX),
       d_c1_decoder(TCH_C1.code),
       d_c2_decoder(TCH_C2.code),
       d_c8q_decoder(TCH_C8Q.code),
@@ -40,31 +40,11 @@ tch_c_demod_impl::tch_c_demod_impl(int n_channels, bool probe_port)
     message_port_register_out(pmt::mp("pdus"));
     d_upstream_done.install(this);
 
-    if (n_channels > 1) {
-        for (int i = 0; i < n_channels; i++) {
-            auto port_name = pmt::mp("cpdus" + std::to_string(i));
-            message_port_register_in(port_name);
-            d_input_ports.push_back(port_name);
-            set_msg_handler(port_name,
-                            [this, i](pmt::pmt_t msg) { this->handler(i, msg); });
-            d_frame_handled_ports.push_back(pmt::mp("frame_handled" + std::to_string(i)));
-        }
-    } else {
-        auto port_name = pmt::mp("cpdus");
-        message_port_register_in(port_name);
-        d_input_ports.push_back(port_name);
-        set_msg_handler(port_name, [this](pmt::pmt_t msg) { this->handler(0, msg); });
-        d_frame_handled_ports.push_back(pmt::mp("frame_handled"));
-    }
-    // Probes are one more channel, after those of the channelizer
-    if (probe_port) {
-        const int i = d_input_ports.size();
-        auto port_name = pmt::mp("probes");
-        message_port_register_in(port_name);
-        d_input_ports.push_back(port_name);
-        set_msg_handler(port_name, [this, i](pmt::pmt_t msg) { this->handler(i, msg); });
-        d_frame_handled_ports.push_back(pmt::mp("probe_handled"));
-    }
+    auto port_name = pmt::mp("probes");
+    message_port_register_in(port_name);
+    d_input_ports.push_back(port_name);
+    set_msg_handler(port_name, [this](pmt::pmt_t msg) { this->handler(0, msg); });
+    d_frame_handled_ports.push_back(pmt::mp("probe_handled"));
     for (const auto& port : d_frame_handled_ports) {
         message_port_register_out(port);
     }
@@ -168,7 +148,7 @@ bool tch_c_demod_impl::uw_ok(const int* demodulated_burst, const int* uw)
         diffs += diff;
     }
     // At 3 dB Es/N0 (where TCH_C2/C8 still decode) 5 of the 32 UW symbols are wrong on
-    // average; the downmixer has checked the UW coherently already, and the CRC protects
+    // average; the prober has checked the UW coherently already, and the CRC protects
     // against false frames
     return diffs <= 10;
 }
@@ -332,15 +312,14 @@ float tch_c_demod_impl::known_symbol_correction(const tch_c_format& f,
 
 /*
  * Pick the n TCH_C symbols from a burst with a (possibly fractional) number of samples
- * per symbol. Interpolates linearly, which is sufficient at ~10 samples per symbol.
- * Returns the number of symbols.
+ * per symbol (probes: one), interpolating linearly. Returns the number of symbols.
  */
 int tch_c_demod_impl::decimate(
-    const gr_complex* in, int size, float sps, int n, gr_complex* out, float t0)
+    const gr_complex* in, int size, float sps, int n, gr_complex* out)
 {
     int j;
     for (j = 0; j < n; j++) {
-        float t = t0 + j * sps;
+        float t = j * sps;
         int i = (int)t;
         if (i + 1 >= size) {
             break;
@@ -349,56 +328,6 @@ int tch_c_demod_impl::decimate(
         out[j] = in[i] + mu * (in[i + 1] - in[i]);
     }
     return j;
-}
-
-/*
- * The sampling phase: the sync word search of the downmixer finds the UW start to a
- * sample, which is up to 1/12 symbol for TCH_C8 (about 6 samples per symbol), and
- * 16APSK loses a third of its decodable bursts at that timing error. The burst starts
- * pre samples before the UW start the downmixer found. Tries offsets of up to half a
- * sample around it in steps of a quarter sample and returns the one at which the known
- * symbols (UW and pilots, each block summed coherently, the blocks not, so a frequency
- * offset does not matter) fit best.
- */
-float tch_c_demod_impl::find_timing(
-    const tch_c_format& f, const gr_complex* in, int size, float sps, int pre)
-{
-    int pos[TCH_C_MAX_KNOWN];
-    float sign_dl[TCH_C_MAX_KNOWN], sign_ul[TCH_C_MAX_KNOWN];
-    const int n_known = tch_c_known_symbols(f, TCH_C_UW_DL, pos, sign_dl);
-    tch_c_known_symbols(f, TCH_C_UW_UL, pos, sign_ul);
-    float best = -1, best_t0 = pre;
-    for (int step = -2; step <= 2; step++) {
-        const float t0 = pre + step * 0.25f;
-        if (t0 < 0) {
-            continue;
-        }
-        float metric[2] = { 0, 0 };
-        for (int d = 0; d < 2; d++) {
-            const float* sign = d == 0 ? sign_dl : sign_ul;
-            gr_complex block = 0;
-            for (int i = 0; i < n_known; i++) {
-                if (i > 0 && pos[i] != pos[i - 1] + 1) {
-                    metric[d] += std::abs(block);
-                    block = 0;
-                }
-                const float t = t0 + pos[i] * sps;
-                const int k = (int)t;
-                if (k + 1 >= size) {
-                    break;
-                }
-                const float mu = t - k;
-                block += sign[i] * (in[k] + mu * (in[k + 1] - in[k]));
-            }
-            metric[d] += std::abs(block);
-        }
-        const float m = std::max(metric[0], metric[1]);
-        if (m > best) {
-            best = m;
-            best_t0 = t0;
-        }
-    }
-    return best_t0;
 }
 
 /*
@@ -539,8 +468,7 @@ void tch_c_demod_impl::handle_burst(int channel,
                                     float noise,
                                     float magnitude,
                                     int tch_type,
-                                    int max_variants,
-                                    int pre_samples)
+                                    int max_variants)
 {
     // Timing, pilots and data segments; for TCH_C8 shared by QPSK and 16APSK
     const tch_c_format& layout = tch_c_format_by_type(tch_type);
@@ -550,18 +478,14 @@ void tch_c_demod_impl::handle_burst(int channel,
     // Carrier recovery variants: 0 = fit to the known symbols, 1 = PLL, 2 = fit followed
     // by the PLL. On a test recording the fit alone passes the CRC on 99.8% of the TCH_C1
     // bursts that pass at all. The decision directed QPSK PLL does not work for 16APSK,
-    // so TCH_C8 uses the fit only. So do probes: most of them are no burst at all and
-    // every variant is one more chance for a failed decode to pass the CRC-10. Unless
-    // the prober asks for more (`variants`, for those which clearly have a UW).
+    // so TCH_C8 uses the fit only. Most probes are no burst at all and every variant is
+    // one more chance for a failed decode to pass the CRC-10, so only the fit is tried
+    // unless the prober asks for more (`variants`, for those which clearly have a UW).
     const int n_variants = tch_type == 8 ? 1 : std::max(1, std::min(3, max_variants));
 
     d_n_handled_bursts++;
 
-    // Probes of tch_c_slot_prober come at one sample per symbol at the fine timed symbol
-    // centres (no pre samples): nothing to interpolate
-    const float t0 =
-        pre_samples > 0 ? find_timing(layout, burst, burst_size, sps, pre_samples) : 0;
-    if (decimate(burst, burst_size, sps, n_symbols, d_decimated_burst, t0) < n_symbols) {
+    if (decimate(burst, burst_size, sps, n_symbols, d_decimated_burst) < n_symbols) {
         return;
     }
 
@@ -720,8 +644,8 @@ void tch_c_demod_impl::handle_burst(int channel,
 }
 
 /*
- * Report the frame as handled to the burst source, if the downmixer asked for it, so the
- * source sees the backlog of the demodulator.
+ * Report the probe as handled to the prober (probe_handled), so it sees the backlog of
+ * the demodulator.
  */
 void tch_c_demod_impl::frame_handled(int channel, const pmt::pmt_t& meta)
 {
@@ -739,11 +663,9 @@ void tch_c_demod_impl::enqueue(int channel, const pmt::pmt_t& msg)
 }
 
 /*
- * GNU Radio hands a block all the messages waiting on one port before it looks at the
- * next port. With a backlog (many TCH_C bursts at once) the frames of the channels
- * would be handled seconds apart, too far for the frame sorter to find the duplicates
- * of bursts on the border of two channels. So take what is waiting on all ports and
- * always handle the oldest frame.
+ * The prober publishes the UL slots later than the DL slots and the tracks one after
+ * the other: take what is waiting and always handle the oldest probe, so the frame
+ * sorter gets the frames in time order.
  */
 void tch_c_demod_impl::handler(int channel, pmt::pmt_t msg)
 {
@@ -790,9 +712,6 @@ void tch_c_demod_impl::demodulate(int channel, pmt::pmt_t msg)
     bool probe = pmt::to_bool(pmt::dict_ref(meta, pmt::mp("probe"), pmt::PMT_F));
     int max_variants = pmt::to_long(
         pmt::dict_ref(meta, pmt::mp("variants"), pmt::from_long(probe ? 1 : 3)));
-    // Samples before the UW start found by the downmixer, for find_timing()
-    int pre_samples =
-        pmt::to_long(pmt::dict_ref(meta, pmt::mp("pre_samples"), pmt::from_long(0)));
 
     timestamp += uw_start * 1000000000ULL / (int)sample_rate;
 
@@ -806,8 +725,7 @@ void tch_c_demod_impl::demodulate(int channel, pmt::pmt_t msg)
                  noise,
                  magnitude,
                  tch_type,
-                 max_variants,
-                 pre_samples);
+                 max_variants);
 }
 
 } /* namespace iridium */

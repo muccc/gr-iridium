@@ -31,8 +31,7 @@ fft_channelizer::sptr fft_channelizer::make(int fft_size,
                                             int pdu_ports,
                                             int max_burst_size,
                                             int outstanding_limit,
-                                            bool drop_overflow,
-                                            int acks_per_burst)
+                                            bool drop_overflow)
 {
     return gnuradio::make_block_sptr<fft_channelizer_impl>(fft_size,
                                                            decimation,
@@ -40,8 +39,7 @@ fft_channelizer::sptr fft_channelizer::make(int fft_size,
                                                            pdu_ports,
                                                            max_burst_size,
                                                            outstanding_limit,
-                                                           drop_overflow,
-                                                           acks_per_burst);
+                                                           drop_overflow);
 }
 
 
@@ -54,8 +52,7 @@ fft_channelizer_impl::fft_channelizer_impl(int fft_size,
                                            int pdu_ports,
                                            int max_burst_size,
                                            int outstanding_limit,
-                                           bool drop_overflow,
-                                           int acks_per_burst)
+                                           bool drop_overflow)
     : gr::sync_decimator(
           "fft_channelizer",
           gr::io_signature::make(
@@ -82,7 +79,7 @@ fft_channelizer_impl::fft_channelizer_impl(int fft_size,
       d_outstanding(0),
       d_n_dropped_bursts(0),
       d_next_pdu_port(0),
-      d_acks(acks_per_burst)
+      d_acks()
 {
     // FFT size and decimation must be a power of two so the output sizes are
     // also a power of two.

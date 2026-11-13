@@ -39,8 +39,7 @@ tagged_burst_to_pdu::sptr tagged_burst_to_pdu::make(int max_burst_size,
                                                     float relative_sample_rate,
                                                     double sample_offset,
                                                     int outstanding_limit,
-                                                    bool drop_overflow,
-                                                    int acks_per_burst)
+                                                    bool drop_overflow)
 {
     return gnuradio::get_initial_sptr(
         new tagged_burst_to_pdu_impl(max_burst_size,
@@ -49,8 +48,7 @@ tagged_burst_to_pdu::sptr tagged_burst_to_pdu::make(int max_burst_size,
                                      relative_sample_rate,
                                      sample_offset,
                                      outstanding_limit,
-                                     drop_overflow,
-                                     acks_per_burst));
+                                     drop_overflow));
 }
 
 
@@ -63,8 +61,7 @@ tagged_burst_to_pdu_impl::tagged_burst_to_pdu_impl(int max_burst_size,
                                                    float relative_sample_rate,
                                                    double sample_offset,
                                                    int outstanding_limit,
-                                                   bool drop_overflow,
-                                                   int acks_per_burst)
+                                                   bool drop_overflow)
     : gr::sync_block("tagged_burst_to_pdu",
                      gr::io_signature::make(1, 1, sizeof(gr_complex)),
                      gr::io_signature::make(0, 0, 0)),
@@ -77,7 +74,7 @@ tagged_burst_to_pdu_impl::tagged_burst_to_pdu_impl(int max_burst_size,
       d_outstanding(0),
       d_max_outstanding(0),
       d_outstanding_limit(outstanding_limit),
-      d_acks(acks_per_burst),
+      d_acks(),
       d_n_dropped_bursts(0),
       d_drop_overflow(drop_overflow),
       d_blocked(false)

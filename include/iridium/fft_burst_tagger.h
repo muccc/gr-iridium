@@ -44,12 +44,6 @@ public:
      * constructor is in a private implementation
      * class. iridium::fft_burst_tagger::make is the public interface for
      * creating new instances.
-     *
-     * With wideband_threshold > 0, bursts with a flat spectrum are detected as well
-     * (averaged over wideband_width Hz). With track_frames > 0, the channel of a wideband
-     * burst about as long as a TCH_C burst is watched for that many TDMA frames. With
-     * classify_width, the gone_burst tag carries the width class of the burst (see
-     * fft_burst_tagger_impl.h), used to route bursts to the downmixers.
      */
     static sptr make(double center_frequency,
                      int fft_size,
@@ -62,11 +56,7 @@ public:
                      float threshold = 7,
                      int history_size = 512,
                      bool offline = false,
-                     bool debug = false,
-                     float wideband_threshold = 0,
-                     int wideband_width = 30000,
-                     int track_frames = 0,
-                     bool classify_width = false);
+                     bool debug = false);
 
     virtual uint64_t get_n_tagged_bursts() = 0;
     virtual uint64_t get_sample_count() = 0;

@@ -44,7 +44,6 @@ void bind_tagged_burst_to_pdu(py::module& m)
            py::arg("sample_offset"),
            py::arg("outstanding_limit"),
            py::arg("drop_overflow"),
-           py::arg("acks_per_burst") = 1,
            D(tagged_burst_to_pdu,make)
         )
         

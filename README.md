@@ -289,9 +289,7 @@ additionally write a file in sigmf-meta format describing the processed input.
 To convert a standard recording to a sigmf dataset, specify "--generate-sigmf-meta NEWNAME.sigmf-meta" and then after the extractor ends, manually rename your recording to "NEWNAME.sigmf-data"
 
 #### `--tch-c`: TCH_C bursts
-additionally demodulate and decode TCH_C1, TCH_C2 and TCH_C8 bursts (coherent QPSK/16APSK traffic channels with turbo coding) and print their decoded payload as `NXD:` (downlink) and `NXU:` (uplink) lines. By default the bursts are found by probing the TDMA slots of every satellite whose ring alerts are received (`--tch-c-detect probe`; on a test recording about 1.5× the CPU time of legacy-only processing). `--tch-c-types` selects the types (default `1,2,8`), `--no-tch-c-uplink` turns off the TCH_C1 uplink probing.
-
-`--tch-c-detect energy` uses the older burst detection instead (about 3× the CPU time of legacy-only processing), `both` runs both. They enable a wideband burst detection (`--wideband-db`, default 6 dB, `--wideband-width`, default 30 kHz) and the tracking of TCH_C channels (`--track-frames`, default 4). Both can be set without `--tch-c`; 0 disables them. See [docs/tch_c.md](docs/tch_c.md).
+additionally demodulate and decode TCH_C1, TCH_C2 and TCH_C8 bursts (coherent QPSK/16APSK traffic channels with turbo coding) and print their decoded payload as `NXD:` (downlink) and `NXU:` (uplink) lines. The bursts are found by probing the TDMA slots of every satellite whose ring alerts are received (on a test recording about 1.5× the CPU time of legacy-only processing). `--tch-c-types` selects the types (default `1,2,8`), `--no-tch-c-uplink` turns off the TCH_C1 uplink probing.
 
 See [docs/tch_c.md](docs/tch_c.md) for the burst formats, the receiver and the output format.
 

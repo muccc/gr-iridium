@@ -79,8 +79,7 @@ public:
                          int pdu_ports,
                          int max_burst_size,
                          int outstanding_limit,
-                         bool drop_overflow,
-                         int acks_per_burst);
+                         bool drop_overflow);
     ~fft_channelizer_impl();
 
     uint64_t get_n_dropped_bursts();

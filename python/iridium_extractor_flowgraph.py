@@ -29,8 +29,7 @@ class FlowGraph(gr.top_block):
     def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0,
                  burst_width=40e3, offline=False, max_queue_len=500, handle_multiple_frames_per_burst=False,
                  raw_capture_filename=None, debug_id=None, max_bursts=0, verbose=False, file_info="",
-                 samples_per_symbol=10, config={}, wideband_threshold=0, wideband_width=30000, track_frames=0, tch_c=(),
-                 tch_c_detect='probe', tch_c_history=0.75, tch_c_probe_threshold=0,
+                 samples_per_symbol=10, config={}, tch_c=(), tch_c_history=0.75, tch_c_probe_threshold=0,
                  tch_c_uplink=True):
         gr.top_block.__init__(self, "Top Block")
         self.handle_sigint = False
@@ -39,9 +38,6 @@ class FlowGraph(gr.top_block):
         self._input_sample_rate = sample_rate
         self._verbose = verbose
         self._threshold = threshold
-        self._wideband_threshold = wideband_threshold
-        self._wideband_width = wideband_width
-        self._track_frames = track_frames
         self._filename = filename
         self._offline = offline
         self._max_queue_len = max_queue_len
@@ -50,22 +46,10 @@ class FlowGraph(gr.top_block):
 
         # Sample rate of the bursts exiting the burst downmix block
         self._burst_sample_rate = 25000 * samples_per_symbol
-        # TCH_C types (1, 2, 8) to look for, each with its own downmixer per channel
+        # TCH_C types (1, 2, 8) the slot prober looks for
         self._tch_c_types = sorted(set(tch_c))
         if any(t not in (1, 2, 8) for t in self._tch_c_types):
             raise RuntimeError("TCH_C types must be 1, 2 or 8.")
-        # How TCH_C bursts are found: by the energy detection (TCH_C downmixers behind
-        # the burst detector) and/or by probing the TDMA slots (tch_c_slot_prober)
-        if tch_c_detect not in ('both', 'probe', 'energy'):
-            raise RuntimeError("TCH_C detection must be both, probe or energy.")
-        self._tch_c_energy = tch_c_detect in ('both', 'energy')
-        self._tch_c_probe = tch_c_detect in ('both', 'probe')
-        self._burst_sample_rate_c1 = 30000 * samples_per_symbol
-        # TCH_C2 bursts: twice the symbol rate and bandwidth of TCH_C1
-        self._burst_sample_rate_c2 = 60000 * samples_per_symbol
-        # TCH_C8 bursts: 240 ksym/s, ~290 kHz wide. The channels of the channelizer may not
-        # offer samples_per_symbol samples per symbol at that rate: take what is there.
-        self._samples_per_symbol_c8 = samples_per_symbol
         if (self._input_sample_rate / self._decimation) % self._burst_sample_rate != 0:
             raise RuntimeError("Selected sample rate and decimation can not be matched. Please try a different combination. Sample rate divided by decimation must be a multiple of %d." % self._burst_sample_rate)
 
@@ -529,16 +513,9 @@ class FlowGraph(gr.top_block):
                                                           max_bursts=max_bursts,
                                                           max_burst_len=int(self._input_sample_rate * 0.09),
                                                           threshold=self._threshold,
-                                                          # The TCH_C wideband detection was tuned with a
-                                                          # shorter history: its threshold scales with it
-                                                          history_size=300 if self._tch_c_types and self._tch_c_energy else 512,
+                                                          history_size=512,
                                                           offline=self._offline,
-                                                          debug=self._verbose,
-                                                          wideband_threshold=self._wideband_threshold,
-                                                          wideband_width=int(self._wideband_width),
-                                                          track_frames=self._track_frames,
-                                                          # Route wide bursts to the wide TCH_C types only
-                                                          classify_width=self._tch_c_energy and bool({2, 8} & set(self._tch_c_types)))
+                                                          debug=self._verbose)
         self._fft_burst_tagger.set_min_output_buffer(1024 * 64)
 
         # Initial filter to filter the detected bursts. Runs at burst_sample_rate. Used to decimate the signal.
@@ -549,63 +526,23 @@ class FlowGraph(gr.top_block):
         # Filter to find the start of the signal. Should be fairly narrow.
         start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, self._burst_sample_rate, 5e3 / 2, 10e3 / 2, 60)
 
-        # Input filters of the TCH_C downmixers.
-        # TCH_C1 occupies +-18 kHz: the legacy input filter (transition as wide as the
-        # passband) already attenuates it there by several dB, which costs TCH_C1 bursts
-        # at low SNR. Pass +-18 kHz and stop at +-38 kHz (the next channel is 41.67 kHz off).
-        # TCH_C2 occupies about +-36 kHz: pass that and stop at +-64 kHz.
-        tch_c_input_filters = {
-            1: gnuradio.filter.firdes.low_pass_2(1, self._channel_sample_rate, 28e3, 20e3, 40),
-            2: gnuradio.filter.firdes.low_pass_2(1, self._channel_sample_rate, 50e3, 28e3, 40),
-        }
-
-        # TCH_C8 occupies about +-144 kHz: pass +-140 kHz and stop at +-190 kHz
-        # The TCH_C types with a downmixer per channel
-        self._tch_c_downmix_types = list(self._tch_c_types) if self._tch_c_energy else []
-        sps_c8 = min(self._samples_per_symbol_c8, int(self._channel_sample_rate // 240000))
-        if 8 in self._tch_c_downmix_types and sps_c8 < 2:
-            # The prober works on the wideband stream and still finds TCH_C8
-            if self._tch_c_probe:
-                print("Warning: channels too narrow for the energy detection of TCH_C8 (240 ksym/s), disabling it.", file=sys.stderr)
-            else:
-                print("Warning: channels too narrow for TCH_C8 (240 ksym/s), disabling it.", file=sys.stderr)
-                self._tch_c_types.remove(8)
-            self._tch_c_downmix_types.remove(8)
-        self._burst_sample_rate_c8 = 240000 * sps_c8
-        if 8 in self._tch_c_downmix_types:
-            tch_c_input_filters[8] = gnuradio.filter.firdes.low_pass_2(1, self._channel_sample_rate, 165e3, 50e3, 40)
-        tch_c_burst_sample_rates = {1: self._burst_sample_rate_c1, 2: self._burst_sample_rate_c2, 8: self._burst_sample_rate_c8}
-
-        # Every burst goes to all downmixers of its channel and each of them acknowledges it.
-        # The burst sources count a burst as handled once all of them did.
-        n_downmixers = 1 + len(self._tch_c_downmix_types)
-
-        def make_downmixers():
-            """The burst downmixers every burst goes to: legacy first, then one per TCH_C type."""
-            downmixers = [
-                iridium.burst_downmix(self._burst_sample_rate, int(0.007 * self._burst_sample_rate), 0,
-                                      (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst,
-                                      wait_for_demod=True),
-            ]
-            for t in self._tch_c_downmix_types:
-                rate = tch_c_burst_sample_rates[t]
-                downmixers.append(
-                    iridium.burst_downmix(rate, int(0.007 * rate), 0,
-                                          (tch_c_input_filters[t]), (start_finder_filter), self._handle_multiple_frames_per_burst,
-                                          tch_c_type=t, wait_for_demod=True))
+        def make_downmixer():
+            downmixer = iridium.burst_downmix(self._burst_sample_rate, int(0.007 * self._burst_sample_rate), 0,
+                                              (input_filter), (start_finder_filter), self._handle_multiple_frames_per_burst,
+                                              wait_for_demod=True)
             if debug_id is not None:
-                for d in downmixers:
-                    d.debug_id(debug_id)
-            return downmixers
+                downmixer.debug_id(debug_id)
+            return downmixer
         #print len(start_finder_filter)
 
         self._iridium_qpsk_demod = iridium.iridium_qpsk_demod(self._channels)
-        # Only with TCH_C downmixers or the prober: a message block without inputs never terminates
-        self._tch_c_demod = iridium.tch_c_demod(self._channels, self._tch_c_probe) if self._tch_c_types else None
-        # Probes the TDMA slots of the satellites, timed by their ring alerts. Reads the
-        # wideband stream and sends its candidates to the probes port of the TCH_C demodulator.
+        # TCH_C: the prober probes the TDMA slots of the satellites, timed by their ring
+        # alerts. It reads the wideband stream and sends its candidates to the TCH_C
+        # demodulator. Only with TCH_C: a message block without inputs never terminates.
+        self._tch_c_demod = None
         self._tch_c_slot_prober = None
-        if self._tch_c_types and self._tch_c_probe:
+        if self._tch_c_types:
+            self._tch_c_demod = iridium.tch_c_demod()
             self._tch_c_slot_prober = iridium.tch_c_slot_prober(center_frequency=self._center_frequency,
                                                                 sample_rate=self._input_sample_rate,
                                                                 types=self._tch_c_types,
@@ -635,7 +572,6 @@ class FlowGraph(gr.top_block):
         if self._use_channelizer:
             self._burst_to_pdu_converters = []
             self._burst_downmixers = []
-            self._burst_downmixers_tch_c = []
             sinks = []
 
             for channel in range(self._channels):
@@ -652,13 +588,10 @@ class FlowGraph(gr.top_block):
                                                                          relative_sample_rate,
                                                                          -self._channelizer_delay,
                                                                          self._max_queue_len,
-                                                                         not self._offline,
-                                                                         n_downmixers)
+                                                                         not self._offline)
                     self._burst_to_pdu_converters.append(burst_to_pdu_converter)
 
-                downmixers = make_downmixers()
-                self._burst_downmixers.append(downmixers[0])
-                self._burst_downmixers_tch_c.append(downmixers[1:])
+                self._burst_downmixers.append(make_downmixer())
 
             channelizer_debug_sinks = []
             #channelizer_debug_sinks = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
@@ -671,8 +604,7 @@ class FlowGraph(gr.top_block):
 
                 activate_streams = len(channelizer_debug_sinks) > 0
                 self._channelizer = iridium.fft_channelizer(1024, self._channels - 1, activate_streams, self._n_burst_downmixers, self._max_burst_len,
-                                                            self._max_queue_len * self._n_burst_downmixers, not self._offline,
-                                                            n_downmixers)
+                                                            self._max_queue_len * self._n_burst_downmixers, not self._offline)
             else:
                 self._channelizer = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._channelizer_over_sample_ratio)
 
@@ -683,8 +615,7 @@ class FlowGraph(gr.top_block):
                     tb.connect((self._channelizer, i), channelizer_debug_sinks[i])
 
             for i in range(self._n_burst_downmixers):
-                downmixers = [self._burst_downmixers[i]] + self._burst_downmixers_tch_c[i]
-                assert len(downmixers) == n_downmixers
+                d = self._burst_downmixers[i]
                 if self._burst_to_pdu_converters:
                     tb.connect((self._channelizer, i), self._burst_to_pdu_converters[i])
                     source = self._burst_to_pdu_converters[i]
@@ -692,37 +623,29 @@ class FlowGraph(gr.top_block):
                 else:
                     source = self._channelizer
                     source_port = 'cpdus%d' % i
-                for j, d in enumerate(downmixers):
-                    tb.msg_connect((source, source_port), (d, 'cpdus'))
-                    tb.msg_connect((d, 'burst_handled'), (source, 'burst_handled'))
-                    demod = self._iridium_qpsk_demod if j == 0 else self._tch_c_demod
-                    tb.msg_connect((d, 'cpdus'), (demod, 'cpdus%d' % i))
-                # Bursts count as handled once the demodulators have handled their frames
-                for demod in [self._iridium_qpsk_demod] + ([self._tch_c_demod] if self._tch_c_demod else []):
-                    tb.msg_connect((demod, 'frame_handled%d' % i), (source, 'frame_handled'))
+                tb.msg_connect((source, source_port), (d, 'cpdus'))
+                tb.msg_connect((d, 'burst_handled'), (source, 'burst_handled'))
+                tb.msg_connect((d, 'cpdus'), (self._iridium_qpsk_demod, 'cpdus%d' % i))
+                # Bursts count as handled once the demodulator has handled their frames
+                tb.msg_connect((self._iridium_qpsk_demod, 'frame_handled%d' % i), (source, 'frame_handled'))
         else:
-            downmixers = make_downmixers()
+            d = make_downmixer()
 
             burst_to_pdu = iridium.tagged_burst_to_pdu(self._max_burst_len,
                                                        0.0, 1.0, 1.0,
                                                        0,
-                                                       self._max_queue_len, not self._offline,
-                                                       n_downmixers)
+                                                       self._max_queue_len, not self._offline)
 
             tb.connect(self._fft_burst_tagger, burst_to_pdu)
 
-            for j, d in enumerate(downmixers):
-                tb.msg_connect((burst_to_pdu, 'cpdus'), (d, 'cpdus'))
-                tb.msg_connect((d, 'burst_handled'), (burst_to_pdu, 'burst_handled'))
-                # Final connection to the demodulator. It prints the output to stdout
-                demod = self._iridium_qpsk_demod if j == 0 else self._tch_c_demod
-                tb.msg_connect((d, 'cpdus'), (demod, 'cpdus'))
-            # Bursts count as handled once the demodulators have handled their frames
-            for demod in [self._iridium_qpsk_demod] + ([self._tch_c_demod] if self._tch_c_demod else []):
-                tb.msg_connect((demod, 'frame_handled'), (burst_to_pdu, 'frame_handled'))
+            tb.msg_connect((burst_to_pdu, 'cpdus'), (d, 'cpdus'))
+            tb.msg_connect((d, 'burst_handled'), (burst_to_pdu, 'burst_handled'))
+            # Final connection to the demodulator. It prints the output to stdout
+            tb.msg_connect((d, 'cpdus'), (self._iridium_qpsk_demod, 'cpdus'))
+            # Bursts count as handled once the demodulator has handled their frames
+            tb.msg_connect((self._iridium_qpsk_demod, 'frame_handled'), (burst_to_pdu, 'frame_handled'))
 
-            self._burst_downmixers = [downmixers[0]]
-            self._burst_downmixers_tch_c = [downmixers[1:]]
+            self._burst_downmixers = [d]
             self._burst_to_pdu_converters = [burst_to_pdu]
 
         tb.msg_connect((self._iridium_qpsk_demod, 'pdus'), (self._frame_sorter, 'pdus'))
@@ -732,19 +655,17 @@ class FlowGraph(gr.top_block):
 
         if self._tch_c_slot_prober:
             prober = self._tch_c_slot_prober
-            # Ring alerts from the legacy frames, TCH_C frames of both paths
+            # Ring alerts from the legacy frames, the TCH_C frames found
             tb.msg_connect((self._iridium_qpsk_demod, 'pdus'), (prober, 'frames'))
             tb.msg_connect((self._tch_c_demod, 'pdus'), (prober, 'hits'))
             tb.msg_connect((prober, 'cpdus'), (self._tch_c_demod, 'probes'))
             tb.msg_connect((self._tch_c_demod, 'probe_handled'), (prober, 'frame_handled'))
 
         # Blocks fed by several message connections must only finish once all of them are
-        # done (one set of downmixers per connected channel).
+        # done (one downmixer per connected channel).
         n_sets = self._n_burst_downmixers if self._use_channelizer else 1
         self._iridium_qpsk_demod.set_upstream_count(n_sets)
         if self._tch_c_demod:
-            self._tch_c_demod.set_upstream_count(n_sets * len(self._tch_c_downmix_types) +
-                                                 (1 if self._tch_c_slot_prober else 0))
             self._frame_sorter.set_upstream_count(2)
 
     def get_n_detected_bursts(self):
@@ -787,7 +708,7 @@ class FlowGraph(gr.top_block):
                 dropped += converter.get_n_dropped_bursts()
         else:
             dropped += self._channelizer.get_n_dropped_bursts()
-        for downmix in self._burst_downmixers + [d for ds in self._burst_downmixers_tch_c for d in ds]:
+        for downmix in self._burst_downmixers:
             dropped += downmix.get_n_dropped_bursts()
         if self._tch_c_slot_prober:
             dropped += self._tch_c_slot_prober.get_n_dropped_probes()

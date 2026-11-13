@@ -37,8 +37,6 @@ void bind_tch_c_demod(py::module& m)
         std::shared_ptr<tch_c_demod>>(m, "tch_c_demod", D(tch_c_demod))
 
         .def(py::init(&tch_c_demod::make),
-           py::arg("n_channels"),
-           py::arg("probe_port") = false,
            D(tch_c_demod,make)
         )
         

@@ -44,7 +44,6 @@ void bind_fft_channelizer(py::module& m)
            py::arg("max_burst_size"),
            py::arg("outstanding_limit"),
            py::arg("drop_overflow"),
-           py::arg("acks_per_burst") = 1,
            D(fft_channelizer,make)
         )
         

@@ -44,7 +44,6 @@ void bind_burst_downmix(py::module& m)
            py::arg("start_finder_taps"),
            py::arg("handle_multiple_frames_per_burst"),
            py::arg("wait_for_demod") = false,
-           py::arg("tch_c_type") = 0,
            D(burst_downmix,make)
         )
         
