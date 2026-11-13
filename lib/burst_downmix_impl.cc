@@ -580,6 +580,19 @@ void burst_downmix_impl::shift_input(size_t n)
     }
 }
 
+// Shift the input by `shift` cycles per input sample before the input filter, and
+// filter again: d_frame and d_coarse start over.
+void burst_downmix_impl::set_input_shift(float shift)
+{
+    d_input_shift = shift;
+    d_input_r.set_phase_incr(exp(gr_complex(0, 2 * M_PI * d_input_shift)));
+    d_input_r.set_phase(gr_complex(1, 0));
+    d_input_valid = 0;
+    d_frame_valid = 0;
+    d_coarse_valid = 0;
+    d_next_valid = false;
+}
+
 // Make the samples [from, to) of d_frame valid. Samples before from are not asked for
 // again.
 void burst_downmix_impl::filter_input(size_t from, size_t to)
@@ -926,7 +939,9 @@ void burst_downmix_impl::scan_next_uw_coarse(size_t burst_size,
  * Looks as far as the sync word search of TCH_C1 does in time; the result is the best
  * position if its normalized correlation reaches DIFF_UW_MIN_CORRELATION.
  */
-int burst_downmix_impl::find_uw_differential(size_t burst_size, int from)
+int burst_downmix_impl::find_uw_differential(size_t burst_size,
+                                             int from,
+                                             std::vector<uw_candidate>* candidates)
 {
     const double sps = d_samples_per_symbol;
     const int T = std::lround(sps);
@@ -934,7 +949,10 @@ int burst_downmix_impl::find_uw_differential(size_t burst_size, int from)
     const int span = std::lround(n_taps * sps) + T + 1;
     const int window =
         (::iridium::PREAMBLE_LENGTH_LONG + TCH_C_UW_LENGTH + 8) * sps * d_tch_c->type;
-    const int n_pos = std::min(window, (int)burst_size - from - span);
+    // With candidates (a window on a tracked channel): anywhere a whole frame fits
+    const int frame_length = std::ceil(d_tch_c->n_symbols * d_samples_per_symbol);
+    const int n_pos = candidates ? (int)burst_size - from - std::max(frame_length, span)
+                                 : std::min(window, (int)burst_size - from - span);
     if (n_pos <= 0) {
         return -1;
     }
@@ -981,6 +999,35 @@ int burst_downmix_impl::find_uw_differential(size_t burst_size, int from)
     const float* m_dl = (const float*)&d_diff_dl[0];
     const float* m_ul = (const float*)&d_diff_ul[0];
 
+    if (candidates) {
+        // The TRACK_CANDIDATES best places, at least a UW length apart, with the
+        // frequency offset there (the phase of the correlation per T samples)
+        candidates->clear();
+        std::vector<float> metric(n_pos, 0.f);
+        for (int n = 0; n < n_pos; n++) {
+            const float a2 = d_diff_sum[n] * d_diff_sum[n];
+            if (a2 > 0) {
+                metric[n] = std::sqrt(std::max(m_dl[n], m_ul[n]) / a2);
+            }
+        }
+        const int sep = std::lround(TCH_C_UW_LENGTH * sps);
+        for (int c = 0; c < TRACK_CANDIDATES; c++) {
+            const int n = std::max_element(metric.begin(), metric.end()) - metric.begin();
+            if (metric[n] < DIFF_UW_MIN_CORRELATION) {
+                break;
+            }
+            const int* uw = m_ul[n] > m_dl[n] ? TCH_C_UW_UL : TCH_C_UW_DL;
+            gr_complex corr = 0;
+            for (int k = 0; k < n_taps; k++) {
+                corr += (uw[k] == uw[k + 1] ? 1.f : -1.f) * d_diff[n + pos[k]];
+            }
+            candidates->push_back({ from + n, std::arg(corr) / (2 * (float)M_PI * T) });
+            std::fill(metric.begin() + std::max(n - sep, 0),
+                      metric.begin() + std::min(n + sep + 1, n_pos),
+                      0.f);
+        }
+    }
+
     float best = 0;
     int best_n = -1;
     for (int n = 0; n < n_pos; n++) {
@@ -1004,8 +1051,11 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
                                            float noise,
                                            float magnitude)
 {
+    // The input filter may have been moved for this frame, see handler()
+    center_frequency += d_center_shift;
+
     // Windows opened by the burst tagger on a tracked channel: the burst can be anywhere
-    if (d_tracked) {
+    if (d_tracked && !d_fixed_start) {
         int uw = find_uw_coarse(burst_size);
         if (uw < 0) {
             return 0;
@@ -1046,7 +1096,7 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
 
     // TCH_C: the squared FFT CFO estimate below needs the samples to start with the UW,
     // the start of the detection is often well before it
-    if (d_tch_c && !d_tracked) {
+    if (d_tch_c && !d_tracked && !d_fixed_start) {
         const int uw = find_uw_differential(burst_size, start);
         if (uw >= 0) {
             start = std::max(uw - d_pre_start_samples, start);
@@ -1246,7 +1296,7 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
      * TCH_C1: for TCH_C2 and TCH_C8 the scan once per detection finds much less than
      * searching it window by window, which costs a lot of CPU time there.
      */
-    const bool look_ahead = d_tch_c && d_tch_c->type == 1;
+    const bool look_ahead = d_tch_c && d_tch_c->type == 1 && !d_fixed_start;
     auto continue_after = [&](int offset) {
         const int uw = find_next_uw_coarse(burst_size, start + offset, center_offset);
         return uw < 0 ? 0 : std::max(uw - d_pre_start_samples - start, 1);
@@ -1541,7 +1591,9 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     /*
      * Shift the center frequency of the burst to the provided rough CFO estimate.
      */
-    float phase_inc = 2 * M_PI * -relative_frequency;
+    d_input_shift = -relative_frequency;
+    d_center_shift = 0;
+    float phase_inc = 2 * M_PI * d_input_shift;
     d_input_r.set_phase_incr(exp(gr_complex(0, phase_inc)));
     d_input_r.set_phase(gr_complex(1, 0));
     center_frequency += relative_frequency * sample_rate;
@@ -1620,6 +1672,39 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
                 sub_id++;
             }
         } while (d_handle_multiple_frames_per_burst && handled_samples > 0);
+    } else if (d_tracked && d_tch_c && d_tch_c->type != 1) {
+        /*
+         * A window on a tracked TCH_C2/C8 channel. The frequency of a wide burst is only
+         * known to tens of kHz, which find_uw_coarse() does not cover, and a stronger
+         * burst on another channel nearby in time often shows in the window as well
+         * (the differential search does not see its frequency). Try the best places of
+         * the differential UW search, each with the input filter centered on the
+         * frequency found there. A stronger burst decoded this way is a duplicate of
+         * its own detection and dropped by the frame sorter.
+         */
+        std::vector<uw_candidate> candidates;
+        find_uw_differential(burst_size, 0, &candidates);
+        const float shift = d_input_shift;
+        int sub_id = id;
+        for (const auto& c : candidates) {
+            const int n_frames = d_n_frames;
+            set_input_shift(shift - c.freq / d_decimation);
+            d_center_shift = c.freq * sample_rate;
+            d_fixed_start = true;
+            process_next_frame(sample_rate,
+                               center_frequency,
+                               timestamp,
+                               sub_id,
+                               burst_size,
+                               std::max(c.start - d_pre_start_samples, 0),
+                               noise,
+                               magnitude);
+            d_fixed_start = false;
+            if (d_n_frames != n_frames) {
+                sub_id++;
+            }
+        }
+        d_center_shift = 0;
     } else {
         process_next_frame(sample_rate,
                            center_frequency,

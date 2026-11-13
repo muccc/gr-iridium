@@ -148,7 +148,19 @@ private:
     std::vector<gr_complex> d_diff_ul;
     std::vector<float> d_diff_abs;
     std::vector<float> d_diff_sum;
-    int find_uw_differential(size_t burst_size, int from);
+    struct uw_candidate {
+        int start;  // d_frame index of the UW start
+        float freq; // frequency offset there, cycles per sample of d_frame
+    };
+    // Places tried in a window on a tracked TCH_C2/C8 channel
+    static constexpr int TRACK_CANDIDATES = 3;
+    int find_uw_differential(size_t burst_size,
+                             int from,
+                             std::vector<uw_candidate>* candidates = nullptr);
+    float d_input_shift = 0;    // shift of the input, cycles per input sample
+    double d_center_shift = 0;  // Hz the input filter was moved by for this frame
+    bool d_fixed_start = false; // process_next_frame(): start is at a UW found already
+    void set_input_shift(float shift);
 
     bool d_wait_for_demod;
     uint64_t d_burst_id; // the burst being handled
