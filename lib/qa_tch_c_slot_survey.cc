@@ -515,3 +515,91 @@ BOOST_AUTO_TEST_CASE(test_tch_c_slot_survey_extract_exact)
         }
     }
 }
+
+BOOST_AUTO_TEST_CASE(test_tch_c_slot_survey_channel_search)
+{
+    // Uplink bursts somewhere within +-0.35 ms and 0..5.5 kHz above the predicted
+    // carrier: search_channel() finds them, fine_timing() refines the time, the extracted
+    // symbols decode. Noise only: no lag reaches 0.45.
+    for (double fs : { 12e6, 10e6 }) {
+        tch_c_slot_survey s(fs, CENTER);
+        const tch_c_format& f = TCH_C1;
+        const double sps = s.samples_per_symbol(1);
+        const int len = s.window_capacity();
+        std::mt19937 rng(7);
+        gauss g(11);
+        const double a = 0.01;
+        const double sigma = a * std::sqrt(sps / std::pow(10, 9 / 10.0)); // Es/N0 9 dB
+        const double S = 350e-6 * fs;
+        for (int trial = 0; trial < 6; trial++) {
+            const int position = 30 + 37 * trial;
+            const double f_pred = tch_c_slot_survey::nominal_frequency(1, position);
+            const double p_nom = S + 8 * sps + 3.3;
+            const double p_uw = p_nom + ((int)(rng() % 2001) - 1000) / 1000.0 * S;
+            const double freq = f_pred + (rng() % 5500);
+            std::vector<gr_complex> x((size_t)(p_uw + (f.n_symbols + 8) * sps), 0);
+            std::vector<uint8_t> payload;
+            const std::vector<gr_complex> sym = burst_symbols(f, true, rng(), &payload);
+            add_burst(x, fs, sym, sps, p_uw, freq, a, (rng() % 6283) / 1000.0);
+            for (auto& v : x) {
+                v += (float)sigma * g();
+            }
+            BOOST_TEST_CONTEXT("fs " << fs << " trial " << trial)
+            {
+                s.set_window(&x[0], len);
+                tch_c_slot_survey::channel_candidate cc;
+                BOOST_REQUIRE(s.search_channel(
+                    1, true, f_pred + 2750, 3750, p_nom - S, p_nom + S, 0.45, &cc));
+                // Good to half an output sample of ~3 per symbol
+                BOOST_CHECK(std::fabs(cc.p_uw - p_uw) < 0.2 * sps);
+                BOOST_CHECK(std::fabs(cc.frequency - freq) < 300);
+                BOOST_CHECK(cc.rho2 > 0.7);
+
+                tch_c_slot_survey::candidate c;
+                c.estimated_frequency = cc.frequency;
+                c.energy = 0;
+                const long i0 = std::lround(cc.p_uw) - s.uw_offset(1);
+                const double p =
+                    i0 + s.uw_offset(1) + s.fine_timing(&x[i0], 1, true, c, nullptr);
+                BOOST_TEST_MESSAGE("channel search fs "
+                                   << fs << " trial " << trial << ": rho2 " << cc.rho2
+                                   << ", error " << (cc.p_uw - p_uw) / sps
+                                   << " symbols, fine " << (p - p_uw) / sps << ", df "
+                                   << cc.frequency - freq << " Hz");
+                // fine_timing() at 9 dB: ~0.03 symbol std
+                BOOST_CHECK(std::fabs(p - p_uw) < 0.08 * sps);
+                std::vector<gr_complex> y(f.n_symbols + 1);
+                s.extract(&x[0], p, 1, cc.frequency, true, &y[0]);
+                std::vector<uint8_t> msg;
+                float residual;
+                BOOST_CHECK(decode(f, &y[0], true, msg, &residual));
+                BOOST_CHECK(std::equal(payload.begin(), payload.end(), msg.begin()));
+            }
+        }
+
+        // Noise only
+        std::vector<gr_complex> x(len);
+        float max_rho2 = 0;
+        for (int trial = 0; trial < 20; trial++) {
+            for (auto& v : x) {
+                v = (float)sigma * g();
+            }
+            s.set_window(&x[0], len);
+            for (int position = 20; position < 220; position += 20) {
+                tch_c_slot_survey::channel_candidate cc;
+                if (s.search_channel(1,
+                                     true,
+                                     tch_c_slot_survey::nominal_frequency(1, position),
+                                     3750,
+                                     S + 8 * sps - S,
+                                     S + 8 * sps + S,
+                                     0,
+                                     &cc)) {
+                    max_rho2 = std::max(max_rho2, cc.rho2);
+                }
+            }
+        }
+        BOOST_TEST_MESSAGE("channel search, noise only: max rho2 " << max_rho2);
+        BOOST_CHECK(max_rho2 < 0.45);
+    }
+}

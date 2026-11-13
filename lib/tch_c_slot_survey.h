@@ -79,6 +79,9 @@ public:
     // Matched filter of extract(): +-2.5 symbols, like the 51 taps of burst_downmix at
     // 10 samples per symbol
     static constexpr double EXTRACT_SPAN = 2.5;
+    // Windows of the channel search: at least this long, and a long one
+    static constexpr double CHANNEL_WINDOW_S = 2.5e-3;
+    static constexpr double CHANNEL_WINDOW_LONG_S = 5e-3;
 
     struct candidate {
         int position;               // raster index: TCH_C1 c, TCH_C2 j, TCH_C8 m
@@ -164,6 +167,44 @@ public:
         const gr_complex* seg, int type, bool uplink, const candidate& c, float* rho2);
 
     /*
+     * Search of the UW of one type on single channels over a range of times, for bursts
+     * whose time is known only to a fraction of a ms (uplink). set_window() takes the
+     * FFT of x[0, len) once (len <= window_capacity(true), zero padded; the shorter
+     * FFT if len <= window_capacity()), then
+     * search_channel() per channel: matched filter in the frequency domain around f_hz,
+     * IFFT to ~3 samples per symbol, and per output sample (lag) the UW correlation over
+     * a frequency search of +-search_hz (zero padded DFT over the 32 UW symbols).
+     * Returns false if no lag with p in [p_first, p_last] (sample indices of x, centre
+     * of UW symbol 0) reaches threshold; else the best one in out. Its p_uw is good to
+     * half an output sample (~0.16 symbol): refine it with fine_timing() on
+     * seg = x + lround(p_uw) - uw_offset(type) (candidate: estimated_frequency = the
+     * found frequency, energy = 0). The edges of the window (6 symbols of the matched
+     * filter, and the UW length after p_last) are not searched.
+     *
+     * rho2 here: |sum_k y_k s_k*|^2 / (32 sum_k |y_k|^2) over the matched filter
+     * outputs y_k at the UW symbols s_k, 1 for a clean UW, ~1/32 per cell for noise.
+     * A search of +-0.35 ms and +-3.5 kHz has ~4,000 cells: noise reaches ~0.3.
+     */
+    struct channel_candidate {
+        double p_uw;      // sample index of x (fractional)
+        double frequency; // Hz, absolute
+        float rho2;
+        float magnitude; // dB, mean power at the UW symbols over the noise: (S + N) / N
+    };
+    int window_capacity(bool long_window = false) const { return d_nw[long_window]; }
+    void set_window(const gr_complex* x, int len);
+    // Noise floor of the last set_window() in dBFS/Hz, like noise()
+    float window_noise() const { return d_window_noise_db; }
+    bool search_channel(int type,
+                        bool uplink,
+                        double f_hz,
+                        double search_hz,
+                        double p_first,
+                        double p_last,
+                        float threshold,
+                        channel_candidate* out);
+
+    /*
      * The samples extract() reads: x[first, end) with p_uw relative to x.
      */
     void extract_span(int type, double p_uw, long* first, long* end) const;
@@ -230,6 +271,18 @@ private:
     type_tables d_t[3];
     float d_noise_db;
     std::vector<float> d_noise_tmp;
+
+    // Channel search: window FFT, IFFT per channel, DFT over the UW symbols
+    static const int CS_DFT = 128;
+    int d_nw[2];
+    int d_wi; // window of the last set_window()
+    int d_window_len;
+    float d_window_noise; // mean noise power per bin of the window FFT
+    float d_window_noise_db;
+    std::unique_ptr<gr::fft::fft_complex_fwd> d_fft_w[2];
+    std::unique_ptr<gr::fft::fft_complex_rev> d_ifft_ch[2][3];
+    std::unique_ptr<gr::fft::fft_complex_fwd> d_fft_uw;
+    std::vector<float> d_g; // matched filter spectrum, scratch
 
     type_tables& t(int type) { return d_t[type == 8 ? 2 : type == 2 ? 1 : 0]; }
     const type_tables& t(int type) const

@@ -143,9 +143,12 @@ if __name__ == "__main__":
     parser.add_argument('--tch-c-history', dest='tch_c_history', type=float, default=0.75,
                         help='Seconds of samples kept to probe the past TDMA slots of a satellite '
                         'once it is found. Default: 0.75 s.')
-    parser.add_argument('--tch-c-probe-threshold', dest='tch_c_probe_threshold', type=float, default=0.35,
+    parser.add_argument('--tch-c-probe-threshold', dest='tch_c_probe_threshold', type=float, default=0,
                         help='Minimum normalized UW correlation (0..1) of a probed TCH_C burst. '
-                        'Default: 0.35.')
+                        'Default: 0.6 for TCH_C1, 0.55 for TCH_C2 and TCH_C8.')
+    parser.add_argument('--no-tch-c-uplink', dest='tch_c_uplink', action='store_false',
+                        help='Do not probe the TCH_C1 uplink slots of the channels with downlink '
+                        'traffic.')
     parser.add_argument('--wideband-db', dest='wideband_threshold', type=float,
                         help='Threshold in dB for the additional detection of bursts with a flat '
                         'spectrum (TCH_C), averaged over --wideband-width. 0 disables it. '
@@ -463,7 +466,8 @@ if __name__ == "__main__":
                                                        tch_c=tch_c,
                                                        tch_c_detect=args.tch_c_detect,
                                                        tch_c_history=args.tch_c_history,
-                                                       tch_c_probe_threshold=args.tch_c_probe_threshold)
+                                                       tch_c_probe_threshold=args.tch_c_probe_threshold,
+                                                       tch_c_uplink=args.tch_c_uplink)
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))
     statistics_thread.daemon = True

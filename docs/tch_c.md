@@ -83,6 +83,50 @@ protects all codewords of a burst.
   TCH_C paths in step, so the sorter's 2 s window still catches all duplicates; live, the
   queue limit drops bursts when the demodulators fall behind.
 
+## Slot probing
+
+The energy detection misses weak bursts, and a call shows up as a run of frames with gaps.
+`tch_c_slot_prober` looks for TCH_C bursts where the TDMA timing says they can be instead
+(`--tch-c-detect probe`, or `both` with the energy path):
+
+- **Timing.** The ring alerts (legacy downlink frames on the simplex ring channel) give the
+  90 ms frame phase and the Doppler of every satellite in view, one track per satellite
+  (`lib/tch_c_frame_timing.h`). From a track the first UW symbol of every downlink slot and
+  its carrier are known to about 1 µs and 10 Hz.
+- **Survey.** In every downlink slot of every track, one FFT of the slot times the UW
+  correlates all raster positions of a type at once (`lib/tch_c_slot_survey.h`). Positions
+  whose normalized UW correlation (rho2, 1 for a clean UW) reaches the threshold (TCH_C1
+  0.6, TCH_C2 and C8 0.55) are cut out at one sample per symbol and go to `tch_c_demod`.
+- **History.** The prober keeps `--tch-c-history` seconds of samples and probes a slot only
+  after that delay, so a satellite found by its first ring alert is probed back to the start
+  of the buffer, and the slot times are interpolated between ring alerts.
+- **Uplink** (TCH_C1). Seen from a receiver near the terminal, the UL slots are at
+  (t + phase(t)) mod 90 ms = W0 + 8.407 ms × slot, phase being the downlink frame phase of
+  the satellite. W0 is twice the frame epoch in the stream's time base, the same for all
+  satellites, so it is learned from the UL frames: until the first one, a sweep searches all
+  of the frame on the channels with downlink traffic. Then each UL slot is searched on the
+  channels whose downlink slot of the same number carried a frame (a terminal's UL burst is
+  on its DL channel), ±0.35 ms and −1…+6.5 kHz around the carrier with the Doppler
+  removed, and once a link is found ±50 µs around its last frame. `--no-tch-c-uplink`
+  turns this off.
+
+On `sat-147` (12 MS/s, 279 s, `-D 8`), distinct frames with a valid CRC:
+
+| | Energy path only (before the prober) | `probe` | `both` |
+| --- | --- | --- | --- |
+| TCH_C1 DL | 30,766 | 38,530 | 38,689 |
+| TCH_C2 / C8 QPSK / C8 16APSK DL | 207 / 307 / 228 | 451 / 488 / 260 | 456 / 513 / 266 |
+| TCH_C1 UL | 274 | 283 | 297 |
+| CPU (user) | 1,192 s | 510 s | 1,272 s |
+
+`probe` alone finds 99.5% of what `both` finds at 40% of the CPU time; it misses bursts of
+satellites before their first ring alert and some bursts the energy path happens to
+decode. Among the slots inside active TCH_C1 downlink links still without a frame, 76% have
+no UW at all (rho2 < 0.1; idle links send only every 4th frame or so); 7% have a UW at the
+CRC limit (rho2 0.6–0.8, ~4 dB Es/N0). The UL bursts on that recording are all strong
+(rho2 0.8–1) and the UL slots between them empty. A control run with all probe times
+shifted into the bursts (`IRIDIUM_PROBE_OFFSET_US=4190`) gives no frame.
+
 ## Output
 
 With `--tch-c`, every TCH_C burst that passes the CRC gives one line. Its fields are
@@ -111,9 +155,13 @@ so expect occasional lines with a wrong payload from weak bursts.
 | --- | --- | --- |
 | `--tch-c` | off | Enable TCH_C reception |
 | `--tch-c-types` | `1,2,8` | TCH_C types to look for |
-| `--wideband-db` | 6 with `--tch-c`, else 0 | Threshold of the wideband detection, 0 disables it |
+| `--wideband-db` | 6 with `--tch-c` (not with `--tch-c-detect probe`), else 0 | Threshold of the wideband detection, 0 disables it |
 | `--wideband-width` | 30000 | Bandwidth in Hz averaged by the wideband detection |
-| `--track-frames` | 4 with `--tch-c`, else 0 | TDMA frames to look at after a TCH_C like burst, 0 disables tracking |
+| `--track-frames` | 4 with `--tch-c` (not with `--tch-c-detect probe`), else 0 | TDMA frames to look at after a TCH_C like burst, 0 disables tracking |
+| `--tch-c-detect` | `both` | `energy` (burst detection and TCH_C downmixers), `probe` (slot probing) or `both` |
+| `--tch-c-history` | 0.75 | Seconds of samples the prober keeps |
+| `--tch-c-probe-threshold` | 0 (per type) | Minimum rho2 of a probed downlink burst |
+| `--no-tch-c-uplink` | | Do not probe TCH_C1 uplink slots |
 
 ## Cost and limitations
 

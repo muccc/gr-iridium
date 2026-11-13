@@ -30,7 +30,8 @@ class FlowGraph(gr.top_block):
                  burst_width=40e3, offline=False, max_queue_len=500, handle_multiple_frames_per_burst=False,
                  raw_capture_filename=None, debug_id=None, max_bursts=0, verbose=False, file_info="",
                  samples_per_symbol=10, config={}, wideband_threshold=0, wideband_width=30000, track_frames=0, tch_c=(),
-                 tch_c_detect='both', tch_c_history=0.75, tch_c_probe_threshold=0.35):
+                 tch_c_detect='both', tch_c_history=0.75, tch_c_probe_threshold=0,
+                 tch_c_uplink=True):
         gr.top_block.__init__(self, "Top Block")
         self.handle_sigint = False
         self._center_frequency = center_frequency
@@ -608,7 +609,8 @@ class FlowGraph(gr.top_block):
                                                                 history_s=tch_c_history,
                                                                 threshold=tch_c_probe_threshold,
                                                                 outstanding_limit=self._max_queue_len,
-                                                                drop_overflow=not self._offline)
+                                                                drop_overflow=not self._offline,
+                                                                uplink=tch_c_uplink)
         self._frame_sorter = iridium.frame_sorter()
         self._iridium_frame_printer = iridium.iridium_frame_printer(file_info)
 

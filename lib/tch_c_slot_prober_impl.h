@@ -14,6 +14,7 @@
 #include <deque>
 #include <map>
 #include <set>
+#include <tuple>
 #include <vector>
 
 namespace gr {
@@ -34,7 +35,8 @@ struct tch_c_probe_info {
     int track; // -1: none
     int position;
     int slot;
-    bool acked; // tch_c_demod has handled it
+    bool uplink; // probe of an uplink slot
+    bool acked;  // tch_c_demod has handled it
 };
 
 // A TCH_C frame from tch_c_demod: one of our probes or from the energy path
@@ -61,7 +63,7 @@ private:
     const double d_sample_rate;
     const std::vector<int> d_types;
     const float d_history_s;
-    const float d_threshold;
+    const float d_threshold[3]; // per type index
     const int d_outstanding_limit;
     const bool d_drop_overflow;
     const bool d_uplink;
@@ -103,6 +105,75 @@ private:
         bool valid;
     };
     std::map<int, std::vector<cursor>> d_cursors;
+    /*
+     * Uplink (TCH_C1). A UL slot is searched on the channels whose DL slot of the same
+     * number carried a frame recently (the UL burst of a terminal is on its DL
+     * channel), widely until a UL frame was found there, then around it. The UL slots
+     * lie at v = W0 + UL_SLOT_MS * slot (see tch_c_frame_timing.h), W0 is learned from
+     * the UL frames; until then a sweep searches all of the frame on the channels with
+     * DL frames (acquisition). All of it lags the DL slots by UL_DELAY_S, so the DL
+     * frames of the frames before are known.
+     */
+    const bool d_probe_uplink;
+    struct ul_link {
+        int64_t last_dl_ns;
+        int64_t last_ul_ns;
+        double v_ms;        // v of the newest UL frame
+        double f_offset_hz; // its carrier minus nominal * (1 - Doppler / F_RING)
+    };
+    std::map<std::tuple<int, int, int>, ul_link> d_ul_links; // (track, slot, position)
+    struct ul_cursor {
+        cursor c;
+        int64_t last_ns; // nominal time of the last UL slot probed
+        double w0;       // W0 the cursor was set up with
+    };
+    std::map<int, ul_cursor> d_ul_cursors;
+    std::deque<std::pair<int64_t, double>> d_ul_w; // (t, W0) of the recent UL frames
+    bool d_ul_w_valid;
+    double d_ul_w0;
+    struct ul_sweep {
+        int64_t frame; // next frame to search
+        int window;    // window within the frame
+        double v;      // start of the next window of v, ms
+        uint64_t n;    // windows swept
+        bool valid;
+    };
+    std::map<int, ul_sweep> d_ul_sweeps;
+    uint64_t d_n_ul_sweep_frames;
+    void probe_ul_sweep(const tch_c_sat_track& tr,
+                        uint64_t ul_limit,
+                        uint64_t begin,
+                        int64_t begin_ns);
+
+    void ul_link_dl(int track, int slot, int position, int64_t t_ns);
+    void probe_ul_slots(const tch_c_sat_track& tr,
+                        uint64_t ul_limit,
+                        uint64_t begin,
+                        int64_t begin_ns);
+    void
+    probe_ul_slot(const tch_c_sat_track& track, int64_t frame, int slot, int64_t t_ns);
+    void ul_slot_window(double p, double s, int64_t* first, int64_t* end) const;
+    uint64_t ul_search(const gr_complex* x,
+                       int64_t first,
+                       const tch_c_sat_track& track,
+                       int slot,
+                       int position,
+                       double p_c,
+                       double s,
+                       double f_c,
+                       double f_s,
+                       tch_c_slot_survey::channel_candidate* cc,
+                       double* p_found);
+    bool ul_match(int64_t t_ns,
+                  double f_hz,
+                  double tol_hz,
+                  int* track,
+                  int* position,
+                  int* slot) const;
+    uint64_t d_n_ul_slots;
+    uint64_t d_n_ul_searches;
+    uint64_t d_n_ul_probes;
+    uint64_t d_n_ul_crc_ok;
 
     // Slots probed recently, so no satellite is probed twice in a slot even while two
     // tracks of it exist
@@ -139,11 +210,12 @@ private:
     // Delay of the ring alerts behind the input: sum and maximum in s
     double d_ira_delay_sum;
     double d_ira_delay_max;
-    double d_cpu[3]; // s: survey, fine timing and extraction, all of work()
+    double d_cpu[4]; // s: survey, fine timing and extraction, all of work(), uplink
 
     // Hooks for the track table
     void on_ira(uint64_t t_ns, double f_hz);
     void on_hit(const tch_c_hit& hit);
+    void on_ul_hit(const tch_c_hit& hit);
 
     void handle_frame(const pmt::pmt_t& msg);
     void handle_hit(const pmt::pmt_t& msg);
@@ -159,7 +231,7 @@ private:
     // Samples [first, end) a probe of a slot of the type at p_uw may read
     void slot_window(int type, double p_uw, int64_t* first, int64_t* end) const;
     // Probe every slot whose window starts before limit and lies in the buffer
-    void probe_slots(uint64_t limit);
+    void probe_slots(uint64_t limit, uint64_t ul_limit);
     void probe_slot(
         const tch_c_sat_track& track, int type, int64_t frame, int slot, int64_t t_ns);
     bool already_probed(int type, int64_t t_ns, double doppler_hz) const;
@@ -203,7 +275,8 @@ public:
                            float rho2,
                            int track = -1,
                            int position = -1,
-                           int slot = -1);
+                           int slot = -1,
+                           bool uplink = false);
 
     uint64_t get_n_probes() override { return d_n_probes; }
     uint64_t get_n_dropped_probes() override { return d_n_dropped; }

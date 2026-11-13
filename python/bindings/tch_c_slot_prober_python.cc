@@ -39,7 +39,7 @@ void bind_tch_c_slot_prober(py::module& m)
            py::arg("sample_rate"),
            py::arg("types"),
            py::arg("history_s") = 0.75,
-           py::arg("threshold") = 0.35,
+           py::arg("threshold") = 0,
            py::arg("outstanding_limit") = 500,
            py::arg("drop_overflow") = false,
            py::arg("uplink") = false,

@@ -51,6 +51,17 @@ inline double offset_ms(int type)
     return offset[type_index(type)];
 }
 
+/*
+ * Uplink slots as received near the terminal: v = (t + phase(t)) mod 90 ms of the first
+ * UW symbol is W0 + UL_SLOT_MS * slot, phase the DL frame phase of the satellite. W0 is
+ * twice the epoch of the satellite frames in the stream's time base (plus a constant),
+ * the same for all satellites, but it moves with the time origin of the stream and
+ * drifts with its clock: it has to be learned from UL frames (sat-147 from its start:
+ * 23.07 ms; slots at 23.07, 31.41, 39.85, 48.29 ms). Terminals farther from the
+ * receiver differ by up to ~0.2 ms.
+ */
+const double UL_SLOT_MS = 8.407;
+
 // x wrapped to [-FRAME_MS / 2, FRAME_MS / 2)
 inline double wrap_ms(double x) { return x - FRAME_MS * std::floor(x / FRAME_MS + 0.5); }
 
@@ -328,6 +339,33 @@ public:
             t = base + int64_t(std::llround(phase_cont_ms(t) * 1e6 + off_ns));
         }
         return t;
+    }
+
+    // Uplink (see UL_SLOT_MS): v = (t + phase(t)) mod 90 ms
+    double ul_phase_ms(int64_t t_ns) const
+    {
+        const double v =
+            std::fmod(tch_c_timing::frame_phase_ms(t_ns) + phase_cont_ms(t_ns),
+                      tch_c_timing::FRAME_MS);
+        return v < 0 ? v + tch_c_timing::FRAME_MS : v;
+    }
+
+    // The UL time with v = v_ms in frame `frame`: T = frame * 90 ms + v - phase(T)
+    int64_t ul_time_ns(int64_t frame, double v_ms) const
+    {
+        const int64_t base = frame * tch_c_timing::FRAME_NS;
+        int64_t t = base + int64_t(std::llround((v_ms - phase_cont_ms(base)) * 1e6));
+        for (int i = 0; i < 2; i++) {
+            t = base + int64_t(std::llround((v_ms - phase_cont_ms(t)) * 1e6));
+        }
+        return t;
+    }
+
+    // Frame whose UL time with v = v_ms lies nearest to t
+    int64_t ul_frame_at(int64_t t_ns, double v_ms) const
+    {
+        return int64_t(std::llround((t_ns + (phase_cont_ms(t_ns) - v_ms) * 1e6) /
+                                    tch_c_timing::FRAME_NS));
     }
 
     // Frame whose slot `slot` of the type lies nearest to t

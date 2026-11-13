@@ -113,11 +113,32 @@ double tch_c_slot_survey::nominal_frequency(int type, int position)
 }
 
 tch_c_slot_survey::tch_c_slot_survey(double sample_rate, double center_frequency)
-    : d_sample_rate(sample_rate), d_center_frequency(center_frequency), d_noise_db(0)
+    : d_sample_rate(sample_rate),
+      d_center_frequency(center_frequency),
+      d_noise_db(0),
+      d_window_len(0),
+      d_window_noise(0),
+      d_window_noise_db(0)
 {
     init_type(d_t[0], TCH_C1);
     init_type(d_t[1], TCH_C2);
     init_type(d_t[2], TCH_C8Q);
+
+    // Channel search: a window of 2.5 ms at least, per type an IFFT to ~3 samples per
+    // symbol
+    d_wi = 0;
+    for (int w = 0; w < 2; w++) {
+        d_nw[w] = next_pow2(
+            (int)std::ceil((w ? CHANNEL_WINDOW_LONG_S : CHANNEL_WINDOW_S) * sample_rate));
+        d_fft_w[w].reset(new gr::fft::fft_complex_fwd(d_nw[w], 1));
+        for (int i = 0; i < 3; i++) {
+            const double Rs = d_t[i].f->symbols_per_second;
+            const int M = next_pow2((int)std::ceil(3 * Rs * d_nw[w] / sample_rate));
+            d_ifft_ch[w][i].reset(new gr::fft::fft_complex_rev(M, 1));
+        }
+    }
+    d_fft_uw.reset(new gr::fft::fft_complex_fwd(CS_DFT, 1));
+    std::fill(d_fft_uw->get_inbuf(), d_fft_uw->get_inbuf() + CS_DFT, gr_complex(0));
 }
 
 tch_c_slot_survey::~tch_c_slot_survey() {}
@@ -436,6 +457,146 @@ double tch_c_slot_survey::fine_timing(
         *rho2 = c.energy > 0 ? peak2 * peak2 * dt.u2h / c.energy : 0;
     }
     return tau;
+}
+
+void tch_c_slot_survey::set_window(const gr_complex* x, int len)
+{
+    d_wi = len > d_nw[0] ? 1 : 0;
+    const int N = d_nw[d_wi];
+    len = std::min(len, N);
+    d_window_len = len;
+    gr_complex* in = d_fft_w[d_wi]->get_inbuf();
+    memcpy(in, x, len * sizeof(gr_complex));
+    std::fill(in + len, in + N, gr_complex(0));
+    d_fft_w[d_wi]->execute();
+
+    // Noise floor as in survey(): the 10% percentile of the inner 80% of the band
+    const gr_complex* X = d_fft_w[d_wi]->get_outbuf();
+    const int step = std::max(1, N / 2048);
+    d_noise_tmp.clear();
+    for (int i = N / 10; i < N - N / 10; i += step) {
+        d_noise_tmp.push_back(std::norm(X[(i + N / 2) % N]));
+    }
+    const size_t nth = d_noise_tmp.size() / 10;
+    std::nth_element(d_noise_tmp.begin(), d_noise_tmp.begin() + nth, d_noise_tmp.end());
+    d_window_noise = std::max(d_noise_tmp[nth] / 0.105361f, 1e-30f);
+    d_window_noise_db =
+        10 * std::log10(d_window_noise / std::max(len, 1) / d_sample_rate);
+}
+
+bool tch_c_slot_survey::search_channel(int type,
+                                       bool uplink,
+                                       double f_hz,
+                                       double search_hz,
+                                       double p_first,
+                                       double p_last,
+                                       float threshold,
+                                       channel_candidate* out)
+{
+    const type_tables& tt = t(type);
+    gr::fft::fft_complex_rev& ifft = *d_ifft_ch[d_wi][type == 8 ? 2 : type == 2 ? 1 : 0];
+    const double fs = d_sample_rate;
+    const double Rs = tt.f->symbols_per_second;
+    const int Nw = d_nw[d_wi];
+    const int M = ifft.inbuf_length();
+    const double bw = fs / Nw;
+    const int b0 = (int)std::lround((f_hz - d_center_frequency) / bw);
+    if (std::abs(b0) + M / 2 >= Nw / 2) {
+        return false;
+    }
+
+    // Matched filter (RRC spectrum) around f_hz, mixed down by b0 bins
+    const gr_complex* X = d_fft_w[d_wi]->get_outbuf();
+    gr_complex* Y = ifft.get_inbuf();
+    double sum_g2 = 0;
+    for (int m = -M / 2; m < M / 2; m++) {
+        const double f = ((b0 + m) * bw - (f_hz - d_center_frequency)) / Rs;
+        const float g = std::sqrt(rc_spectrum(f, RRC_ALPHA));
+        Y[(m + M) % M] = X[(b0 + m + Nw) % Nw] * g;
+        sum_g2 += g * g;
+    }
+    ifft.execute();
+    const gr_complex* y = ifft.get_outbuf();
+
+    // y[n] is the matched filter output at x[n * D]
+    const double D = (double)Nw / M;
+    const double s = tt.sps / D;
+    const double edge = TEMPLATE_SPAN * tt.sps;
+    const int n_lo = (int)std::ceil(std::max(p_first, edge) / D);
+    const int n_hi = (int)std::floor(
+        std::min(p_last, d_window_len - edge - (TCH_C_UW_LENGTH - 1) * tt.sps) / D);
+    if (n_hi < n_lo) {
+        return false;
+    }
+
+    // DFT bins of the frequency search, around the residual offset of f_hz
+    const double f_res = f_hz - d_center_frequency - b0 * bw;
+    const double dbin = Rs / CS_DFT;
+    const int q0 = (int)std::lround(f_res / dbin);
+    const int Q = std::min(CS_DFT / 2 - 2, (int)std::ceil(search_hz / dbin) + 1);
+
+    const int* uw = uw_of(uplink);
+    gr_complex* z = d_fft_uw->get_inbuf();
+    const gr_complex* Z = d_fft_uw->get_outbuf();
+    std::vector<float> r(n_hi - n_lo + 1);
+    int best_n = -1, best_q = 0;
+    float best_r = -1, best_e = 0;
+    float best_a = 0, best_b = 0, best_c = 0;
+    for (int n = n_lo; n <= n_hi; n++) {
+        float e = 0;
+        for (int k = 0; k < TCH_C_UW_LENGTH; k++) {
+            const double pos = n + k * s;
+            const int i = (int)pos;
+            const float fr = pos - i;
+            const gr_complex v = y[i] * (1 - fr) + y[i + 1] * fr;
+            e += std::norm(v);
+            // times conj of the UW symbol (1 + j) / sqrt(2), sign by the bit
+            const float sg = uw[k] ? -(float)M_SQRT1_2 : (float)M_SQRT1_2;
+            z[k] = v * gr_complex(sg, -sg);
+        }
+        d_fft_uw->execute();
+        int bq = 0;
+        float bm = -1;
+        for (int q = -Q; q <= Q; q++) {
+            const float m = std::norm(Z[(q0 + q + CS_DFT) % CS_DFT]);
+            if (m > bm) {
+                bm = m;
+                bq = q;
+            }
+        }
+        const float rr = e > 0 ? bm / (TCH_C_UW_LENGTH * e) : 0;
+        r[n - n_lo] = rr;
+        if (rr > best_r) {
+            best_r = rr;
+            best_n = n;
+            best_q = q0 + bq;
+            best_e = e;
+            best_a = std::abs(Z[(best_q - 1 + CS_DFT) % CS_DFT]);
+            best_b = std::abs(Z[(best_q + CS_DFT) % CS_DFT]);
+            best_c = std::abs(Z[(best_q + 1 + CS_DFT) % CS_DFT]);
+        }
+    }
+    if (best_n < 0 || !(best_r >= threshold)) {
+        return false;
+    }
+
+    // Peak between the lags and between the frequency bins
+    float dn = 0, peak;
+    if (best_n > n_lo && best_n < n_hi) {
+        parabola(r[best_n - 1 - n_lo], best_r, r[best_n + 1 - n_lo], &dn, &peak);
+        dn = std::max(-0.5f, std::min(0.5f, dn));
+    }
+    float dq;
+    parabola(best_a, best_b, best_c, &dq, &peak);
+    dq = std::max(-0.5f, std::min(0.5f, dq));
+
+    out->p_uw = (best_n + dn) * D;
+    out->frequency = d_center_frequency + b0 * bw + (best_q + dq) * dbin;
+    out->rho2 = best_r;
+    out->magnitude =
+        10 * std::log10(std::max(
+                 best_e / TCH_C_UW_LENGTH / (d_window_noise * (float)sum_g2), 1e-6f));
+    return true;
 }
 
 void tch_c_slot_survey::extract_span(int type, double p_uw, long* first, long* end) const

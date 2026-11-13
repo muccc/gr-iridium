@@ -515,3 +515,45 @@ BOOST_AUTO_TEST_CASE(test_tch_c_timing_hits_only)
     BOOST_CHECK_LT(df.std(), 30.0);
     BOOST_CHECK_EQUAL(table.size(), 1u);
 }
+
+// Uplink: a terminal next to the receiver sends so its bursts arrive at the satellite
+// at fixed times of the satellite frame. As received v = (t + phase(t)) mod 90 ms is
+// constant over the pass, and ul_time_ns() / ul_frame_at() invert it.
+BOOST_AUTO_TEST_CASE(test_tch_c_timing_uplink)
+{
+    const sat_pass p = { 60, R_MIN, V, 30.0, 0 };
+    tch_c_track_table table;
+    noise nz(1);
+    auto iras = make_iras(p, 0, 1500, 13, nz, 0, 0);
+    size_t next = 0;
+
+    const double at_sat_ms = 12.0; // UL slot 0 at the satellite, relative to phi0
+    double v0 = -1, max_dv = 0, max_dt = 0;
+    for (int64_t n = 100; n < 1400; n += 7) {
+        // Sent so it arrives at the satellite at n * 90 ms + phi0 + at_sat_ms
+        const double at_sat = n * 0.09 + (p.phi0 + at_sat_ms) * 1e-3;
+        double t = at_sat;
+        for (int i = 0; i < 4; i++) {
+            t = at_sat - p.range(t) / C;
+        }
+        const int64_t t_ns = p.ns(t);
+        // The IRAs up to then
+        while (next < iras.size() && iras[next].t_ns <= t_ns) {
+            table.add_ira(iras[next].t_ns, iras[next].f_hz);
+            next++;
+        }
+        BOOST_REQUIRE_EQUAL(table.size(), 1u);
+        const tch_c_sat_track& tr = *table.begin();
+        const double v = tr.ul_phase_ms(t_ns);
+        if (v0 < 0) {
+            v0 = v;
+        }
+        max_dv = std::max(max_dv, std::fabs(wrap_ms(v - v0)));
+        const int64_t back = tr.ul_time_ns(tr.ul_frame_at(t_ns, v0), v0);
+        max_dt = std::max(max_dt, std::fabs((double)(back - t_ns)));
+    }
+    BOOST_TEST_MESSAGE("uplink: v " << v0 << " ms, max dv " << max_dv * 1e3
+                                    << " us, max dt " << max_dt << " ns");
+    BOOST_CHECK_LT(max_dv, 0.002);
+    BOOST_CHECK_LT(max_dt, 2000.0);
+}
