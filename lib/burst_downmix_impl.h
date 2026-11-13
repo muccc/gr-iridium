@@ -138,6 +138,16 @@ private:
     int d_next_base = 0;       // coarse index of d_next_best[0]
     std::vector<float> d_next_best;
 
+    // TCH_C2/C8: UW timing independent of the frequency offset, see
+    // find_uw_differential()
+    static constexpr float DIFF_UW_MIN_CORRELATION = 0.45f;
+    std::vector<gr_complex> d_diff;
+    std::vector<gr_complex> d_diff_dl;
+    std::vector<gr_complex> d_diff_ul;
+    std::vector<float> d_diff_abs;
+    std::vector<float> d_diff_sum;
+    int find_uw_differential(size_t burst_size, int from);
+
     bool d_wait_for_demod;
     uint64_t d_burst_id; // the burst being handled
     int d_n_frames;      // frames published for it so far

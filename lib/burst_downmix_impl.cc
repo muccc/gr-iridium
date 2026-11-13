@@ -914,6 +914,86 @@ void burst_downmix_impl::scan_next_uw_coarse(size_t burst_size,
     }
 }
 
+/*
+ * TCH_C2/C8: the start of the UW in the first samples from `from` on, or -1, found with
+ * a differential correlation: x[n + T] * conj(x[n]) (T one symbol) against the products
+ * of neighbouring UW symbols. A frequency offset only turns the result, so this works
+ * where the squared FFT CFO estimate does not: when the samples it gets do not start
+ * with the UW. A TCH_C2/C8 detection often starts a few ms before the burst (the burst
+ * covers several legacy channels), and the tagger can put its center anywhere within
+ * the wide burst, so the frequency is off by up to tens of kHz.
+ * Looks as far as the sync word search of TCH_C1 does in time; the result is the best
+ * position if its normalized correlation reaches DIFF_UW_MIN_CORRELATION.
+ */
+int burst_downmix_impl::find_uw_differential(size_t burst_size, int from)
+{
+    const double sps = d_samples_per_symbol;
+    const int T = std::lround(sps);
+    const int n_taps = TCH_C_UW_LENGTH - 1;
+    const int span = std::lround(n_taps * sps) + T + 1;
+    const int window =
+        (::iridium::PREAMBLE_LENGTH_LONG + TCH_C_UW_LENGTH + 8) * sps * d_tch_c->type;
+    const int n_pos = std::min(window, (int)burst_size - from - span);
+    if (n_pos <= 0) {
+        return -1;
+    }
+    filter_input(from, from + n_pos + span);
+
+    d_diff.resize(n_pos + span - T);
+    for (int m = 0; m < n_pos + span - T; m++) {
+        d_diff[m] = d_frame[from + m + T] * std::conj(d_frame[from + m]);
+    }
+
+    int pos[TCH_C_UW_LENGTH];
+    float u_dl[TCH_C_UW_LENGTH], u_ul[TCH_C_UW_LENGTH];
+    for (int k = 0; k < n_taps; k++) {
+        pos[k] = std::lround(k * sps);
+        u_dl[k] = (TCH_C_UW_DL[k] == TCH_C_UW_DL[k + 1]) ? 1.f : -1.f;
+        u_ul[k] = (TCH_C_UW_UL[k] == TCH_C_UW_UL[k + 1]) ? 1.f : -1.f;
+    }
+
+    // Accumulate the taps over all positions at once
+    const int n_diff = n_pos + span - T;
+    d_diff_abs.resize(n_diff);
+    volk_32fc_magnitude_32f(&d_diff_abs[0], &d_diff[0], n_diff);
+    d_diff_dl.assign(n_pos, 0);
+    d_diff_ul.assign(n_pos, 0);
+    d_diff_sum.assign(n_pos, 0.f);
+    float* dl = (float*)&d_diff_dl[0];
+    float* ul = (float*)&d_diff_ul[0];
+    for (int k = 0; k < n_taps; k++) {
+        const float* d = (const float*)&d_diff[pos[k]];
+        if (u_dl[k] > 0) {
+            volk_32f_x2_add_32f(dl, dl, d, 2 * n_pos);
+        } else {
+            volk_32f_x2_subtract_32f(dl, dl, d, 2 * n_pos);
+        }
+        if (u_ul[k] > 0) {
+            volk_32f_x2_add_32f(ul, ul, d, 2 * n_pos);
+        } else {
+            volk_32f_x2_subtract_32f(ul, ul, d, 2 * n_pos);
+        }
+        volk_32f_x2_add_32f(&d_diff_sum[0], &d_diff_sum[0], &d_diff_abs[pos[k]], n_pos);
+    }
+    volk_32fc_magnitude_squared_32f((float*)&d_diff_dl[0], &d_diff_dl[0], n_pos);
+    volk_32fc_magnitude_squared_32f((float*)&d_diff_ul[0], &d_diff_ul[0], n_pos);
+    const float* m_dl = (const float*)&d_diff_dl[0];
+    const float* m_ul = (const float*)&d_diff_ul[0];
+
+    float best = 0;
+    int best_n = -1;
+    for (int n = 0; n < n_pos; n++) {
+        const float a2 = d_diff_sum[n] * d_diff_sum[n];
+        const float m = std::max(m_dl[n], m_ul[n]);
+        if (m > best * a2 && a2 > 0) {
+            best = m / a2;
+            best_n = n;
+        }
+    }
+    best = std::sqrt(best);
+    return best >= DIFF_UW_MIN_CORRELATION ? from + best_n : -1;
+}
+
 int burst_downmix_impl::process_next_frame(float sample_rate,
                                            double center_frequency,
                                            uint64_t timestamp,
@@ -961,6 +1041,18 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
 
     if (burst_size - start < min_frame_length) {
         return 0;
+    }
+
+    // TCH_C2/C8: the squared FFT CFO estimate below needs the samples to start with
+    // the UW, the start of the detection is often well before it
+    if (d_tch_c && d_tch_c->type != 1 && !d_tracked) {
+        const int uw = find_uw_differential(burst_size, start);
+        if (uw >= 0) {
+            start = std::max(uw - d_pre_start_samples, start);
+            if (burst_size - start < min_frame_length) {
+                return 0;
+            }
+        }
     }
 
     /*
