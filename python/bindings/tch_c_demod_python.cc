@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(tch_c_demod.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(d01a67c0962f0c2d5fbba5d7bf92d5d7)                     */
+/* BINDTOOL_HEADER_FILE_HASH(f070efd4775fa1d9e0e61bf10d3828f2)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -38,6 +38,7 @@ void bind_tch_c_demod(py::module& m)
 
         .def(py::init(&tch_c_demod::make),
            py::arg("n_channels"),
+           py::arg("probe_port") = false,
            D(tch_c_demod,make)
         )
         

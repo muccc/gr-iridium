@@ -33,6 +33,7 @@ list(APPEND iridium_python_files
     fft_burst_tagger_python.cc
     iridium_qpsk_demod_python.cc
     tch_c_demod_python.cc
+    tch_c_slot_prober_python.cc
     iuchar_to_complex_python.cc
     pdu_null_sink_python.cc
     pdu_round_robin_python.cc

@@ -115,6 +115,9 @@ fft_burst_tagger_impl::fft_burst_tagger_impl(double center_frequency,
       d_burst_debug_file(NULL),
       d_last_rx_time_offset(0),
       d_last_rx_time_timestamp(0),
+      d_time_base_tagged(false),
+      d_time_base_offset(0),
+      d_time_base_timestamp(0),
       d_offline(offline)
 {
     const int nthreads = 1;
@@ -714,6 +717,35 @@ void fft_burst_tagger_impl::tag_gone_bursts(int noutput_items)
     }
 }
 
+/*
+ * The time base of the output stream for blocks which need the time of any sample, not
+ * only that of the bursts: a time_base tag (output_offset_ref, timestamp_ns), both
+ * uint64, on the first output sample of the first work() call and whenever an rx_time
+ * tag changed it. Our output lags the input by d_burst_pre_len samples, so the output
+ * sample n holds the input sample n - d_burst_pre_len, and its time is
+ *
+ *   t_ns(n) = timestamp_ns + ((n - output_offset_ref) * 10000) / (sample_rate / 100000)
+ *
+ * (integer arithmetic, n >= output_offset_ref), exactly the timestamp a burst tagged on
+ * output sample n gets. The relation holds from the tag on until the next one.
+ */
+void fft_burst_tagger_impl::tag_time_base(void)
+{
+    const uint64_t offset = d_last_rx_time_offset + d_burst_pre_len;
+    if (d_time_base_tagged && offset == d_time_base_offset &&
+        d_last_rx_time_timestamp == d_time_base_timestamp) {
+        return;
+    }
+    d_time_base_tagged = true;
+    d_time_base_offset = offset;
+    d_time_base_timestamp = d_last_rx_time_timestamp;
+    add_item_tag(0,
+                 nitems_written(0),
+                 pmt::mp("time_base"),
+                 pmt::make_tuple(pmt::from_uint64(d_time_base_offset),
+                                 pmt::from_uint64(d_time_base_timestamp)));
+}
+
 uint64_t fft_burst_tagger_impl::get_n_tagged_bursts() { return d_n_tagged_bursts; }
 
 uint64_t fft_burst_tagger_impl::get_sample_count() { return d_sample_count; }
@@ -755,6 +787,8 @@ int fft_burst_tagger_impl::work(int noutput_items,
         d_last_rx_time_timestamp =
             seconds * 1000000000ULL + (uint64_t)(seconds_fraction * 1000000000ULL);
     }
+
+    tag_time_base();
 
     for (int i = 0; i < noutput_items; i += d_fft_size) {
         d_index = nitems_read(0) + i;

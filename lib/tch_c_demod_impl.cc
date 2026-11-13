@@ -18,12 +18,12 @@
 namespace gr {
 namespace iridium {
 
-tch_c_demod::sptr tch_c_demod::make(int n_channels)
+tch_c_demod::sptr tch_c_demod::make(int n_channels, bool probe_port)
 {
-    return gnuradio::make_block_sptr<tch_c_demod_impl>(n_channels);
+    return gnuradio::make_block_sptr<tch_c_demod_impl>(n_channels, probe_port);
 }
 
-tch_c_demod_impl::tch_c_demod_impl(int n_channels)
+tch_c_demod_impl::tch_c_demod_impl(int n_channels, bool probe_port)
     : gr::block("tch_c_demod",
                 gr::io_signature::make(0, 0, 0),
                 gr::io_signature::make(0, 0, 0)),
@@ -31,7 +31,7 @@ tch_c_demod_impl::tch_c_demod_impl(int n_channels)
       d_n_handled_bursts(0),
       d_n_access_ok_bursts(0),
       d_n_access_ok_sub_bursts(0),
-      d_channel_id(n_channels, UINT64_MAX),
+      d_channel_id(n_channels + (probe_port ? 1 : 0), UINT64_MAX),
       d_c1_decoder(TCH_C1.code),
       d_c2_decoder(TCH_C2.code),
       d_c8q_decoder(TCH_C8Q.code),
@@ -55,6 +55,15 @@ tch_c_demod_impl::tch_c_demod_impl(int n_channels)
         d_input_ports.push_back(port_name);
         set_msg_handler(port_name, [this](pmt::pmt_t msg) { this->handler(0, msg); });
         d_frame_handled_ports.push_back(pmt::mp("frame_handled"));
+    }
+    // Probes are one more channel, after those of the channelizer
+    if (probe_port) {
+        const int i = d_input_ports.size();
+        auto port_name = pmt::mp("probes");
+        message_port_register_in(port_name);
+        d_input_ports.push_back(port_name);
+        set_msg_handler(port_name, [this, i](pmt::pmt_t msg) { this->handler(i, msg); });
+        d_frame_handled_ports.push_back(pmt::mp("probe_handled"));
     }
     for (const auto& port : d_frame_handled_ports) {
         message_port_register_out(port);
@@ -476,7 +485,8 @@ void tch_c_demod_impl::handle_burst(int channel,
                                     uint64_t sub_id,
                                     float noise,
                                     float magnitude,
-                                    int tch_type)
+                                    int tch_type,
+                                    bool probe)
 {
     // Timing, pilots and data segments; for TCH_C8 shared by QPSK and 16APSK
     const tch_c_format& layout = tch_c_format_by_type(tch_type);
@@ -486,8 +496,9 @@ void tch_c_demod_impl::handle_burst(int channel,
     // Carrier recovery variants: 0 = fit to the known symbols, 1 = PLL, 2 = fit followed
     // by the PLL. On a test recording the fit alone passes the CRC on 99.8% of the TCH_C1
     // bursts that pass at all. The decision directed QPSK PLL does not work for 16APSK,
-    // so TCH_C8 uses the fit only.
-    const int n_variants = tch_type == 8 ? 1 : 3;
+    // so TCH_C8 uses the fit only. So do probes: most of them are no burst at all and
+    // every variant is one more chance for a failed decode to pass the CRC-10.
+    const int n_variants = tch_type == 8 || probe ? 1 : 3;
 
     d_n_handled_bursts++;
 
@@ -717,6 +728,7 @@ void tch_c_demod_impl::demodulate(int channel, pmt::pmt_t msg)
     uint64_t timestamp =
         pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("timestamp"), pmt::PMT_NIL));
     int tch_type = pmt::to_long(pmt::dict_ref(meta, pmt::mp("tch_type"), pmt::PMT_NIL));
+    bool probe = pmt::to_bool(pmt::dict_ref(meta, pmt::mp("probe"), pmt::PMT_F));
 
     timestamp += uw_start * 1000000000ULL / (int)sample_rate;
 
@@ -729,7 +741,8 @@ void tch_c_demod_impl::demodulate(int channel, pmt::pmt_t msg)
                  sub_id,
                  noise,
                  magnitude,
-                 tch_type);
+                 tch_type,
+                 probe);
 }
 
 } /* namespace iridium */

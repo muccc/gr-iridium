@@ -111,6 +111,9 @@ private:
     uint64_t d_sample_count;
     uint64_t d_last_rx_time_offset;
     uint64_t d_last_rx_time_timestamp;
+    bool d_time_base_tagged;
+    uint64_t d_time_base_offset;
+    uint64_t d_time_base_timestamp;
 
     float* d_window_f;
     float* d_magnitude_shifted_f;
@@ -161,6 +164,7 @@ private:
     void mask_burst(const burst& b);
     void tag_new_bursts(void);
     void tag_gone_bursts(int noutput_items);
+    void tag_time_base(void);
 
 public:
     fft_burst_tagger_impl(double center_frequency,

@@ -60,7 +60,8 @@ private:
                       uint64_t sub_id,
                       float noise,
                       float magnitude,
-                      int tch_type);
+                      int tch_type,
+                      bool probe);
     int decimate(const gr_complex* in, int size, float sps, int n, gr_complex* out);
     float
     known_symbol_correction(const tch_c_format& f, const gr_complex* x, gr_complex* y);
@@ -83,7 +84,7 @@ private:
                              std::vector<uint8_t>& bits);
 
 public:
-    tch_c_demod_impl(int n_channels);
+    tch_c_demod_impl(int n_channels, bool probe_port);
     ~tch_c_demod_impl();
 
     uint64_t get_n_handled_bursts();
