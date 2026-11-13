@@ -100,6 +100,8 @@ private:
 
     // Normalized correlation a TCH_C UW needs to be taken for one
     static constexpr float UW_MIN_CORRELATION = 0.25f;
+    // Samples before the UW start sent on with a TCH_C frame, see tch_c_demod
+    static constexpr int TCH_C_PRE_SAMPLES = 2;
     // Above this a TCH_C sync word is taken as certain (nearly all CRC passes)
     static constexpr float UW_GOOD_CORRELATION = 0.5f;
     float d_sync_word_energy;

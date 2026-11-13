@@ -324,11 +324,11 @@ float tch_c_demod_impl::known_symbol_correction(const tch_c_format& f,
  * Returns the number of symbols.
  */
 int tch_c_demod_impl::decimate(
-    const gr_complex* in, int size, float sps, int n, gr_complex* out)
+    const gr_complex* in, int size, float sps, int n, gr_complex* out, float t0)
 {
     int j;
     for (j = 0; j < n; j++) {
-        float t = j * sps;
+        float t = t0 + j * sps;
         int i = (int)t;
         if (i + 1 >= size) {
             break;
@@ -337,6 +337,56 @@ int tch_c_demod_impl::decimate(
         out[j] = in[i] + mu * (in[i + 1] - in[i]);
     }
     return j;
+}
+
+/*
+ * The sampling phase: the sync word search of the downmixer finds the UW start to a
+ * sample, which is up to 1/12 symbol for TCH_C8 (about 6 samples per symbol), and
+ * 16APSK loses a third of its decodable bursts at that timing error. The burst starts
+ * pre samples before the UW start the downmixer found. Tries offsets of up to half a
+ * sample around it in steps of a quarter sample and returns the one at which the known
+ * symbols (UW and pilots, each block summed coherently, the blocks not, so a frequency
+ * offset does not matter) fit best.
+ */
+float tch_c_demod_impl::find_timing(
+    const tch_c_format& f, const gr_complex* in, int size, float sps, int pre)
+{
+    int pos[TCH_C_MAX_KNOWN];
+    float sign_dl[TCH_C_MAX_KNOWN], sign_ul[TCH_C_MAX_KNOWN];
+    const int n_known = tch_c_known_symbols(f, TCH_C_UW_DL, pos, sign_dl);
+    tch_c_known_symbols(f, TCH_C_UW_UL, pos, sign_ul);
+    float best = -1, best_t0 = pre;
+    for (int step = -2; step <= 2; step++) {
+        const float t0 = pre + step * 0.25f;
+        if (t0 < 0) {
+            continue;
+        }
+        float metric[2] = { 0, 0 };
+        for (int d = 0; d < 2; d++) {
+            const float* sign = d == 0 ? sign_dl : sign_ul;
+            gr_complex block = 0;
+            for (int i = 0; i < n_known; i++) {
+                if (i > 0 && pos[i] != pos[i - 1] + 1) {
+                    metric[d] += std::abs(block);
+                    block = 0;
+                }
+                const float t = t0 + pos[i] * sps;
+                const int k = (int)t;
+                if (k + 1 >= size) {
+                    break;
+                }
+                const float mu = t - k;
+                block += sign[i] * (in[k] + mu * (in[k + 1] - in[k]));
+            }
+            metric[d] += std::abs(block);
+        }
+        const float m = std::max(metric[0], metric[1]);
+        if (m > best) {
+            best = m;
+            best_t0 = t0;
+        }
+    }
+    return best_t0;
 }
 
 /*
@@ -476,7 +526,8 @@ void tch_c_demod_impl::handle_burst(int channel,
                                     uint64_t sub_id,
                                     float noise,
                                     float magnitude,
-                                    int tch_type)
+                                    int tch_type,
+                                    int pre_samples)
 {
     // Timing, pilots and data segments; for TCH_C8 shared by QPSK and 16APSK
     const tch_c_format& layout = tch_c_format_by_type(tch_type);
@@ -491,7 +542,8 @@ void tch_c_demod_impl::handle_burst(int channel,
 
     d_n_handled_bursts++;
 
-    if (decimate(burst, burst_size, sps, n_symbols, d_decimated_burst) < n_symbols) {
+    const float t0 = find_timing(layout, burst, burst_size, sps, pre_samples);
+    if (decimate(burst, burst_size, sps, n_symbols, d_decimated_burst, t0) < n_symbols) {
         return;
     }
 
@@ -717,6 +769,9 @@ void tch_c_demod_impl::demodulate(int channel, pmt::pmt_t msg)
     uint64_t timestamp =
         pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("timestamp"), pmt::PMT_NIL));
     int tch_type = pmt::to_long(pmt::dict_ref(meta, pmt::mp("tch_type"), pmt::PMT_NIL));
+    // Samples before the UW start found by the downmixer, for find_timing()
+    int pre_samples =
+        pmt::to_long(pmt::dict_ref(meta, pmt::mp("pre_samples"), pmt::from_long(0)));
 
     timestamp += uw_start * 1000000000ULL / (int)sample_rate;
 
@@ -729,7 +784,8 @@ void tch_c_demod_impl::demodulate(int channel, pmt::pmt_t msg)
                  sub_id,
                  noise,
                  magnitude,
-                 tch_type);
+                 tch_type,
+                 pre_samples);
 }
 
 } /* namespace iridium */

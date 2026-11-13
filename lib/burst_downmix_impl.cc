@@ -1337,7 +1337,14 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
      * Done :)
      */
     pmt::pmt_t pdu_meta = pmt::make_dict();
-    pmt::pmt_t pdu_vector = pmt::init_c32vector(frame_size, d_tmp_b + uw_start);
+    // TCH_C: a few samples before the UW start, so the demodulator can choose the
+    // sampling phase on both sides of it
+    const int pre = d_tch_c ? std::min(uw_start, TCH_C_PRE_SAMPLES) : 0;
+    pmt::pmt_t pdu_vector =
+        pmt::init_c32vector(frame_size + pre, d_tmp_b + uw_start - pre);
+    if (d_tch_c) {
+        pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("pre_samples"), pmt::mp(pre));
+    }
 
     pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("sample_rate"), pmt::mp(sample_rate));
     pdu_meta =
