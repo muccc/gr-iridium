@@ -8,6 +8,8 @@
 #ifndef INCLUDED_IRIDIUM_TCH_C_SLOT_PROBER_IMPL_H
 #define INCLUDED_IRIDIUM_TCH_C_SLOT_PROBER_IMPL_H
 
+#include "tch_c_frame_timing.h"
+#include "tch_c_slot_survey.h"
 #include <iridium/tch_c_slot_prober.h>
 #include <deque>
 #include <map>
@@ -64,18 +66,56 @@ private:
     const bool d_drop_overflow;
     const bool d_uplink;
     const bool d_debug;
+    // Surveyed positions with at least this rho2 are logged (IRIDIUM_PROBE_DEBUG_RHO2),
+    // above 1: none
+    const float d_debug_rho2;
+    // All probe times shifted by this (IRIDIUM_PROBE_OFFSET_US), for the false alarm
+    // control
+    const int64_t d_offset_ns;
+    const float d_variants_rho2;
 
     // Ring buffer of the input: absolute sample n is at n % d_ring.size()
     std::vector<gr_complex> d_ring;
     uint64_t d_end; // absolute index of the next sample
     std::vector<gr_complex> d_scratch;
+    // Input appended per step at most, and how far the probing lags the input
+    uint64_t d_chunk;
+    uint64_t d_lag;
+    bool d_flushed;
 
-    // Time base from the time_base tag of fft_burst_tagger
-    uint64_t d_time_base_offset;
-    uint64_t d_time_base_timestamp;
+    // Time bases from the time_base tags of fft_burst_tagger: from sample `start` on,
+    // sample n is at timestamp + (n - offset) / fs
+    struct time_base {
+        uint64_t start;
+        uint64_t offset;
+        uint64_t timestamp;
+    };
+    std::vector<time_base> d_time_bases;
 
     // Ring alerts accepted by the frames handler, handed to on_ira() in work()
     std::deque<std::pair<uint64_t, double>> d_iras;
+
+    // Satellites and, per track and type, the next DL slot to probe
+    tch_c_track_table d_tracks;
+    struct cursor {
+        int64_t frame;
+        int slot;
+        bool valid;
+    };
+    std::map<int, std::vector<cursor>> d_cursors;
+
+    // Slots probed recently, so no satellite is probed twice in a slot even while two
+    // tracks of it exist
+    struct probed_slot {
+        int type;
+        int64_t t_ns;
+        double doppler_hz;
+    };
+    std::deque<probed_slot> d_probed;
+
+    tch_c_slot_survey d_survey;
+    std::vector<tch_c_slot_survey::candidate> d_candidates;
+    std::vector<gr_complex> d_symbols;
 
     // Probes
     uint64_t d_next_id;
@@ -89,6 +129,17 @@ private:
     uint64_t d_n_hits;
     uint64_t d_n_probe_hits;
     uint64_t d_n_probe_crc_ok;
+    uint64_t d_n_energy_associated;
+    // Statistics per type index
+    uint64_t d_n_surveys[3];
+    uint64_t d_n_type_probes[3];
+    uint64_t d_n_type_crc_ok[3];
+    uint64_t d_n_missed_slots;
+    uint64_t d_n_shared_slots;
+    // Delay of the ring alerts behind the input: sum and maximum in s
+    double d_ira_delay_sum;
+    double d_ira_delay_max;
+    double d_cpu[3]; // s: survey, fine timing and extraction, all of work()
 
     // Hooks for the track table
     void on_ira(uint64_t t_ns, double f_hz);
@@ -99,21 +150,19 @@ private:
     void handle_frame_handled(const pmt::pmt_t& msg);
 
     bool blocked() const;
+    void wait_for_change(int ms);
     void forget_old_probes();
 
-    // TEMPORARY self-test of the probe path (IRIDIUM_PROBE_SELFTEST), remove with the
-    // real probing
-    struct selftest_frame {
-        uint64_t t_ns;
-        double f_hz;
-        int type;
-    };
-    std::vector<selftest_frame> d_selftest;
-    size_t d_selftest_next;
-    uint64_t d_selftest_missed;
-    void selftest_load(const char* filename);
-    void selftest_run();
-    void selftest_extract(const selftest_frame& frame);
+    void append(const gr_complex* in, size_t n);
+    void update_time_base(uint64_t start, uint64_t end);
+
+    // Samples [first, end) a probe of a slot of the type at p_uw may read
+    void slot_window(int type, double p_uw, int64_t* first, int64_t* end) const;
+    // Probe every slot whose window starts before limit and lies in the buffer
+    void probe_slots(uint64_t limit);
+    void probe_slot(
+        const tch_c_sat_track& track, int type, int64_t frame, int slot, int64_t t_ns);
+    bool already_probed(int type, int64_t t_ns, double doppler_hz) const;
 
 public:
     tch_c_slot_prober_impl(double center_frequency,

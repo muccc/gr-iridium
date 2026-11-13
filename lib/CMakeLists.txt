@@ -20,6 +20,7 @@ list(APPEND iridium_sources
     iridium_qpsk_demod_impl.cc
     tch_c_demod_impl.cc
     tch_c_slot_prober_impl.cc
+    tch_c_slot_survey.cc
     tch_c_decoder.cc
     pdu_round_robin_impl.cc
     frame_sorter_impl.cc
@@ -34,7 +35,7 @@ if(NOT iridium_sources)
 endif(NOT iridium_sources)
 
 add_library(gnuradio-iridium SHARED ${iridium_sources})
-target_link_libraries(gnuradio-iridium gnuradio::gnuradio-runtime gnuradio::gnuradio-filter)
+target_link_libraries(gnuradio-iridium gnuradio::gnuradio-runtime gnuradio::gnuradio-filter gnuradio::gnuradio-fft)
 target_include_directories(gnuradio-iridium
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
     PUBLIC $<INSTALL_INTERFACE:include>
@@ -70,6 +71,9 @@ if(TARGET Boost::unit_test_framework)
     GR_ADD_CPP_TEST(iridium_qa_tch_c_decoder
         "${CMAKE_CURRENT_SOURCE_DIR}/qa_tch_c_decoder.cc;${CMAKE_CURRENT_SOURCE_DIR}/tch_c_decoder.cc"
     )
+    GR_ADD_CPP_TEST(iridium_qa_tch_c_frame_timing "${CMAKE_CURRENT_SOURCE_DIR}/qa_tch_c_frame_timing.cc")
+    GR_ADD_CPP_TEST(iridium_qa_tch_c_slot_survey "${CMAKE_CURRENT_SOURCE_DIR}/qa_tch_c_slot_survey.cc;${CMAKE_CURRENT_SOURCE_DIR}/tch_c_slot_survey.cc;${CMAKE_CURRENT_SOURCE_DIR}/tch_c_decoder.cc")
+    target_link_libraries(iridium_qa_tch_c_slot_survey gnuradio::gnuradio-fft)
 else()
     message(STATUS "Boost.Test not found, skipping the C++ unit tests")
 endif()

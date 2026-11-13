@@ -486,7 +486,7 @@ void tch_c_demod_impl::handle_burst(int channel,
                                     float noise,
                                     float magnitude,
                                     int tch_type,
-                                    bool probe)
+                                    int max_variants)
 {
     // Timing, pilots and data segments; for TCH_C8 shared by QPSK and 16APSK
     const tch_c_format& layout = tch_c_format_by_type(tch_type);
@@ -497,8 +497,9 @@ void tch_c_demod_impl::handle_burst(int channel,
     // by the PLL. On a test recording the fit alone passes the CRC on 99.8% of the TCH_C1
     // bursts that pass at all. The decision directed QPSK PLL does not work for 16APSK,
     // so TCH_C8 uses the fit only. So do probes: most of them are no burst at all and
-    // every variant is one more chance for a failed decode to pass the CRC-10.
-    const int n_variants = tch_type == 8 || probe ? 1 : 3;
+    // every variant is one more chance for a failed decode to pass the CRC-10. Unless
+    // the prober asks for more (`variants`, for those which clearly have a UW).
+    const int n_variants = tch_type == 8 ? 1 : std::max(1, std::min(3, max_variants));
 
     d_n_handled_bursts++;
 
@@ -729,6 +730,8 @@ void tch_c_demod_impl::demodulate(int channel, pmt::pmt_t msg)
         pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("timestamp"), pmt::PMT_NIL));
     int tch_type = pmt::to_long(pmt::dict_ref(meta, pmt::mp("tch_type"), pmt::PMT_NIL));
     bool probe = pmt::to_bool(pmt::dict_ref(meta, pmt::mp("probe"), pmt::PMT_F));
+    int max_variants = pmt::to_long(
+        pmt::dict_ref(meta, pmt::mp("variants"), pmt::from_long(probe ? 1 : 3)));
 
     timestamp += uw_start * 1000000000ULL / (int)sample_rate;
 
@@ -742,7 +745,7 @@ void tch_c_demod_impl::demodulate(int channel, pmt::pmt_t msg)
                  noise,
                  magnitude,
                  tch_type,
-                 probe);
+                 max_variants);
 }
 
 } /* namespace iridium */

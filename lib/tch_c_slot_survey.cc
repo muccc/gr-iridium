@@ -456,12 +456,26 @@ int tch_c_slot_survey::extract(const gr_complex* x,
     const int n = tt.f->n_symbols + 1;
     const double w = 2 * M_PI * (freq_hz - d_center_frequency) / d_sample_rate;
 
-    // e^-jw(i - M) for the taps
-    for (int i = 0; i < tt.n_taps; i++) {
-        tt.phasor[i] = std::polar(1.0, -w * (i - tt.M));
+    // e^-jw(i - M) for the taps, by a recursion renormalised in blocks
+    {
+        const std::complex<double> step = std::polar(1.0, -w);
+        for (int i = 0; i < tt.n_taps; i += 64) {
+            std::complex<double> z = std::polar(1.0, -w * (i - tt.M));
+            const int end = std::min(tt.n_taps, i + 64);
+            for (int k = i; k < end; k++) {
+                tt.phasor[k] = gr_complex(z);
+                z *= step;
+            }
+        }
     }
     tt.stamp++;
 
+    // e^-jw n0 of the symbols: n0 advances by floor(sps) or floor(sps) + 1
+    const long sps_floor = (long)std::floor(tt.sps);
+    const std::complex<double> step0 = std::polar(1.0, -w * sps_floor);
+    const std::complex<double> step1 = std::polar(1.0, -w * (sps_floor + 1));
+    std::complex<double> z;
+    long n_prev = 0;
     for (int j = 0; j < n; j++) {
         const double tj = p_uw + j * tt.sps;
         long n0 = (long)std::floor(tj);
@@ -477,7 +491,14 @@ int tch_c_slot_survey::extract(const gr_complex* x,
         }
         gr_complex r;
         volk_32fc_x2_dot_prod_32fc(&r, x + n0 - tt.M, &tt.rotated[q][0], tt.n_taps);
-        out[j] = r * gr_complex(std::polar(1.0, -w * n0));
+        const long d = n0 - n_prev;
+        if (j % 64 == 0 || (d != sps_floor && d != sps_floor + 1)) {
+            z = std::polar(1.0, -w * n0);
+        } else {
+            z *= d == sps_floor ? step0 : step1;
+        }
+        n_prev = n0;
+        out[j] = r * gr_complex(z);
     }
 
     // Phase of the UW correlation to 0: UW symbols with bit 0 at +45 degrees

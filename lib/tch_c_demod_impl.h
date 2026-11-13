@@ -61,7 +61,7 @@ private:
                       float noise,
                       float magnitude,
                       int tch_type,
-                      bool probe);
+                      int max_variants);
     int decimate(const gr_complex* in, int size, float sps, int n, gr_complex* out);
     float
     known_symbol_correction(const tch_c_format& f, const gr_complex* x, gr_complex* y);

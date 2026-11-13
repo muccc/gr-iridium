@@ -556,16 +556,21 @@ class FlowGraph(gr.top_block):
         }
 
         # TCH_C8 occupies about +-144 kHz: pass +-140 kHz and stop at +-190 kHz
+        # The TCH_C types with a downmixer per channel
+        self._tch_c_downmix_types = list(self._tch_c_types) if self._tch_c_energy else []
         sps_c8 = min(self._samples_per_symbol_c8, int(self._channel_sample_rate // 240000))
-        if 8 in self._tch_c_types and sps_c8 < 2:
-            print("Warning: channels too narrow for TCH_C8 (240 ksym/s), disabling it.", file=sys.stderr)
-            self._tch_c_types.remove(8)
+        if 8 in self._tch_c_downmix_types and sps_c8 < 2:
+            # The prober works on the wideband stream and still finds TCH_C8
+            if self._tch_c_probe:
+                print("Warning: channels too narrow for the energy detection of TCH_C8 (240 ksym/s), disabling it.", file=sys.stderr)
+            else:
+                print("Warning: channels too narrow for TCH_C8 (240 ksym/s), disabling it.", file=sys.stderr)
+                self._tch_c_types.remove(8)
+            self._tch_c_downmix_types.remove(8)
         self._burst_sample_rate_c8 = 240000 * sps_c8
-        if 8 in self._tch_c_types:
+        if 8 in self._tch_c_downmix_types:
             tch_c_input_filters[8] = gnuradio.filter.firdes.low_pass_2(1, self._channel_sample_rate, 165e3, 50e3, 40)
         tch_c_burst_sample_rates = {1: self._burst_sample_rate_c1, 2: self._burst_sample_rate_c2, 8: self._burst_sample_rate_c8}
-        # The TCH_C types with a downmixer per channel
-        self._tch_c_downmix_types = self._tch_c_types if self._tch_c_energy else []
 
         # Every burst goes to all downmixers of its channel and each of them acknowledges it.
         # The burst sources count a burst as handled once all of them did.
