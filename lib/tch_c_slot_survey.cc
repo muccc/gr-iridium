@@ -606,17 +606,10 @@ void tch_c_slot_survey::extract_span(int type, double p_uw, long* first, long* e
     *end = (long)std::floor(p_uw + tt.f->n_symbols * tt.sps) + 1 + tt.M + 2;
 }
 
-int tch_c_slot_survey::extract(const gr_complex* x,
-                               double p_uw,
-                               int type,
-                               double freq_hz,
-                               bool uplink,
-                               gr_complex* out)
+// The taps of extract() and refine_timing() for frequency w (radians per sample): the
+// phases are rotated on first use
+void tch_c_slot_survey::set_mf_frequency(type_tables& tt, double w)
 {
-    type_tables& tt = t(type);
-    const int n = tt.f->n_symbols + 1;
-    const double w = 2 * M_PI * (freq_hz - d_center_frequency) / d_sample_rate;
-
     // e^-jw(i - M) for the taps, by a recursion renormalised in blocks
     {
         const std::complex<double> step = std::polar(1.0, -w);
@@ -630,6 +623,84 @@ int tch_c_slot_survey::extract(const gr_complex* x,
         }
     }
     tt.stamp++;
+}
+
+// Matched filter output at the (fractional) sample index t of x, mixed down by w
+gr_complex
+tch_c_slot_survey::mf_at(type_tables& tt, const gr_complex* x, double t, double w)
+{
+    long n0 = (long)std::floor(t);
+    int q = (int)std::lround((t - n0) * PHASES);
+    if (q == PHASES) {
+        q = 0;
+        n0++;
+    }
+    if (tt.rotated_stamp[q] != tt.stamp) {
+        volk_32fc_32f_multiply_32fc(
+            &tt.rotated[q][0], &tt.phasor[0], &tt.poly[q][0], tt.n_taps);
+        tt.rotated_stamp[q] = tt.stamp;
+    }
+    gr_complex r;
+    volk_32fc_x2_dot_prod_32fc(&r, x + n0 - tt.M, &tt.rotated[q][0], tt.n_taps);
+    return r * gr_complex(std::polar(1.0, -w * n0));
+}
+
+/*
+ * Timing on all known symbols (UW and pilots): fine_timing() correlates the UW only,
+ * at low SNR good to a few percent of a symbol. Tries p_uw + d * sps for d within
+ * +-REFINE_RANGE symbols in REFINE_STEPS steps on each side; the metric sums each
+ * block of known symbols coherently and the blocks by magnitude (a frequency error
+ * turns the blocks against each other). Returns the refined p_uw (parabolic peak).
+ */
+double tch_c_slot_survey::refine_timing(
+    const gr_complex* x, double p_uw, int type, double freq_hz, bool uplink)
+{
+    type_tables& tt = t(type);
+    const double w = 2 * M_PI * (freq_hz - d_center_frequency) / d_sample_rate;
+    set_mf_frequency(tt, w);
+    const tch_c_format& f = *tt.f;
+    const int* uw = uw_of(uplink);
+    float m[2 * REFINE_STEPS + 1];
+    for (int i = -REFINE_STEPS; i <= REFINE_STEPS; i++) {
+        const double p = p_uw + (double)i / REFINE_STEPS * REFINE_RANGE * tt.sps;
+        gr_complex block = 0;
+        float metric = 0;
+        for (int k = 0; k < TCH_C_UW_LENGTH; k++) {
+            block += mf_at(tt, x, p + k * tt.sps, w) * (uw[k] ? -1.f : 1.f);
+        }
+        metric += std::abs(block);
+        for (int b = 0; b < f.n_pilots; b++) {
+            block = 0;
+            for (int k = 0; k < TCH_C_PILOT_LENGTH; k++) {
+                block += mf_at(tt, x, p + (f.pilot_start[b] + k) * tt.sps, w) *
+                         (TCH_C_PILOT[k] ? -1.f : 1.f);
+            }
+            metric += std::abs(block);
+        }
+        m[i + REFINE_STEPS] = metric;
+    }
+    const int best = std::max_element(m, m + 2 * REFINE_STEPS + 1) - m;
+    double d = best - REFINE_STEPS;
+    if (best > 0 && best < 2 * REFINE_STEPS) {
+        float offset, peak;
+        parabola(m[best - 1], m[best], m[best + 1], &offset, &peak);
+        d += offset;
+    }
+    return p_uw + d / REFINE_STEPS * REFINE_RANGE * tt.sps;
+}
+
+int tch_c_slot_survey::extract(const gr_complex* x,
+                               double p_uw,
+                               int type,
+                               double freq_hz,
+                               bool uplink,
+                               gr_complex* out)
+{
+    type_tables& tt = t(type);
+    const int n = tt.f->n_symbols + 1;
+    const double w = 2 * M_PI * (freq_hz - d_center_frequency) / d_sample_rate;
+
+    set_mf_frequency(tt, w);
 
     // e^-jw n0 of the symbols: n0 advances by floor(sps) or floor(sps) + 1
     const long sps_floor = (long)std::floor(tt.sps);

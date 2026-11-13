@@ -71,6 +71,10 @@ static const float VARIANTS_RHO2 = 0.7f;
  */
 static const double C8_OFFSETS_US[] = { 0, -2, 2, -4, 4 };
 
+// TCH_C8 probes also get the timing on all known symbols (refine_timing()): 16APSK loses
+// a third of its decodable bursts at 1/12 symbol off, and fine_timing() on the UW alone
+// is only good to a few percent of a symbol at low SNR.
+
 // Strong hits (rho2 of the survey) update the timing bias of their type
 static const float BIAS_MIN_RHO2 = 0.6f;
 
@@ -690,7 +694,8 @@ int tch_c_slot_prober_impl::time_search(int type) const
     for (double us : C8_OFFSETS_US) {
         m = std::max(m, std::fabs(us));
     }
-    return (int)std::ceil(m * 1e-6 * d_sample_rate);
+    return (int)std::ceil(m * 1e-6 * d_sample_rate + tch_c_slot_survey::REFINE_RANGE *
+                                                         d_survey.samples_per_symbol(8));
 }
 
 void tch_c_slot_prober_impl::slot_window(int type,
@@ -1369,6 +1374,11 @@ void tch_c_slot_prober_impl::probe_slot(
         if (c.rho2 >= threshold) {
             float rho2_fine;
             tau = off + d_survey.fine_timing(seg + off, type, false, c, &rho2_fine);
+            if (type == 8) {
+                tau = d_survey.refine_timing(
+                          x, i0 + D + tau - first, type, c.estimated_frequency, false) -
+                      (i0 + D - first);
+            }
             const double p_uw = i0 + D + tau;
             const int n = d_survey.extract(
                 x, p_uw - first, type, c.estimated_frequency, false, &d_symbols[0]);

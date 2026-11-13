@@ -205,6 +205,15 @@ public:
                         channel_candidate* out);
 
     /*
+     * Timing on all known symbols (UW and pilots), see the .cc: returns p_uw refined
+     * within +-REFINE_RANGE symbols. Reads what extract() reads for p_uw +-
+     * REFINE_RANGE symbols (extract_span()).
+     */
+    static constexpr double REFINE_RANGE = 0.16;
+    double refine_timing(
+        const gr_complex* x, double p_uw, int type, double freq_hz, bool uplink);
+
+    /*
      * The samples extract() reads: x[first, end) with p_uw relative to x.
      */
     void extract_span(int type, double p_uw, long* first, long* end) const;
@@ -231,6 +240,7 @@ public:
 
 private:
     static const int PHASES = 128; // polyphase resolution of extract()
+    static const int REFINE_STEPS = 4; // of refine_timing(), on each side
 
     // Tabulated UW correlation response over the frequency offset in bins
     static const int R_RANGE = 2;
@@ -297,6 +307,8 @@ private:
                           float* offset,
                           float* peak) const;
     float correlation_magnitude(const gr_complex* seg, const type_tables& tt, int shift);
+    void set_mf_frequency(type_tables& tt, double w);
+    gr_complex mf_at(type_tables& tt, const gr_complex* x, double t, double w);
 };
 
 } // namespace iridium
