@@ -11,6 +11,7 @@
 #include "iridium.h"
 
 #include <boost/format.hpp>
+#include <cstdlib>
 #include <ctime>
 
 using boost::format;
@@ -79,8 +80,12 @@ void iridium_frame_printer_impl::handler(const pmt::pmt_t& msg)
     // Only frames from tch_c_demod have a TCH_C type (1, 2 or 8)
     bool tch_c = pmt::dict_has_key(meta, pmt::mp("tch_type"));
 
-    // A TCH_C payload that failed the CRC is noise: drop the frame
-    if (tch_c && !pmt::to_bool(pmt::dict_ref(meta, pmt::mp("crc_ok"), pmt::PMT_F))) {
+    // A TCH_C payload that failed the CRC is noise: drop the frame. For diagnostics,
+    // IRIDIUM_PRINT_TCH_C_FAIL=1 prints them as NXF lines instead.
+    bool tch_c_fail =
+        tch_c && !pmt::to_bool(pmt::dict_ref(meta, pmt::mp("crc_ok"), pmt::PMT_F));
+    static const bool print_fail = std::getenv("IRIDIUM_PRINT_TCH_C_FAIL") != nullptr;
+    if (tch_c_fail && !print_fail) {
         return;
     }
 
@@ -91,7 +96,7 @@ void iridium_frame_printer_impl::handler(const pmt::pmt_t& msg)
 
     if (tch_c) {
         bool uplink = pmt::to_bool(pmt::dict_ref(meta, pmt::mp("uplink"), pmt::PMT_F));
-        std::cout << (uplink ? "NXU: " : "NXD: ");
+        std::cout << (tch_c_fail ? "NXF: " : uplink ? "NXU: " : "NXD: ");
     } else {
         std::cout << "RAW: ";
     }
