@@ -5,6 +5,11 @@ Besides the classic Iridium bursts (25 ksym/s DE-QPSK, printed as `RAW:` lines),
 with coherent modulation and turbo coding: TCH_C1, TCH_C2 and TCH_C8. This is off by
 default. Enable it with `--tch-c`.
 
+There are two ways to find the bursts (`--tch-c-detect`): probing the TDMA slots of the
+satellites, timed by their ring alerts (`probe`, the default, see Slot probing), and the
+older energy path, burst detection followed by TCH_C downmixers (`energy`, see Receiver).
+`both` runs the two side by side.
+
 ## Burst formats
 
 All TCH_C bursts last 8.27 ms, and a channel carries one burst per 90 ms TDMA frame. TCH_Cn
@@ -34,6 +39,8 @@ and running on across the codewords) → duo-binary circular turbo code per code
 protects all codewords of a burst.
 
 ## Receiver
+
+The energy path (`--tch-c-detect energy` or `both`) and the parts shared with the prober:
 
 - **Detection** (`fft_burst_tagger`). TCH_C bursts have no spectral line, so the single-bin
   detector misses most of them. The wideband detection (`--wideband-db`, `--wideband-width`)
@@ -87,7 +94,8 @@ protects all codewords of a burst.
 
 The energy detection misses weak bursts, and a call shows up as a run of frames with gaps.
 `tch_c_slot_prober` looks for TCH_C bursts where the TDMA timing says they can be instead
-(`--tch-c-detect probe`, or `both` with the energy path):
+(`--tch-c-detect probe`, the default, or `both` with the energy path). Its bursts go
+straight to `tch_c_demod`; the tagger runs as without `--tch-c`:
 
 - **Timing.** The ring alerts (legacy downlink frames on the simplex ring channel) give the
   90 ms frame phase and the Doppler of every satellite in view, one track per satellite
@@ -155,18 +163,18 @@ so expect occasional lines with a wrong payload from weak bursts.
 | --- | --- | --- |
 | `--tch-c` | off | Enable TCH_C reception |
 | `--tch-c-types` | `1,2,8` | TCH_C types to look for |
-| `--wideband-db` | 6 with `--tch-c` (not with `--tch-c-detect probe`), else 0 | Threshold of the wideband detection, 0 disables it |
+| `--wideband-db` | 6 with `--tch-c-detect energy` or `both`, else 0 | Threshold of the wideband detection, 0 disables it |
 | `--wideband-width` | 30000 | Bandwidth in Hz averaged by the wideband detection |
-| `--track-frames` | 4 with `--tch-c` (not with `--tch-c-detect probe`), else 0 | TDMA frames to look at after a TCH_C like burst, 0 disables tracking |
-| `--tch-c-detect` | `both` | `energy` (burst detection and TCH_C downmixers), `probe` (slot probing) or `both` |
+| `--track-frames` | 4 with `--tch-c-detect energy` or `both`, else 0 | TDMA frames to look at after a TCH_C like burst, 0 disables tracking |
+| `--tch-c-detect` | `probe` | `energy` (burst detection and TCH_C downmixers), `probe` (slot probing) or `both` |
 | `--tch-c-history` | 0.75 | Seconds of samples the prober keeps |
 | `--tch-c-probe-threshold` | 0 (per type) | Minimum rho2 of a probed downlink burst |
 | `--no-tch-c-uplink` | | Do not probe TCH_C1 uplink slots |
 
 ## Cost and limitations
 
-- CPU time is several times that of legacy-only processing. 20 s of a 10 MS/s test recording
-  with `-D 8`:
+- With the energy path, CPU time is several times that of legacy-only processing. 20 s of
+  a 10 MS/s test recording with `-D 8`, `--tch-c-detect energy`:
 
   | Options | CPU time | TCH_C1 / C2 / C8 lines | `RAW:` lines |
   | --- | --- | --- | --- |
@@ -184,8 +192,11 @@ so expect occasional lines with a wrong payload from weak bursts.
   It only filters the part of a burst where the UW could be and drops the burst if the
   correlation with the UW is poor (see Downmixing), which costs about half of what the
   legacy downmixer needs for a burst.
-- The detector is the limit, not the demodulation: probing every TDMA slot of detected calls
-  directly in the samples finds decodable bursts that are about 5 dB below the detection
-  threshold.
+- For the energy path the detector is the limit, not the demodulation: the slot prober
+  finds 25% more TCH_C1 frames on sat-147, about 5 dB below the detection threshold.
+- `probe` misses what comes before the first ring alert of a satellite (a satellite whose
+  ring alerts are not received is not probed at all), uplink frames before the UL timing
+  is learned, and uplink other than TCH_C1. Without the wideband detection, 5-10% fewer
+  legacy uplink frames are found on sat-147 than with `--tch-c-detect energy`.
 - Downlink TCH_C1, C2 and C8 (QPSK and 16APSK) and uplink TCH_C1 decode on real recordings.
   Uplink TCH_C2 and TCH_C8 are untested: there were no such bursts in the test recordings.
