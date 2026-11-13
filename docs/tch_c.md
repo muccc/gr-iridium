@@ -120,14 +120,15 @@ straight to `tch_c_demod`; the tagger runs as without `--tch-c`:
 
 On `sat-147` (12 MS/s, 279 s, `-D 8`), distinct frames with a valid CRC:
 
-| | Energy path only (before the prober) | `probe` | `both` |
+| | `energy` | `probe` (default) | `both` |
 | --- | --- | --- | --- |
-| TCH_C1 DL | 30,766 | 38,530 | 38,689 |
-| TCH_C2 / C8 QPSK / C8 16APSK DL | 207 / 307 / 228 | 451 / 488 / 260 | 456 / 513 / 266 |
-| TCH_C1 UL | 274 | 283 | 297 |
-| CPU (user) | 1,192 s | 510 s | 1,272 s |
+| TCH_C1 DL | 34,957 | 38,963 | 39,322 |
+| TCH_C2 / C8 QPSK / C8 16APSK DL | 383 / 567 / 292 | 498 / 519 / 282 | 512 / 592 / 294 |
+| TCH_C1 UL | 294 | 283 | 299 |
+| CPU (user) | 1,531 s | 532 s | 1,721 s |
 
-`probe` alone finds 99.5% of what `both` finds at 40% of the CPU time; it misses bursts of
+(`energy` as measured before the prober was merged, at the same decoder.) `probe` alone
+finds 98.8% of what `both` finds at 31% of the CPU time; it misses bursts of
 satellites before their first ring alert and some bursts the energy path happens to
 decode. Among the slots inside active TCH_C1 downlink links still without a frame, 76% have
 no UW at all (rho2 < 0.1; idle links send only every 4th frame or so); 7% have a UW at the

@@ -76,9 +76,9 @@ public:
     static constexpr float RRC_ALPHA = 0.2f;
     // Template: RRC pulses truncated to +-6 symbols
     static constexpr int TEMPLATE_SPAN = 6;
-    // Matched filter of extract(): +-2.5 symbols, like the 51 taps of burst_downmix at
-    // 10 samples per symbol
-    static constexpr double EXTRACT_SPAN = 2.5;
+    // Matched filter of extract(): +-8 symbols like burst_downmix (+-2.5 symbols is too
+    // short for the roll-off of 0.2 and lets the neighbouring channels in)
+    static constexpr double EXTRACT_SPAN = 8;
     // Windows of the channel search: at least this long, and a long one
     static constexpr double CHANNEL_WINDOW_S = 2.5e-3;
     static constexpr double CHANNEL_WINDOW_LONG_S = 5e-3;
@@ -210,8 +210,8 @@ public:
     void extract_span(int type, double p_uw, long* first, long* end) const;
 
     /*
-     * Matched filter (RRC alpha 0.2, +-2.5 symbols) at the centres p_uw + k * sps of
-     * symbols k = 0 .. n_symbols, after mixing freq_hz (absolute) down to 0 Hz.
+     * Matched filter (RRC alpha 0.2, +-EXTRACT_SPAN symbols) at the centres p_uw + k *
+     * sps of symbols k = 0 .. n_symbols, after mixing freq_hz (absolute) down to 0 Hz.
      * Writes n_symbols + 1 samples (one per symbol) to out, rotated so the UW
      * correlation has phase 0. Fractional sps and p_uw: polyphase taps at 1/128
      * sample, the taps of each phase rotated once per call (at 12 MS/s sps is 400,
