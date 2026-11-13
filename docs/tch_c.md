@@ -64,7 +64,8 @@ tagger itself runs as without `--tch-c`) and sends its candidates straight to
   (t + phase(t)) mod 90 ms = W0 + 8.407 ms × slot, phase being the downlink frame phase of
   the satellite. W0 is twice the frame epoch in the stream's time base, the same for all
   satellites, so it is learned from the UL frames: until the first one, a sweep searches all
-  of the frame on the channels with downlink traffic. Then each UL slot is searched on the
+  of the frame on the channels with downlink traffic (every frame for the first ~12 frames
+  of a satellite, then a part of the frame per frame). Then each UL slot is searched on the
   channels whose downlink slot of the same number carried a frame (a terminal's UL burst is
   on its DL channel), ±0.35 ms and −1…+6.5 kHz around the carrier with the Doppler
   removed, and once a link is found ±50 µs around its last frame. `--no-tch-c-uplink`
@@ -92,12 +93,12 @@ On `sat-147` (12 MS/s, 279 s, `-D 8`), distinct frames with a valid CRC:
 | --- | --- | --- |
 | TCH_C1 DL | 38,964 | 34,957 |
 | TCH_C2 / C8 QPSK / C8 16APSK DL | 498 / 579 / 293 | 383 / 567 / 292 |
-| TCH_C1 UL | 283 | 294 |
+| TCH_C1 UL | 297 | 294 |
 | Legacy frames parsed | 64,355 | 64,051 |
-| CPU (user) / wall time | 532 s / 2:28 | 1,534 s / 4:43 |
+| CPU (user) / wall time | 534 s / 2:28 | 1,534 s / 4:43 |
 
-The energy detection found 406 frames the prober misses (mostly TCH_C1 bursts at the CRC
-limit); the prober finds 4,530 the energy detection missed.
+The energy detection found 394 frames the prober misses (mostly TCH_C1 bursts at the CRC
+limit); the prober finds 4,532 the energy detection missed.
 
 Among the slots inside active TCH_C1 downlink links still without a frame, 76% have no UW
 at all (rho2 < 0.1; idle links send only every 4th frame or so); 7% have a UW at the CRC

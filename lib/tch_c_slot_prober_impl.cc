@@ -101,6 +101,9 @@ static const double UL_MATCH_TOL_HZ = 8000;
 // Acquisition sweep while W0 is unknown: half width of a window, and the slow down
 static const double UL_SWEEP_S = 1.9e-3;
 static const int UL_SWEEP_WINDOWS = 2;
+// ... but the first UL_SWEEP_FAST windows of a track cover all of every frame: the first
+// UL bursts are found within a few frames (a link sends in ~40% of them), not seconds
+static const uint64_t UL_SWEEP_FAST = 300;
 static const uint64_t UL_SWEEP_FRAMES = 600;
 static const uint64_t UL_SWEEP_SLOW = 8;
 // W0 from the median of this many UL frames of the last UL_W_WINDOW_NS
@@ -1072,9 +1075,9 @@ void tch_c_slot_prober_impl::probe_ul_slot(const tch_c_sat_track& track,
 /*
  * Acquisition while W0 is unknown: per track and frame a window of v (2 UL_SWEEP_S
  * wide) searched on all channels with a DL frame recently, the next frame the next
- * window (UL_SWEEP_WINDOWS per frame): all of the 90 ms frame in ~12 frames. After
- * UL_SWEEP_FRAMES windows without a
- * UL frame only every UL_SWEEP_SLOW-th frame is searched.
+ * window (UL_SWEEP_WINDOWS per frame): all of the 90 ms frame in ~12 frames. The first
+ * UL_SWEEP_FAST windows cover every frame completely. After UL_SWEEP_FRAMES windows
+ * without a UL frame only every UL_SWEEP_SLOW-th window is searched.
  */
 void tch_c_slot_prober_impl::probe_ul_sweep(const tch_c_sat_track& tr,
                                             uint64_t ul_limit,
@@ -1096,7 +1099,12 @@ void tch_c_slot_prober_impl::probe_ul_sweep(const tch_c_sat_track& tr,
         sw.frame = tr.frame_at(begin_ns + 10000000);
         sw.valid = true;
     }
+    const int full = (int)std::ceil(tch_c_timing::FRAME_MS / span_ms);
     for (;;) {
+        const bool fast = sw.n < UL_SWEEP_FAST;
+        if (fast && sw.window == 0) {
+            sw.v = 0;
+        }
         const double v_c = std::fmod(sw.v + span_ms / 2, tch_c_timing::FRAME_MS);
         const int64_t t = tr.ul_time_ns(sw.frame, v_c);
         const double p_c = sample_index(t);
@@ -1105,8 +1113,8 @@ void tch_c_slot_prober_impl::probe_ul_sweep(const tch_c_sat_track& tr,
         if (end > (int64_t)d_end || first > (int64_t)ul_limit) {
             break;
         }
-        // UL_SWEEP_WINDOWS windows per frame
-        if (++sw.window == UL_SWEEP_WINDOWS) {
+        // UL_SWEEP_WINDOWS windows per frame, all of it at first
+        if (++sw.window >= (fast ? full : UL_SWEEP_WINDOWS)) {
             sw.window = 0;
             sw.frame++;
         }
