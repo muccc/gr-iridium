@@ -1042,6 +1042,113 @@ int burst_downmix_impl::find_uw_differential(size_t burst_size,
     return best >= DIFF_UW_MIN_CORRELATION ? from + best_n : -1;
 }
 
+/*
+ * TCH_C: coherent UW search around a position found by the differential search, which
+ * at low SNR is often off by tens of symbols (a sidelobe) and gives a poor frequency.
+ * At each place within COH_RANGE symbols (half symbol steps, then every sample around
+ * the best one), the 32 UW samples at the symbol instants with the UW removed go
+ * through a zero padded FFT: its peak is the correlation at the best frequency.
+ * Normalized to the energy of the samples, like the UW quality later.
+ * Returns true if the best place reaches COH_MIN_CORRELATION, with the d_frame index of
+ * the UW start and the frequency offset (cycles per sample of d_frame).
+ */
+bool burst_downmix_impl::find_uw_coherent(
+    size_t burst_size, int center, int* pos, float* freq, float* metric)
+{
+    const double sps = d_samples_per_symbol;
+    const int uw_span = (int)std::ceil(TCH_C_UW_LENGTH * sps) + 2;
+    const int half = std::lround(COH_RANGE * sps);
+    const int first = std::max(center - half, 0);
+    const int last = std::min(center + half, (int)burst_size - uw_span);
+    if (last < first) {
+        return false;
+    }
+    filter_input(first, last + uw_span);
+    if (!d_coh_fft) {
+        d_coh_fft = std::make_unique<gr::fft::fft_complex_fwd>(COH_FFT_SIZE);
+    }
+
+    // Normalized correlation at the best frequency (FFT bin) for a UW starting at n
+    auto eval = [&](int n, int d, int* bin, float* l, float* m0, float* r) {
+        gr_complex* in = d_coh_fft->get_inbuf();
+        const int* uw = d == 0 ? TCH_C_UW_DL : TCH_C_UW_UL;
+        float e = 0;
+        for (int k = 0; k < TCH_C_UW_LENGTH; k++) {
+            const double t = n + k * sps;
+            const int i = (int)t;
+            const float mu = t - i;
+            const gr_complex z = d_frame[i] + mu * (d_frame[i + 1] - d_frame[i]);
+            e += std::norm(z);
+            in[k] = uw[k] ? -z : z;
+        }
+        std::fill(in + TCH_C_UW_LENGTH, in + COH_FFT_SIZE, 0);
+        if (e <= 0) {
+            return 0.f;
+        }
+        d_coh_fft->execute();
+        const gr_complex* out = d_coh_fft->get_outbuf();
+        int b = 0;
+        float m = 0;
+        for (int i = 0; i < COH_FFT_SIZE; i++) {
+            const float v = std::norm(out[i]);
+            if (v > m) {
+                m = v;
+                b = i;
+            }
+        }
+        if (bin) {
+            *bin = b;
+            *l = std::abs(out[(b + COH_FFT_SIZE - 1) % COH_FFT_SIZE]);
+            *m0 = std::abs(out[b]);
+            *r = std::abs(out[(b + 1) % COH_FFT_SIZE]);
+        }
+        return m / (TCH_C_UW_LENGTH * e);
+    };
+
+    // Coarse: half symbol steps; then every sample around the best place
+    const int n_dirs = d_tch_c->type == 1 ? 2 : 1; // uplink TCH_C2/C8 is rare
+    const int coarse = std::max(1, (int)std::lround(sps / 2));
+    float best = 0;
+    int best_pos = -1, best_dir = 0;
+    for (int n = first; n <= last; n += coarse) {
+        for (int d = 0; d < n_dirs; d++) {
+            const float m = eval(n, d, nullptr, nullptr, nullptr, nullptr);
+            if (m > best) {
+                best = m;
+                best_pos = n;
+                best_dir = d;
+            }
+        }
+    }
+    if (best_pos < 0 || best < 0.8f * COH_MIN_CORRELATION) {
+        *metric = best;
+        return false;
+    }
+    const int c0 = best_pos;
+    for (int n = std::max(c0 - coarse + 1, first); n <= std::min(c0 + coarse - 1, last);
+         n++) {
+        const float m = eval(n, best_dir, nullptr, nullptr, nullptr, nullptr);
+        if (m > best) {
+            best = m;
+            best_pos = n;
+        }
+    }
+    *metric = best;
+    if (best < COH_MIN_CORRELATION) {
+        return false;
+    }
+    int b;
+    float l, m0, r;
+    eval(best_pos, best_dir, &b, &l, &m0, &r);
+    float bin = b >= COH_FFT_SIZE / 2 ? b - COH_FFT_SIZE : b;
+    if (2 * m0 - l - r > 0) {
+        bin += 0.5f * (r - l) / (2 * m0 - l - r);
+    }
+    *freq = bin / COH_FFT_SIZE / sps;
+    *pos = best_pos;
+    return true;
+}
+
 int burst_downmix_impl::process_next_frame(float sample_rate,
                                            double center_frequency,
                                            uint64_t timestamp,
@@ -1051,6 +1158,8 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
                                            float noise,
                                            float magnitude)
 {
+    const double center_frequency_in = center_frequency;
+    int diff_uw = -1; // UW start found by the differential search, for retry_coherent
     // The input filter may have been moved for this frame, see handler()
     center_frequency += d_center_shift;
 
@@ -1096,8 +1205,9 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
 
     // TCH_C: the squared FFT CFO estimate below needs the samples to start with the UW,
     // the start of the detection is often well before it
-    if (d_tch_c && !d_tracked && !d_fixed_start) {
+    if (d_tch_c && !d_tracked && !d_fixed_start && !d_in_retry) {
         const int uw = find_uw_differential(burst_size, start);
+        diff_uw = uw;
         if (uw >= 0) {
             start = std::max(uw - d_pre_start_samples, start);
             if (burst_size - start < min_frame_length) {
@@ -1149,6 +1259,9 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     volk_32fc_32f_multiply_32fc(
         d_cfo_est_fft.get_inbuf(), d_tmp_a, d_cfo_est_window_f, d_cfo_est_fft_size);
     const int max_index = find_cfo_peak();
+    // After retry_coherent() the frequency is known better than this estimates it
+    const bool skip_cfo = d_cfo_skip;
+    d_cfo_skip = false;
     if (d_debug) {
         printf("max_index=%d\n", max_index);
     }
@@ -1167,7 +1280,8 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     // Normalize the result.
     // Divide by two to remove the effect of the squaring operation before.
     float center_offset =
-        interpolated_index / (d_cfo_est_fft_size * d_fft_over_size_facor) / 2;
+        skip_cfo ? 0
+                 : interpolated_index / (d_cfo_est_fft_size * d_fft_over_size_facor) / 2;
 
     if (d_debug) {
         printf("interpolated_index=%f center_offset=%f (%f)\n",
@@ -1301,12 +1415,56 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
         const int uw = find_next_uw_coarse(burst_size, start + offset, center_offset);
         return uw < 0 ? 0 : std::max(uw - d_pre_start_samples - start, 1);
     };
+    /*
+     * TCH_C: the place did not hold a usable UW. At low SNR the differential search is
+     * often off by tens of symbols and the CFO estimate on the samples there is wrong:
+     * look for the UW coherently around the differential result, and if it is there,
+     * try once more with the input filter centered on its frequency and without the
+     * squared FFT CFO estimate. Returns where to continue (an offset from start), or -1
+     * if that did not give a frame.
+     */
+    auto retry_coherent = [&]() {
+        int pos;
+        float freq, metric;
+        if (d_in_retry || diff_uw < 0 ||
+            !find_uw_coherent(burst_size, diff_uw, &pos, &freq, &metric)) {
+            return -1;
+        }
+        const float shift = d_input_shift;
+        const double center_shift = d_center_shift;
+        const int n_frames = d_n_frames;
+        set_input_shift(d_input_shift - freq / d_decimation);
+        d_center_shift += freq * sample_rate;
+        d_cfo_skip = true;
+        d_in_retry = true;
+        const int new_start = std::max(pos - d_pre_start_samples, 0);
+        const int r = process_next_frame(sample_rate,
+                                         center_frequency_in,
+                                         timestamp,
+                                         sub_id,
+                                         burst_size,
+                                         new_start,
+                                         noise,
+                                         magnitude);
+        d_in_retry = false;
+        d_cfo_skip = false;
+        if (d_n_frames == n_frames) {
+            set_input_shift(shift);
+            d_center_shift = center_shift;
+            return -1;
+        }
+        return r > 0 ? new_start - start + r : 0;
+    };
     const int uw_len = d_dl_preamble_reversed_conj.size();
     // Overlapping by one sync word, so none at the end of the window is missed
     const int searched = std::max(search_len - uw_len, 1);
 
     // If the UW starts at an offset < 0, we will not be able to demodulate the signal
     if (uw_start < 0) {
+        const int r = retry_coherent();
+        if (r >= 0) {
+            return r;
+        }
         return look_ahead ? continue_after(searched) : 0;
     }
 
@@ -1332,6 +1490,10 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
                       d_corr_fft_size / d_corr_fft_size;
         }
         if (!(quality >= UW_MIN_CORRELATION)) {
+            const int r = retry_coherent();
+            if (r >= 0) {
+                return r;
+            }
             // The next burst can follow in the same detection
             return look_ahead ? continue_after(searched) : consumed_samples;
         }

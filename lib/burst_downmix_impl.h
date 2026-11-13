@@ -161,6 +161,16 @@ private:
     double d_center_shift = 0;  // Hz the input filter was moved by for this frame
     bool d_fixed_start = false; // process_next_frame(): start is at a UW found already
     void set_input_shift(float shift);
+    // TCH_C: coherent UW search for retry_coherent() in process_next_frame()
+    static constexpr int COH_FFT_SIZE = 64;
+    static constexpr float COH_RANGE = 30; // symbols around the differential result
+    // Real bursts reach 0.5 to 0.9 on test recordings, noise mostly 0.3 to 0.4
+    static constexpr float COH_MIN_CORRELATION = 0.5f;
+    std::unique_ptr<gr::fft::fft_complex_fwd> d_coh_fft;
+    bool d_cfo_skip = false; // the next CFO estimate is not needed
+    bool d_in_retry = false; // process_next_frame() called by retry_coherent
+    bool
+    find_uw_coherent(size_t burst_size, int center, int* pos, float* freq, float* metric);
 
     bool d_wait_for_demod;
     uint64_t d_burst_id; // the burst being handled

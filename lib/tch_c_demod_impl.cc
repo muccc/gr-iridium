@@ -158,7 +158,10 @@ bool tch_c_demod_impl::uw_ok(const int* demodulated_burst, const int* uw)
         }
         diffs += diff;
     }
-    return diffs <= 5;
+    // At 3 dB Es/N0 (where TCH_C2/C8 still decode) 5 of the 32 UW symbols are wrong on
+    // average; the downmixer has checked the UW coherently already, and the CRC protects
+    // against false frames
+    return diffs <= 10;
 }
 
 void tch_c_demod_impl::decode_gray_qpsk(int* demodulated_burst, size_t n_symbols)
