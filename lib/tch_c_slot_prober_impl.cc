@@ -96,8 +96,17 @@ static const double UL_WIDE_SEARCH_HZ = 3750;
 static const double UL_TRACK_S = 50e-6;
 static const double UL_TRACK_SEARCH_HZ = 1500;
 static const float UL_THRESHOLD = 0.45f;
-// UL frames of the energy path: tolerance of their carrier for the channel match
-static const double UL_MATCH_TOL_HZ = 8000;
+/*
+ * When a channel gets DL frames (a new link, or a terminal handed over to it), its UL
+ * slots are also searched back to UL_BACK_S before the first DL frame: the UL burst of
+ * a handover can come first (sat-147: 0.31 s). The buffer holds UL_BUFFER_S more for it.
+ */
+static const double UL_BACK_S = 0.5;
+static const double UL_BUFFER_S = 0.4;
+// UL frames whose v - W0 is within this of a slot belong to it
+static const double UL_SLOT_TOL_MS = 1.0;
+// W0 candidates within this agree
+static const double UL_W_AGREE_MS = 0.5;
 // Acquisition sweep while W0 is unknown: half width of a window, and the slow down
 static const double UL_SWEEP_S = 1.9e-3;
 static const int UL_SWEEP_WINDOWS = 2;
@@ -111,6 +120,18 @@ static const size_t UL_W_MEASUREMENTS = 32;
 static const int64_t UL_W_WINDOW_NS = 30000000000;
 // No frame yet (far from any time, no overflow in differences)
 static const int64_t UL_NEVER = INT64_MIN / 4;
+
+// Is the (track, slot, position) link active at t: a UL frame within UL_TRACK_NS
+// (tracked) or a DL frame within UL_DL_ACTIVE_NS
+static bool ul_tracked(int64_t t_ns, int64_t last_ul_ns)
+{
+    return std::llabs(t_ns - last_ul_ns) < UL_TRACK_NS;
+}
+
+static bool dl_active(int64_t t_ns, int64_t last_dl_ns)
+{
+    return std::llabs(t_ns - last_dl_ns) < UL_DL_ACTIVE_NS;
+}
 
 tch_c_slot_prober::sptr tch_c_slot_prober::make(double center_frequency,
                                                 double sample_rate,
@@ -187,10 +208,10 @@ tch_c_slot_prober_impl::tch_c_slot_prober_impl(double center_frequency,
       d_debug_rho2(d_debug ? env_double("IRIDIUM_PROBE_DEBUG_RHO2", 2) : 2),
       d_offset_ns(std::llround(env_double("IRIDIUM_PROBE_OFFSET_US", 0) * 1e3)),
       d_variants_rho2(env_double("IRIDIUM_PROBE_VARIANTS_RHO2", VARIANTS_RHO2)),
-      d_ring(std::max<size_t>(
-          std::ceil((history_s + RING_MARGIN_S + (uplink ? UL_DELAY_S : 0)) *
-                    sample_rate),
-          1)),
+      d_ring(std::max<size_t>(std::ceil((history_s + RING_MARGIN_S +
+                                         (uplink ? UL_DELAY_S + UL_BUFFER_S : 0)) *
+                                        sample_rate),
+                              1)),
       d_end(0),
       d_chunk(std::max<uint64_t>(1, CHUNK_S * sample_rate)),
       d_lag(std::max<double>(0, history_s) * sample_rate),
@@ -200,6 +221,8 @@ tch_c_slot_prober_impl::tch_c_slot_prober_impl(double center_frequency,
       d_probe_uplink(uplink && d_offset_ns == 0 &&
                      std::find(types.begin(), types.end(), 1) != types.end()),
       d_ul_w_valid(false),
+      d_ul_w_confirmed(false),
+      d_n_ul_back(0),
       d_ul_w0(0),
       d_n_ul_sweep_frames(0),
       d_n_ul_slots(0),
@@ -305,11 +328,15 @@ bool tch_c_slot_prober_impl::stop()
             fprintf(stderr,
                     "tch_c_slot_prober: TCH_C1 uplink W0 %.3f ms (%s), %" PRIu64
                     " slots, %" PRIu64 " sweep windows, %" PRIu64
-                    " channel searches, %" PRIu64 " probes, %" PRIu64 " CRC ok\n",
+                    " back searches, %" PRIu64 " channel searches, %" PRIu64
+                    " probes, %" PRIu64 " CRC ok\n",
                     d_ul_w0,
-                    d_ul_w_valid ? "valid" : "not found",
+                    d_ul_w_confirmed ? "confirmed"
+                    : d_ul_w_valid   ? "valid"
+                                     : "not found",
                     d_n_ul_slots,
                     d_n_ul_sweep_frames,
+                    d_n_ul_back,
                     d_n_ul_searches,
                     d_n_ul_probes,
                     d_n_ul_crc_ok);
@@ -677,11 +704,34 @@ void tch_c_slot_prober_impl::ul_link_dl(int track, int slot, int position, int64
         return;
     }
     auto it = d_ul_links.find(std::make_tuple(track, slot, position));
+    bool new_link = false;
     if (it == d_ul_links.end()) {
         d_ul_links[std::make_tuple(track, slot, position)] = { t_ns, UL_NEVER, 0, 0 };
+        new_link = true;
     } else {
+        new_link = !dl_active(t_ns, it->second.last_dl_ns) &&
+                   !ul_tracked(t_ns, it->second.last_ul_ns);
         it->second.last_dl_ns = std::max(it->second.last_dl_ns, t_ns);
     }
+    // Its UL slots before this frame were not searched: see UL_BACK_S
+    if (new_link && d_ul_w_valid) {
+        d_ul_back.push_back({ track, slot, position, t_ns });
+    }
+}
+
+// The UL slot of v by W0, -1 if it fits none
+int tch_c_slot_prober_impl::ul_slot_of(double v_ms) const
+{
+    if (!d_ul_w_valid) {
+        return -1;
+    }
+    const double x = tch_c_timing::wrap_ms(v_ms - d_ul_w0);
+    const int k = (int)std::lround(x / tch_c_timing::UL_SLOT_MS);
+    if (k < 0 || k >= tch_c_timing::N_SLOTS ||
+        std::fabs(x - k * tch_c_timing::UL_SLOT_MS) > UL_SLOT_TOL_MS) {
+        return -1;
+    }
+    return k;
 }
 
 /*
@@ -768,6 +818,14 @@ void tch_c_slot_prober_impl::probe_slots(uint64_t limit, uint64_t ul_limit)
             ++it;
         }
     }
+    // Back searches of tracks gone or out of the buffer
+    d_ul_back.erase(std::remove_if(d_ul_back.begin(),
+                                   d_ul_back.end(),
+                                   [&](const ul_back_request& r) {
+                                       return !d_tracks.find(r.track) ||
+                                              r.t_ns < begin_ns - 1000000000;
+                                   }),
+                    d_ul_back.end());
     // UL links of tracks gone or without frames for a while
     for (auto it = d_ul_links.begin(); it != d_ul_links.end();) {
         const int64_t last = std::max(it->second.last_dl_ns, it->second.last_ul_ns);
@@ -840,7 +898,9 @@ void tch_c_slot_prober_impl::probe_slots(uint64_t limit, uint64_t ul_limit)
 
         if (d_probe_uplink && d_ul_w_valid) {
             probe_ul_slots(*tr, ul_limit, begin, begin_ns);
-        } else if (d_probe_uplink) {
+            probe_ul_back(*tr, begin);
+        }
+        if (d_probe_uplink && !d_ul_w_confirmed) {
             probe_ul_sweep(*tr, ul_limit, begin, begin_ns);
         }
     }
@@ -898,6 +958,76 @@ void tch_c_slot_prober_impl::probe_ul_slots(const tch_c_sat_track& tr,
 }
 
 /*
+ * Back searches (see UL_BACK_S): the UL slots of a channel which just got DL frames,
+ * from UL_BACK_S before its first DL frame up to the slots the cursor has probed.
+ */
+void tch_c_slot_prober_impl::probe_ul_back(const tch_c_sat_track& tr, uint64_t begin)
+{
+    auto uc = d_ul_cursors.find(tr.id());
+    if (uc == d_ul_cursors.end()) {
+        return;
+    }
+    for (auto r = d_ul_back.begin(); r != d_ul_back.end();) {
+        if (r->track != tr.id()) {
+            ++r;
+            continue;
+        }
+        const double v = d_ul_w0 + tch_c_timing::UL_SLOT_MS * r->slot;
+        const int64_t from = r->t_ns - (int64_t)(UL_BACK_S * 1e9);
+        for (int64_t frame = tr.ul_frame_at(from, v);; frame++) {
+            const int64_t t = tr.ul_time_ns(frame, v);
+            if (t > uc->second.last_ns) {
+                break;
+            }
+            if (t < from) {
+                continue;
+            }
+            int64_t first, end;
+            ul_slot_window(sample_index(t), UL_WIDE_S, &first, &end);
+            if (first < (int64_t)begin || end > (int64_t)d_end) {
+                continue;
+            }
+            const double t0 = d_debug ? cpu_s() : 0;
+            const gr_complex* x = samples(first, end - first);
+            d_survey.set_window(x, d_survey.window_capacity());
+            const double f0 = tch_c_slot_survey::nominal_frequency(1, r->position) *
+                              (1 - tr.doppler(t) / TCH_C_F_RING);
+            tch_c_slot_survey::channel_candidate cc;
+            double p_uw;
+            const uint64_t id = ul_search(x,
+                                          first,
+                                          tr,
+                                          r->slot,
+                                          r->position,
+                                          sample_index(t),
+                                          UL_WIDE_S,
+                                          f0 + UL_WIDE_F_HZ,
+                                          UL_WIDE_SEARCH_HZ,
+                                          &cc,
+                                          &p_uw);
+            d_n_ul_back++;
+            if (id != UINT64_MAX && cc.rho2 >= d_debug_rho2) {
+                fprintf(stderr,
+                        "PK t_ns=%" PRId64 " track=%d slot=%d pos=%d f=%.0f rho2=%.3f "
+                        "dt_us=%.2f id=%" PRIu64 "\n",
+                        t,
+                        tr.id(),
+                        r->slot,
+                        r->position,
+                        cc.frequency,
+                        cc.rho2,
+                        (p_uw - sample_index(t)) / d_sample_rate * 1e6,
+                        id);
+            }
+            if (d_debug) {
+                d_cpu[3] += cpu_s() - t0;
+            }
+        }
+        r = d_ul_back.erase(r);
+    }
+}
+
+/*
  * The samples a UL probe around p (search +-s seconds) reads: the search window (and
  * the margin of fine_timing()) and the extraction of a burst at its end.
  */
@@ -914,17 +1044,6 @@ void tch_c_slot_prober_impl::ul_slot_window(double p,
     *end = std::max<int64_t>(*first + d_survey.window_capacity(s > UL_WIDE_S), ee);
 }
 
-// Is the (track, slot, position) link active at t: a UL frame within UL_TRACK_NS
-// (tracked) or a DL frame within UL_DL_ACTIVE_NS
-static bool ul_tracked(int64_t t_ns, int64_t last_ul_ns)
-{
-    return std::llabs(t_ns - last_ul_ns) < UL_TRACK_NS;
-}
-
-static bool dl_active(int64_t t_ns, int64_t last_dl_ns)
-{
-    return std::llabs(t_ns - last_dl_ns) < UL_DL_ACTIVE_NS;
-}
 
 /*
  * Search one channel for a UL burst near p_c (+-s seconds, sample index of the stream,
@@ -1190,130 +1309,190 @@ void tch_c_slot_prober_impl::probe_ul_sweep(const tch_c_sat_track& tr,
 }
 
 /*
- * The track and TCH_C1 position of a UL burst at t on f: a track with a DL link on the
- * channel whose UL carrier (nominal * (1 - Doppler / F_RING) + 0..5.5 kHz) is within
- * tol_hz. *slot: the slot of the link whose v fits W0, if known, else the DL slot with
- * the newest frame on the channel.
- */
-bool tch_c_slot_prober_impl::ul_match(
-    int64_t t_ns, double f_hz, double tol_hz, int* track, int* position, int* slot) const
-{
-    for (const auto& tr : d_tracks) {
-        if (tr.empty()) {
-            continue;
-        }
-        const double d = tr.doppler(t_ns);
-        const int pos =
-            nearest_position(1, (f_hz - UL_WIDE_F_HZ) / (1 - d / TCH_C_F_RING));
-        const double f0 =
-            tch_c_slot_survey::nominal_frequency(1, pos) * (1 - d / TCH_C_F_RING);
-        if (std::fabs(f_hz - f0 - UL_WIDE_F_HZ) > tol_hz) {
-            continue;
-        }
-        int best = -1;
-        int64_t best_t = UL_NEVER;
-        for (int k = 0; k < tch_c_timing::N_SLOTS; k++) {
-            auto it = d_ul_links.find(std::make_tuple(tr.id(), k, pos));
-            if (it == d_ul_links.end()) {
-                continue;
-            }
-            const int64_t last = std::max(it->second.last_dl_ns, it->second.last_ul_ns);
-            if ((dl_active(t_ns, it->second.last_dl_ns) ||
-                 ul_tracked(t_ns, it->second.last_ul_ns)) &&
-                (best < 0 || last > best_t)) {
-                best = k;
-                best_t = last;
-            }
-        }
-        if (best < 0) {
-            continue;
-        }
-        if (d_ul_w_valid) {
-            const double x = tch_c_timing::wrap_ms(tr.ul_phase_ms(t_ns) - d_ul_w0);
-            const int k = (int)std::lround(x / tch_c_timing::UL_SLOT_MS);
-            if (k >= 0 && k < tch_c_timing::N_SLOTS &&
-                std::fabs(x - k * tch_c_timing::UL_SLOT_MS) < 1) {
-                best = k;
-            }
-        }
-        *track = tr.id();
-        *position = pos;
-        *slot = best;
-        return true;
-    }
-    return false;
-}
-
-/*
- * A CRC ok TCH_C1 uplink frame: where the UL burst of its link is, and a measurement of
- * W0. Our own probes know their track, slot and channel; frames of the energy path are
- * matched to a channel with DL frames (ul_match()).
+ * A CRC ok TCH_C1 uplink frame of one of our probes: where the UL burst of its link is,
+ * and a measurement of W0. The slot of the first UL frames is ambiguous if their channel
+ * carries DL frames in several slots: W0 is then the value most links agree on (see
+ * update_ul_w0()), and until two links or one unambiguous one confirm it the
+ * acquisition sweep goes on.
  */
 void tch_c_slot_prober_impl::on_ul_hit(const tch_c_hit& hit)
 {
-    if (!d_probe_uplink || hit.type != 1 || d_offset_ns != 0) {
+    if (!d_probe_uplink || hit.type != 1 || d_offset_ns != 0 || !hit.probe ||
+        hit.probe->track < 0 || !hit.probe->uplink) {
         return;
     }
-    int track, slot, position;
-    if (hit.id >= TCH_C_PROBE_ID_BASE) {
-        if (!hit.probe || hit.probe->track < 0 || !hit.probe->uplink) {
-            return;
-        }
-        track = hit.probe->track;
-        slot = hit.probe->slot;
-        position = hit.probe->position;
-    } else if (!ul_match(hit.t_ns, hit.f_hz, UL_MATCH_TOL_HZ, &track, &position, &slot)) {
-        return;
-    }
+    const int track = hit.probe->track;
+    const int position = hit.probe->position;
     const tch_c_sat_track* tr = d_tracks.find(track);
     if (!tr) {
         return;
     }
-    const double v = tr->ul_phase_ms(hit.t_ns);
+    const int64_t t = hit.t_ns;
+    const double v = tr->ul_phase_ms(t);
+
+    // The slots it can be in: those with DL frames on its channel
+    ul_w_measurement m;
+    m.t_ns = t;
+    m.track = track;
+    m.position = position;
+    for (int k = 0; k < tch_c_timing::N_SLOTS; k++) {
+        auto it = d_ul_links.find(std::make_tuple(track, k, position));
+        if (it != d_ul_links.end() && dl_active(t, it->second.last_dl_ns)) {
+            m.w.push_back(
+                std::fmod(v - tch_c_timing::UL_SLOT_MS * k + 2 * tch_c_timing::FRAME_MS,
+                          tch_c_timing::FRAME_MS));
+        }
+    }
+    if (m.w.empty()) {
+        m.w.push_back(std::fmod(v - tch_c_timing::UL_SLOT_MS * hit.probe->slot +
+                                    2 * tch_c_timing::FRAME_MS,
+                                tch_c_timing::FRAME_MS));
+    }
+    d_ul_w.push_back(m);
+    while (d_ul_w.size() > UL_W_MEASUREMENTS) {
+        d_ul_w.pop_front();
+    }
+    update_ul_w0(t, hit.probe->slot, v);
+
+    int slot = ul_slot_of(v);
+    if (slot < 0) {
+        slot = hit.probe->slot;
+    }
     const double nominal = tch_c_slot_survey::nominal_frequency(1, position);
     auto it = d_ul_links
                   .insert({ std::make_tuple(track, slot, position),
                             { UL_NEVER, UL_NEVER, 0, 0 } })
                   .first;
     ul_link& l = it->second;
-    if ((int64_t)hit.t_ns >= l.last_ul_ns) {
-        l.last_ul_ns = hit.t_ns;
+    if (t >= l.last_ul_ns) {
+        l.last_ul_ns = t;
         l.v_ms = v;
-        l.f_offset_hz = hit.f_hz - nominal * (1 - tr->doppler(hit.t_ns) / TCH_C_F_RING);
+        l.f_offset_hz = hit.f_hz - nominal * (1 - tr->doppler(t) / TCH_C_F_RING);
     }
+}
 
-    // W0: median of the recent measurements, unwrapped around the newest one
-    const double w =
-        std::fmod(v - tch_c_timing::UL_SLOT_MS * slot + 2 * tch_c_timing::FRAME_MS,
-                  tch_c_timing::FRAME_MS);
-    d_ul_w.push_back({ (int64_t)hit.t_ns, w });
-    while (d_ul_w.size() > UL_W_MEASUREMENTS) {
-        d_ul_w.pop_front();
-    }
-    std::vector<std::pair<double, double>> m;
-    for (const auto& p : d_ul_w) {
-        if (p.first > (int64_t)hit.t_ns - UL_W_WINDOW_NS) {
-            m.push_back({ w + tch_c_timing::wrap_ms(p.second - w), 1.0 });
+/*
+ * W0 from the recent UL frames: every frame gives one candidate per slot it can be in.
+ * The candidate supported by the most links (track, channel) wins, then by the most
+ * unambiguous ones, then the current W0. W0 is the median of the supporting
+ * candidates. Links filed under another slot then are moved.
+ */
+void tch_c_slot_prober_impl::update_ul_w0(int64_t t_ns, int slot, double v)
+{
+    struct support {
+        int links = 0;
+        int unambiguous = 0;
+        bool current = false;
+    };
+    double best_w = 0;
+    support best;
+    bool have = false;
+    for (const auto& m : d_ul_w) {
+        if (m.t_ns < t_ns - UL_W_WINDOW_NS) {
+            continue;
+        }
+        for (double w : m.w) {
+            std::set<std::pair<int, int>> links, unambiguous;
+            for (const auto& o : d_ul_w) {
+                if (o.t_ns < t_ns - UL_W_WINDOW_NS) {
+                    continue;
+                }
+                for (double ow : o.w) {
+                    if (std::fabs(tch_c_timing::wrap_ms(ow - w)) < UL_W_AGREE_MS) {
+                        links.insert({ o.track, o.position });
+                        if (o.w.size() == 1) {
+                            unambiguous.insert({ o.track, o.position });
+                        }
+                        break;
+                    }
+                }
+            }
+            support sup;
+            sup.links = links.size();
+            sup.unambiguous = unambiguous.size();
+            sup.current = d_ul_w_valid &&
+                          std::fabs(tch_c_timing::wrap_ms(w - d_ul_w0)) < UL_W_AGREE_MS;
+            if (!have || std::tie(sup.links, sup.unambiguous, sup.current) >
+                             std::tie(best.links, best.unambiguous, best.current)) {
+                best_w = w;
+                best = sup;
+                have = true;
+            }
         }
     }
-    const double w0 = tch_c_timing::weighted_median(m);
+    if (!have) {
+        return;
+    }
+    std::vector<std::pair<double, double>> agree;
+    for (const auto& m : d_ul_w) {
+        if (m.t_ns < t_ns - UL_W_WINDOW_NS) {
+            continue;
+        }
+        for (double w : m.w) {
+            const double d = tch_c_timing::wrap_ms(w - best_w);
+            if (std::fabs(d) < UL_W_AGREE_MS) {
+                agree.push_back({ best_w + d, 1.0 });
+                break;
+            }
+        }
+    }
+    const double w0 =
+        std::fmod(tch_c_timing::weighted_median(agree) + tch_c_timing::FRAME_MS,
+                  tch_c_timing::FRAME_MS);
     const double w0_old = d_ul_w0;
-    d_ul_w0 = std::fmod(w0 + tch_c_timing::FRAME_MS, tch_c_timing::FRAME_MS);
-    if (d_debug &&
-        (!d_ul_w_valid || std::fabs(tch_c_timing::wrap_ms(d_ul_w0 - w0_old)) > 0.05)) {
+    const bool moved =
+        d_ul_w_valid && std::fabs(tch_c_timing::wrap_ms(w0 - w0_old)) > UL_SLOT_TOL_MS;
+    // Once confirmed, W0 stays so until it moves to another slot
+    const bool confirmed =
+        best.links >= 2 || best.unambiguous >= 1 || (d_ul_w_confirmed && !moved);
+    if (d_debug && (!d_ul_w_valid || confirmed != d_ul_w_confirmed ||
+                    std::fabs(tch_c_timing::wrap_ms(w0 - w0_old)) > 0.05)) {
         fprintf(stderr,
-                "UW0 t_ns=%" PRIu64 " w0=%.3f (was %.3f, valid %d) from track=%d slot=%d "
-                "pos=%d v=%.3f\n",
-                hit.t_ns,
-                d_ul_w0,
+                "UW0 t_ns=%" PRId64 " w0=%.3f (was %.3f, valid %d) links=%d "
+                "unambiguous=%d confirmed=%d from slot=%d v=%.3f\n",
+                t_ns,
+                w0,
                 w0_old,
                 d_ul_w_valid,
-                track,
+                best.links,
+                best.unambiguous,
+                confirmed,
                 slot,
-                position,
                 v);
     }
+    d_ul_w0 = w0;
     d_ul_w_valid = true;
+    d_ul_w_confirmed = confirmed;
+    if (moved) {
+        relabel_ul_links();
+    }
+}
+
+// After W0 moved: file the UL part of every link under the slot its v is in now
+void tch_c_slot_prober_impl::relabel_ul_links()
+{
+    std::vector<std::pair<std::tuple<int, int, int>, ul_link>> moves;
+    for (auto& e : d_ul_links) {
+        ul_link& l = e.second;
+        if (l.last_ul_ns == UL_NEVER) {
+            continue;
+        }
+        const int k = ul_slot_of(l.v_ms);
+        if (k < 0 || k == std::get<1>(e.first)) {
+            continue;
+        }
+        moves.push_back(
+            { std::make_tuple(std::get<0>(e.first), k, std::get<2>(e.first)), l });
+        l.last_ul_ns = UL_NEVER;
+    }
+    for (const auto& mv : moves) {
+        auto it = d_ul_links.insert({ mv.first, { UL_NEVER, UL_NEVER, 0, 0 } }).first;
+        if (mv.second.last_ul_ns > it->second.last_ul_ns) {
+            it->second.last_ul_ns = mv.second.last_ul_ns;
+            it->second.v_ms = mv.second.v_ms;
+            it->second.f_offset_hz = mv.second.f_offset_hz;
+        }
+    }
 }
 
 /*

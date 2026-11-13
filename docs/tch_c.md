@@ -65,11 +65,15 @@ tagger itself runs as without `--tch-c`) and sends its candidates straight to
   the satellite. W0 is twice the frame epoch in the stream's time base, the same for all
   satellites, so it is learned from the UL frames: until the first one, a sweep searches all
   of the frame on the channels with downlink traffic (every frame for the first ~12 frames
-  of a satellite, then a part of the frame per frame). Then each UL slot is searched on the
+  of a satellite, then a part of the frame per frame). If that channel carries downlink
+  frames in several slots, the slot of the UL frame is ambiguous: W0 is then the value most
+  links agree on, and the sweep goes on until two links or an unambiguous one confirm it. Then each UL slot is searched on the
   channels whose downlink slot of the same number carried a frame (a terminal's UL burst is
   on its DL channel), ±0.35 ms and −1…+6.5 kHz around the carrier with the Doppler
-  removed, and once a link is found ±50 µs around its last frame. `--no-tch-c-uplink`
-  turns this off.
+  removed, and once a link is found ±50 µs around its last frame. When a channel gets
+  downlink frames (a new link, or a handover), its UL slots are also searched back to
+  0.5 s before the first of them: the first UL burst after a handover can come before the
+  downlink. `--no-tch-c-uplink` turns this off.
 - **Demodulation and decoding** (`tch_c_demod`). Phase and frequency come from a fit to the
   known symbols (UW and pilots). Gain and noise variance give soft bits (max-log for
   16APSK). These are then de-interleaved, turbo decoded (log-MAP, up to 8 iterations),
@@ -91,14 +95,14 @@ On `sat-147` (12 MS/s, 279 s, `-D 8`), distinct frames with a valid CRC:
 
 | | Slot prober | Energy detection (`schneider/iridium-next-harder`, before the prober) |
 | --- | --- | --- |
-| TCH_C1 DL | 38,964 | 34,957 |
-| TCH_C2 / C8 QPSK / C8 16APSK DL | 498 / 579 / 293 | 383 / 567 / 292 |
-| TCH_C1 UL | 297 | 294 |
+| TCH_C1 DL | 38,974 | 34,957 |
+| TCH_C2 / C8 QPSK / C8 16APSK DL | 500 / 579 / 293 | 383 / 567 / 292 |
+| TCH_C1 UL | 299 | 294 |
 | Legacy frames parsed | 64,355 | 64,051 |
-| CPU (user) / wall time | 534 s / 2:28 | 1,534 s / 4:43 |
+| CPU (user) / wall time | 538 s / 2:33 | 1,534 s / 4:43 |
 
-The energy detection found 394 frames the prober misses (mostly TCH_C1 bursts at the CRC
-limit); the prober finds 4,532 the energy detection missed.
+The energy detection found 385 frames the prober misses (mostly TCH_C1 bursts at the CRC
+limit); the prober finds 4,537 the energy detection missed.
 
 Among the slots inside active TCH_C1 downlink links still without a frame, 76% have no UW
 at all (rho2 < 0.1; idle links send only every 4th frame or so); 7% have a UW at the CRC

@@ -128,8 +128,29 @@ private:
         double w0;       // W0 the cursor was set up with
     };
     std::map<int, ul_cursor> d_ul_cursors;
-    std::deque<std::pair<int64_t, double>> d_ul_w; // (t, W0) of the recent UL frames
+    // The recent UL frames: W0 for each slot they can be in
+    struct ul_w_measurement {
+        int64_t t_ns;
+        int track;
+        int position;
+        std::vector<double> w;
+    };
+    std::deque<ul_w_measurement> d_ul_w;
     bool d_ul_w_valid;
+    bool d_ul_w_confirmed; // by two links or an unambiguous one
+    void update_ul_w0(int64_t t_ns, int slot, double v);
+    void relabel_ul_links();
+    int ul_slot_of(double v_ms) const;
+    // Channels which just got DL frames, see UL_BACK_S
+    struct ul_back_request {
+        int track;
+        int slot;
+        int position;
+        int64_t t_ns;
+    };
+    std::deque<ul_back_request> d_ul_back;
+    uint64_t d_n_ul_back;
+    void probe_ul_back(const tch_c_sat_track& tr, uint64_t begin);
     double d_ul_w0;
     struct ul_sweep {
         int64_t frame; // next frame to search
@@ -164,12 +185,6 @@ private:
                        double f_s,
                        tch_c_slot_survey::channel_candidate* cc,
                        double* p_found);
-    bool ul_match(int64_t t_ns,
-                  double f_hz,
-                  double tol_hz,
-                  int* track,
-                  int* position,
-                  int* slot) const;
     uint64_t d_n_ul_slots;
     uint64_t d_n_ul_searches;
     uint64_t d_n_ul_probes;
