@@ -61,8 +61,12 @@ private:
                       float noise,
                       float magnitude,
                       int tch_type,
-                      int max_variants);
-    int decimate(const gr_complex* in, int size, float sps, int n, gr_complex* out);
+                      int max_variants,
+                      int pre_samples);
+    int decimate(
+        const gr_complex* in, int size, float sps, int n, gr_complex* out, float t0 = 0);
+    float find_timing(
+        const tch_c_format& f, const gr_complex* in, int size, float sps, int pre);
     float
     known_symbol_correction(const tch_c_format& f, const gr_complex* x, gr_complex* y);
     float qpsk_first_order_pll(const gr_complex* x, int size, float alpha, gr_complex* y);

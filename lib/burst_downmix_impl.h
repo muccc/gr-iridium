@@ -36,6 +36,7 @@ class burst_downmix_impl : public burst_downmix
 {
 private:
     static const int RRC_TAPS = 51;
+    static constexpr double TCH_C_RRC_SPAN = 8; // symbols on each side
     static const int RC_TAPS = 51;
 
     const tch_c_format* d_tch_c; // TCH_C burst format, nullptr for legacy bursts
@@ -100,6 +101,8 @@ private:
 
     // Normalized correlation a TCH_C UW needs to be taken for one
     static constexpr float UW_MIN_CORRELATION = 0.25f;
+    // Samples before the UW start sent on with a TCH_C frame, see tch_c_demod
+    static constexpr int TCH_C_PRE_SAMPLES = 2;
     // Above this a TCH_C sync word is taken as certain (nearly all CRC passes)
     static constexpr float UW_GOOD_CORRELATION = 0.5f;
     float d_sync_word_energy;
@@ -138,6 +141,38 @@ private:
     int d_next_base = 0;       // coarse index of d_next_best[0]
     std::vector<float> d_next_best;
 
+    // TCH_C2/C8: UW timing independent of the frequency offset, see
+    // find_uw_differential()
+    static constexpr float DIFF_UW_MIN_CORRELATION = 0.45f;
+    std::vector<gr_complex> d_diff;
+    std::vector<gr_complex> d_diff_dl;
+    std::vector<gr_complex> d_diff_ul;
+    std::vector<float> d_diff_abs;
+    std::vector<float> d_diff_sum;
+    struct uw_candidate {
+        int start;  // d_frame index of the UW start
+        float freq; // frequency offset there, cycles per sample of d_frame
+    };
+    // Places tried in a window on a tracked TCH_C2/C8 channel
+    static constexpr int TRACK_CANDIDATES = 3;
+    int find_uw_differential(size_t burst_size,
+                             int from,
+                             std::vector<uw_candidate>* candidates = nullptr);
+    float d_input_shift = 0;    // shift of the input, cycles per input sample
+    double d_center_shift = 0;  // Hz the input filter was moved by for this frame
+    bool d_fixed_start = false; // process_next_frame(): start is at a UW found already
+    void set_input_shift(float shift);
+    // TCH_C: coherent UW search for retry_coherent() in process_next_frame()
+    static constexpr int COH_FFT_SIZE = 64;
+    static constexpr float COH_RANGE = 30; // symbols around the differential result
+    // Real bursts reach 0.5 to 0.9 on test recordings, noise mostly 0.3 to 0.4
+    static constexpr float COH_MIN_CORRELATION = 0.5f;
+    std::unique_ptr<gr::fft::fft_complex_fwd> d_coh_fft;
+    bool d_cfo_skip = false; // the next CFO estimate is not needed
+    bool d_in_retry = false; // process_next_frame() called by retry_coherent
+    bool
+    find_uw_coherent(size_t burst_size, int center, int* pos, float* freq, float* metric);
+
     bool d_wait_for_demod;
     uint64_t d_burst_id; // the burst being handled
     int d_n_frames;      // frames published for it so far
@@ -162,6 +197,7 @@ private:
     int pre_start_samples() const;
     int sync_search_len() const;
     double rrc_alpha() const;
+    int rrc_taps(double sample_rate) const;
     int min_width_class() const;
     volk::vector<gr_complex> generate_sync_word(::iridium::direction direction);
     int fft_shift_index(int index, int fft_size);
