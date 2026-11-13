@@ -541,10 +541,13 @@ class FlowGraph(gr.top_block):
         # Filter to find the start of the signal. Should be fairly narrow.
         start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, self._burst_sample_rate, 5e3 / 2, 10e3 / 2, 60)
 
-        # Input filters of the TCH_C downmixers. TCH_C1 is about as wide as legacy bursts.
+        # Input filters of the TCH_C downmixers.
+        # TCH_C1 occupies +-18 kHz: the legacy input filter (transition as wide as the
+        # passband) already attenuates it there by several dB, which costs TCH_C1 bursts
+        # at low SNR. Pass +-18 kHz and stop at +-38 kHz (the next channel is 41.67 kHz off).
         # TCH_C2 occupies about +-36 kHz: pass that and stop at +-64 kHz.
         tch_c_input_filters = {
-            1: input_filter,
+            1: gnuradio.filter.firdes.low_pass_2(1, self._channel_sample_rate, 28e3, 20e3, 40),
             2: gnuradio.filter.firdes.low_pass_2(1, self._channel_sample_rate, 50e3, 28e3, 40),
         }
 

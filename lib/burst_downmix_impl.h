@@ -36,6 +36,7 @@ class burst_downmix_impl : public burst_downmix
 {
 private:
     static const int RRC_TAPS = 51;
+    static constexpr double TCH_C_RRC_SPAN = 8; // symbols on each side
     static const int RC_TAPS = 51;
 
     const tch_c_format* d_tch_c; // TCH_C burst format, nullptr for legacy bursts
@@ -196,6 +197,7 @@ private:
     int pre_start_samples() const;
     int sync_search_len() const;
     double rrc_alpha() const;
+    int rrc_taps(double sample_rate) const;
     int min_width_class() const;
     volk::vector<gr_complex> generate_sync_word(::iridium::direction direction);
     int fft_shift_index(int index, int fft_size);

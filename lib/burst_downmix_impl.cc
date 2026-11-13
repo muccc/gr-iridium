@@ -154,8 +154,11 @@ burst_downmix_impl::burst_downmix_impl(int output_sample_rate,
 
       d_input_fir(input_taps),
       d_start_finder_fir(start_finder_taps),
-      d_rrc_fir(gr::filter::firdes::root_raised_cosine(
-          1.0, d_output_sample_rate, d_symbols_per_second, rrc_alpha(), RRC_TAPS)),
+      d_rrc_fir(gr::filter::firdes::root_raised_cosine(1.0,
+                                                       d_output_sample_rate,
+                                                       d_symbols_per_second,
+                                                       rrc_alpha(),
+                                                       rrc_taps(d_output_sample_rate))),
       d_start_finder_coarse_fir(start_finder_taps),
       d_rrc_coarse_fir(start_finder_taps),
       d_cfo_est_fft(d_cfo_est_fft_size),
@@ -262,6 +265,17 @@ int burst_downmix_impl::min_width_class() const
 // Roll-off of the matched filter
 double burst_downmix_impl::rrc_alpha() const { return d_tch_c ? 0.2 : 0.4; }
 
+// Length of the matched filter at sample_rate. TCH_C (roll-off 0.2) needs a longer one
+// than RRC_TAPS gives at 10 samples per symbol (+-2.5 symbols): on test recordings that
+// lost a fifth of the TCH_C1 bursts decodable at 4 to 7 dB Es/N0.
+int burst_downmix_impl::rrc_taps(double sample_rate) const
+{
+    if (!d_tch_c) {
+        return RRC_TAPS;
+    }
+    return 2 * (int)std::lround(TCH_C_RRC_SPAN * sample_rate / d_symbols_per_second) + 1;
+}
+
 /*
  * Bursts can arrive at a rate which is not a multiple of the symbol rate (for example
  * TCH_C1 at 30 ksym/s from channels of 1.25 MHz). Run the filters and the sync word
@@ -280,7 +294,7 @@ void burst_downmix_impl::set_burst_sample_rate(float sample_rate)
     d_sync_search_len = sync_search_len();
 
     d_rrc_fir.set_taps(gr::filter::firdes::root_raised_cosine(
-        1.0, sample_rate, d_symbols_per_second, rrc_alpha(), RRC_TAPS));
+        1.0, sample_rate, d_symbols_per_second, rrc_alpha(), rrc_taps(sample_rate)));
 
     d_dl_preamble_reversed_conj = generate_sync_word(::iridium::direction::DOWNLINK);
     d_ul_preamble_reversed_conj = generate_sync_word(::iridium::direction::UPLINK);
@@ -541,13 +555,15 @@ void burst_downmix_impl::update_buffer_sizes(size_t burst_size)
         if (d_tmp_a) {
             volk_free(d_tmp_a);
         }
-        d_tmp_a = (gr_complex*)volk_malloc(d_max_burst_size * sizeof(gr_complex),
+        // Room for the padding of the matched filter at both ends
+        d_tmp_a = (gr_complex*)volk_malloc((d_max_burst_size + 4096) * sizeof(gr_complex),
                                            volk_get_alignment());
 
         if (d_tmp_b) {
             volk_free(d_tmp_b);
         }
-        d_tmp_b = (gr_complex*)volk_malloc(d_max_burst_size * sizeof(gr_complex),
+        // Room for the padding of the matched filter at both ends
+        d_tmp_b = (gr_complex*)volk_malloc((d_max_burst_size + 4096) * sizeof(gr_complex),
                                            volk_get_alignment());
 
         if (d_magnitude_f) {
@@ -655,7 +671,7 @@ void burst_downmix_impl::initialize_coarse_filters(
         (double)d_burst_sample_rate / d_coarse_step,
         d_symbols_per_second,
         rrc_alpha(),
-        (RRC_TAPS - 1) / d_coarse_step / 2 * 2 + 1));
+        (rrc_taps(d_burst_sample_rate) - 1) / d_coarse_step / 2 * 2 + 1));
 }
 
 size_t burst_downmix_impl::get_input_queue_size() { return nmsgs(pmt::mp("cpdus")); }
