@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(tagged_burst_to_pdu.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(e2433c2f2bb02e01138af92dcefadba6)                     */
+/* BINDTOOL_HEADER_FILE_HASH(4358deb78743ac7382c56df99540ecba)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
