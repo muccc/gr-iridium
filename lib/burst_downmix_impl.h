@@ -26,6 +26,7 @@
 
 #include "tch_c_format.h"
 #include <iridium/burst_downmix.h>
+#include <map>
 #include <memory>
 
 namespace gr {
@@ -99,6 +100,8 @@ private:
 
     // Normalized correlation a TCH_C UW needs to be taken for one
     static constexpr float UW_MIN_CORRELATION = 0.25f;
+    // Above this a TCH_C sync word is taken as certain (nearly all CRC passes)
+    static constexpr float UW_GOOD_CORRELATION = 0.5f;
     float d_sync_word_energy;
     gr::fft::fft_complex_fwd d_cfo_est_fft;
     volk::vector<gr_complex> d_cfo_fine_phase; // exp(-2 pi j i / fine size)
@@ -117,6 +120,23 @@ private:
     std::vector<gr_complex> d_track_ul_fft;
     std::vector<gr_complex> d_track_buf;
     int find_uw_coarse(size_t burst_size);
+
+    // Coarse look-ahead for the next TCH_C UW in a detection, see find_next_uw_coarse()
+    struct coarse_plan {
+        std::unique_ptr<gr::fft::fft_complex_fwd> fwd;
+        std::unique_ptr<gr::fft::fft_complex_rev> inv;
+        std::vector<gr_complex> dl_fft;
+        std::vector<gr_complex> ul_fft;
+    };
+    std::map<int, coarse_plan> d_next_plans; // by FFT size
+    std::vector<gr_complex> d_next_buf;
+    std::vector<float> d_next_energy;
+    static constexpr float NEXT_UW_MIN_CORRELATION = 0.3f;
+    int find_next_uw_coarse(size_t burst_size, int from, float center_offset);
+    void scan_next_uw_coarse(size_t burst_size, int from_c, float center_offset);
+    bool d_next_valid = false; // d_next_best holds the scan of the current detection
+    int d_next_base = 0;       // coarse index of d_next_best[0]
+    std::vector<float> d_next_best;
 
     bool d_wait_for_demod;
     uint64_t d_burst_id; // the burst being handled

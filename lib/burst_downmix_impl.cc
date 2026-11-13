@@ -771,6 +771,149 @@ int burst_downmix_impl::find_uw_coarse(size_t burst_size)
     return std::max(best_index * dec - (full_tlen - 1), 0);
 }
 
+/*
+ * TCH_C: where is the next UW in this detection, from sample `from` on? Used after a
+ * place in a detection did not hold a usable TCH_C frame, instead of searching the
+ * detection window by window: a TCH_C burst often follows another burst (also a
+ * legacy one on the same channel) a few ms later in the same detection.
+ *
+ * The first call for a detection correlates the rest of it on d_coarse with the DL
+ * and UL UW at the fine CFO estimate of that place (center_offset, cycles per sample
+ * of d_frame), for TCH_C1 also +-1 step, normalized to the energy of the samples under
+ * the UW like the UW quality in process_next_frame(). Later calls for the same
+ * detection look at that result again, so a long detection is correlated only once.
+ * Returns the d_frame index of the first UW start reaching NEXT_UW_MIN_CORRELATION
+ * (the best one within a UW length of it) with a whole frame after it, or -1.
+ */
+int burst_downmix_impl::find_next_uw_coarse(size_t burst_size,
+                                            int from,
+                                            float center_offset)
+{
+    const int frame_length = std::ceil(d_tch_c->n_symbols * d_samples_per_symbol);
+    if ((int)burst_size - from < frame_length) {
+        return -1;
+    }
+    const int dec = d_coarse_step;
+    const int full_tlen = d_dl_preamble_reversed_conj.size();
+    const int tlen = (full_tlen - 1) / dec + 1;
+    const int from_c = std::max(from, 0) / dec;
+
+    if (!d_next_valid || from_c < d_next_base) {
+        scan_next_uw_coarse(burst_size, from_c, center_offset);
+    }
+
+    // d_next_best[i]: UW ending at coarse index d_next_base + i
+    const int last =
+        std::min((int)d_next_best.size() - 1,
+                 ((int)burst_size - frame_length) / dec + tlen - 1 - d_next_base);
+    for (int i = from_c - d_next_base + tlen - 1; i <= last; i++) {
+        if (d_next_best[i] >= NEXT_UW_MIN_CORRELATION) {
+            const int stop = std::min(i + tlen, last + 1);
+            const int peak =
+                std::max_element(d_next_best.begin() + i, d_next_best.begin() + stop) -
+                d_next_best.begin();
+            return std::max((d_next_base + peak) * dec - (full_tlen - 1), from);
+        }
+    }
+    return -1;
+}
+
+void burst_downmix_impl::scan_next_uw_coarse(size_t burst_size,
+                                             int from_c,
+                                             float center_offset)
+{
+    const int dec = d_coarse_step;
+    const int len = filter_input_coarse(burst_size);
+    const int full_tlen = d_dl_preamble_reversed_conj.size();
+    const int tlen = (full_tlen - 1) / dec + 1;
+    const int n = std::max(len - from_c, 0);
+    d_next_valid = true;
+    d_next_base = from_c;
+    d_next_best.assign(n, 0.f);
+    if (n < tlen) {
+        return;
+    }
+
+    int size = 1;
+    while (size < n + tlen - 1) {
+        size *= 2;
+    }
+    coarse_plan& plan = d_next_plans[size];
+    if (!plan.fwd) {
+        plan.fwd = std::make_unique<gr::fft::fft_complex_fwd>(size);
+        plan.inv = std::make_unique<gr::fft::fft_complex_rev>(size);
+        plan.dl_fft.resize(size);
+        plan.ul_fft.resize(size);
+        for (int d = 0; d < 2; d++) {
+            const auto& t =
+                d == 0 ? d_dl_preamble_reversed_conj : d_ul_preamble_reversed_conj;
+            gr_complex* in = plan.fwd->get_inbuf();
+            std::fill(in, in + size, 0);
+            for (int i = 0; i < tlen; i++) {
+                in[i] = t[i * dec];
+            }
+            plan.fwd->execute();
+            std::copy(plan.fwd->get_outbuf(),
+                      plan.fwd->get_outbuf() + size,
+                      d == 0 ? plan.dl_fft.begin() : plan.ul_fft.begin());
+        }
+    }
+    float template_energy = 0;
+    for (int i = 0; i < tlen; i++) {
+        template_energy += std::norm(d_dl_preamble_reversed_conj[i * dec]);
+    }
+
+    // Shift to the fine CFO estimate, then the matched filter
+    const int half_rrc_size = (d_rrc_coarse_fir.ntaps() - 1) / 2;
+    d_next_buf.assign(n + 2 * half_rrc_size, 0);
+    gr::blocks::rotator r;
+    r.set_phase_incr(exp(gr_complex(0, -2 * M_PI * center_offset * dec)));
+    r.set_phase(gr_complex(1, 0));
+    r.rotateN(&d_next_buf[half_rrc_size], d_coarse + from_c, n);
+    gr_complex* in = plan.fwd->get_inbuf();
+    d_rrc_coarse_fir.filterN(in, &d_next_buf[0], n);
+    std::fill(in + n, in + size, 0);
+
+    // Energy of the samples under the UW ending at k
+    d_next_energy.assign(n, 0);
+    double e = 0;
+    for (int k = 0; k < n; k++) {
+        e += std::norm(in[k]);
+        if (k >= tlen) {
+            e -= std::norm(in[k - tlen]);
+        }
+        d_next_energy[k] = e;
+    }
+    plan.fwd->execute();
+
+    // Best normalized correlation per position over the frequency offsets and
+    // directions: the UW of TCH_C1 lasts 1 ms and needs steps of 600 Hz to cover the
+    // error of the estimate.
+    const int n_steps = 1;
+    const float step_hz = 600.f;
+    const float bins_per_step = step_hz * dec * size / d_burst_sample_rate;
+    const gr_complex* spectrum = plan.fwd->get_outbuf();
+    const float scale = 1.f / ((float)size * size * template_energy);
+    for (int step = -n_steps; step <= n_steps; step++) {
+        const int shift = ((int)std::lround(step * bins_per_step) + size) % size;
+        for (int d = 0; d < 2; d++) {
+            const auto& t = d == 0 ? plan.dl_fft : plan.ul_fft;
+            gr_complex* out = plan.inv->get_inbuf();
+            volk_32fc_x2_multiply_32fc(out, spectrum + shift, &t[0], size - shift);
+            volk_32fc_x2_multiply_32fc(
+                out + size - shift, spectrum, &t[size - shift], shift);
+            plan.inv->execute();
+            const gr_complex* c = plan.inv->get_outbuf();
+            for (int k = tlen - 1; k < n; k++) {
+                if (d_next_energy[k] > 0) {
+                    d_next_best[k] = std::max(d_next_best[k],
+                                              std::norm(c[k]) * scale / d_next_energy[k]);
+                }
+            }
+        }
+    }
+}
+
 int burst_downmix_impl::process_next_frame(float sample_rate,
                                            double center_frequency,
                                            uint64_t timestamp,
@@ -1001,10 +1144,27 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
     int preamble_offset = corr_offset - d_dl_preamble_reversed_conj.size() + 1;
     int uw_start = preamble_offset + uw_offset;
 
+    /*
+     * TCH_C1: a burst often follows another burst a few ms later in the same detection,
+     * also a legacy burst on the same channel, so a place which does not hold a usable
+     * frame must not make the search skip a whole frame length. find_next_uw_coarse()
+     * looks for the next UW in the rest of the detection instead. Returns where to
+     * continue as an offset from start (0: nothing more in this detection). Only for
+     * TCH_C1: for TCH_C2 and TCH_C8 the scan once per detection finds much less than
+     * searching it window by window, which costs a lot of CPU time there.
+     */
+    const bool look_ahead = d_tch_c && d_tch_c->type == 1;
+    auto continue_after = [&](int offset) {
+        const int uw = find_next_uw_coarse(burst_size, start + offset, center_offset);
+        return uw < 0 ? 0 : std::max(uw - d_pre_start_samples - start, 1);
+    };
+    const int uw_len = d_dl_preamble_reversed_conj.size();
+    // Overlapping by one sync word, so none at the end of the window is missed
+    const int searched = std::max(search_len - uw_len, 1);
+
     // If the UW starts at an offset < 0, we will not be able to demodulate the signal
     if (uw_start < 0) {
-        // TODO: Log a warning.
-        return 0;
+        return look_ahead ? continue_after(searched) : 0;
     }
 
     size_t frame_size = std::min((int)burst_size - start, uw_start + max_frame_length);
@@ -1030,7 +1190,12 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
         }
         if (!(quality >= UW_MIN_CORRELATION)) {
             // The next burst can follow in the same detection
-            return consumed_samples;
+            return look_ahead ? continue_after(searched) : consumed_samples;
+        }
+        if (look_ahead && quality < UW_GOOD_CORRELATION) {
+            // Most likely not a TCH_C1 burst (it gets decoded anyway): a better UW can
+            // follow within its frame
+            consumed_samples = continue_after(uw_start + uw_len);
         }
     }
 
@@ -1308,6 +1473,7 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
     d_frame_size = burst_size;
     d_frame_valid = 0;
     d_coarse_valid = 0;
+    d_next_valid = false;
     d_input_valid = 0;
 
     sample_rate /= decimation;
@@ -1338,6 +1504,7 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
         int handled_samples;
         int sub_id = id;
         do {
+            const int n_frames = d_n_frames;
             handled_samples = process_next_frame(sample_rate,
                                                  center_frequency,
                                                  timestamp,
@@ -1347,8 +1514,11 @@ void burst_downmix_impl::handler(pmt::pmt_t msg)
                                                  noise,
                                                  magnitude);
             start += handled_samples;
-            // This is OK as ids are incremented by 10 by the burst tagger
-            sub_id++;
+            // This is OK as ids are incremented by 10 by the burst tagger. Only frames
+            // sent on use one: a TCH_C downmixer can search many places in a burst.
+            if (d_n_frames != n_frames) {
+                sub_id++;
+            }
         } while (d_handle_multiple_frames_per_burst && handled_samples > 0);
     } else {
         process_next_frame(sample_rate,
