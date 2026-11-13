@@ -915,13 +915,14 @@ void burst_downmix_impl::scan_next_uw_coarse(size_t burst_size,
 }
 
 /*
- * TCH_C2/C8: the start of the UW in the first samples from `from` on, or -1, found with
- * a differential correlation: x[n + T] * conj(x[n]) (T one symbol) against the products
+ * TCH_C: the start of the UW in the first samples from `from` on, or -1, found with a
+ * differential correlation: x[n + T] * conj(x[n]) (T one symbol) against the products
  * of neighbouring UW symbols. A frequency offset only turns the result, so this works
  * where the squared FFT CFO estimate does not: when the samples it gets do not start
- * with the UW. A TCH_C2/C8 detection often starts a few ms before the burst (the burst
- * covers several legacy channels), and the tagger can put its center anywhere within
- * the wide burst, so the frequency is off by up to tens of kHz.
+ * with the UW. The detection of a TCH_C burst often starts a few ms before it, on
+ * another burst on the same channel (TCH_C1) or on other signals in the band the
+ * burst covers (TCH_C2/C8), and the tagger can put the center of a TCH_C2/C8 detection
+ * anywhere within the wide burst, so the frequency is off by up to tens of kHz.
  * Looks as far as the sync word search of TCH_C1 does in time; the result is the best
  * position if its normalized correlation reaches DIFF_UW_MIN_CORRELATION.
  */
@@ -1043,9 +1044,9 @@ int burst_downmix_impl::process_next_frame(float sample_rate,
         return 0;
     }
 
-    // TCH_C2/C8: the squared FFT CFO estimate below needs the samples to start with
-    // the UW, the start of the detection is often well before it
-    if (d_tch_c && d_tch_c->type != 1 && !d_tracked) {
+    // TCH_C: the squared FFT CFO estimate below needs the samples to start with the UW,
+    // the start of the detection is often well before it
+    if (d_tch_c && !d_tracked) {
         const int uw = find_uw_differential(burst_size, start);
         if (uw >= 0) {
             start = std::max(uw - d_pre_start_samples, start);
