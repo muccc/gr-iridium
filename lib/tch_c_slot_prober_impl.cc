@@ -62,6 +62,15 @@ static const float DEFAULT_THRESHOLD[3] = { 0.6f, 0.55f, 0.55f };
 // failed decodes, above 0.7 760 to 38,000 for 14,000).
 static const float VARIANTS_RHO2 = 0.7f;
 
+/*
+ * TCH_C8 (4.17 us symbols) is surveyed at several times around the prediction: the
+ * phase of a satellite with few ring alerts can be off by a few us (each legacy
+ * timestamp only to about that), more than fine_timing() covers (a quarter symbol).
+ * sat-147: a track with two ring alerts 2.7 us off for 5 s, while TCH_C1 and TCH_C2
+ * decoded fine. The C8 survey is cheap (~0.04 ms).
+ */
+static const double C8_OFFSETS_US[] = { 0, -2, 2, -4, 4 };
+
 // Strong hits (rho2 of the survey) update the timing bias of their type
 static const float BIAS_MIN_RHO2 = 0.6f;
 
@@ -671,6 +680,19 @@ void tch_c_slot_prober_impl::ul_link_dl(int track, int slot, int position, int64
 /*
  * Probing
  */
+// Samples the survey of a type may be shifted by, see C8_OFFSETS_US
+int tch_c_slot_prober_impl::time_search(int type) const
+{
+    if (type != 8) {
+        return 0;
+    }
+    double m = 0;
+    for (double us : C8_OFFSETS_US) {
+        m = std::max(m, std::fabs(us));
+    }
+    return (int)std::ceil(m * 1e-6 * d_sample_rate);
+}
+
 void tch_c_slot_prober_impl::slot_window(int type,
                                          double p_uw,
                                          int64_t* first,
@@ -678,7 +700,7 @@ void tch_c_slot_prober_impl::slot_window(int type,
 {
     // Survey window with the margin of the fine timing, and the extraction window
     // for any offset the fine timing can find
-    const int m = d_survey.timing_margin(type);
+    const int m = d_survey.timing_margin(type) + time_search(type);
     const int64_t i0 = std::lround(p_uw) - d_survey.uw_offset(type);
     long ef, ee, ef2, ee2;
     d_survey.extract_span(type, p_uw - m, &ef, &ee);
@@ -1300,14 +1322,38 @@ void tch_c_slot_prober_impl::probe_slot(
     const bool stale = track.stale(t_ns);
     const float threshold = d_threshold[tch_c_timing::type_index(type)];
     d_candidates.clear();
+    d_offsets.clear();
     double t0 = d_debug ? cpu_s() : 0;
-    d_survey.survey(seg,
-                    type,
-                    false,
-                    doppler,
-                    stale ? STALE_SEARCH_HZ : 0,
-                    std::min(threshold, d_debug_rho2),
-                    d_candidates);
+    const int n_offsets =
+        type == 8 ? sizeof(C8_OFFSETS_US) / sizeof(C8_OFFSETS_US[0]) : 1;
+    for (int k = 0; k < n_offsets; k++) {
+        // Candidates by position (ordered), the best of the times kept
+        const int off =
+            type == 8 ? std::lround(C8_OFFSETS_US[k] * 1e-6 * d_sample_rate) : 0;
+        d_survey_tmp.clear();
+        d_survey.survey(seg + off,
+                        type,
+                        false,
+                        doppler,
+                        stale ? STALE_SEARCH_HZ : 0,
+                        std::min(threshold, d_debug_rho2),
+                        d_survey_tmp);
+        size_t j = 0;
+        for (const auto& c : d_survey_tmp) {
+            while (j < d_candidates.size() && d_candidates[j].position < c.position) {
+                j++;
+            }
+            if (j < d_candidates.size() && d_candidates[j].position == c.position) {
+                if (c.rho2 > d_candidates[j].rho2) {
+                    d_candidates[j] = c;
+                    d_offsets[j] = off;
+                }
+            } else {
+                d_candidates.insert(d_candidates.begin() + j, c);
+                d_offsets.insert(d_offsets.begin() + j, off);
+            }
+        }
+    }
     d_n_surveys[tch_c_timing::type_index(type)]++;
     if (d_debug) {
         const double t1 = cpu_s();
@@ -1315,12 +1361,14 @@ void tch_c_slot_prober_impl::probe_slot(
         t0 = t1;
     }
 
-    for (const auto& c : d_candidates) {
+    for (size_t ci = 0; ci < d_candidates.size(); ci++) {
+        const auto& c = d_candidates[ci];
+        const int off = d_offsets[ci];
         uint64_t id = 0;
-        double tau = 0;
+        double tau = off;
         if (c.rho2 >= threshold) {
             float rho2_fine;
-            tau = d_survey.fine_timing(seg, type, false, c, &rho2_fine);
+            tau = off + d_survey.fine_timing(seg + off, type, false, c, &rho2_fine);
             const double p_uw = i0 + D + tau;
             const int n = d_survey.extract(
                 x, p_uw - first, type, c.estimated_frequency, false, &d_symbols[0]);

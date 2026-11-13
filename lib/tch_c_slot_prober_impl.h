@@ -186,6 +186,9 @@ private:
 
     tch_c_slot_survey d_survey;
     std::vector<tch_c_slot_survey::candidate> d_candidates;
+    std::vector<int> d_offsets; // per candidate: samples the survey was shifted by
+    std::vector<tch_c_slot_survey::candidate> d_survey_tmp;
+    int time_search(int type) const;
     std::vector<gr_complex> d_symbols;
 
     // Probes

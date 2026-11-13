@@ -51,7 +51,9 @@ tagger itself runs as without `--tch-c`) and sends its candidates straight to
 - **Survey.** In every downlink slot of every track, one FFT of the slot times the UW
   correlates all raster positions of a type at once (`lib/tch_c_slot_survey.h`). Positions
   whose normalized UW correlation (rho2, 1 for a clean UW) reaches the threshold (TCH_C1
-  0.6, TCH_C2 and C8 0.55) get a fine timing, are cut out with a matched filter (RRC α=0.2,
+  0.6, TCH_C2 and C8 0.55) get a fine timing (TCH_C8, with its 4.17 µs symbols, is
+  surveyed at −4, −2, 0, 2 and 4 µs around the prediction: a satellite with few ring alerts
+  can be a few µs off), are cut out with a matched filter (RRC α=0.2,
   ±8 symbols) at one sample per symbol and go to `tch_c_demod`.
 - **History.** The prober keeps `--tch-c-history` seconds of samples and probes a slot only
   after that delay, so a satellite found by its first ring alert is probed back to the start
@@ -86,14 +88,14 @@ On `sat-147` (12 MS/s, 279 s, `-D 8`), distinct frames with a valid CRC:
 
 | | Slot prober | Energy detection (`schneider/iridium-next-harder`, before the prober) |
 | --- | --- | --- |
-| TCH_C1 DL | 38,962 | 34,957 |
-| TCH_C2 / C8 QPSK / C8 16APSK DL | 498 / 519 / 282 | 383 / 567 / 292 |
+| TCH_C1 DL | 38,966 | 34,957 |
+| TCH_C2 / C8 QPSK / C8 16APSK DL | 498 / 572 / 282 | 383 / 567 / 292 |
 | TCH_C1 UL | 283 | 294 |
 | Legacy frames parsed | 64,355 | 64,051 |
-| CPU (user) / wall time | 527 s / 2:20 | 1,534 s / 4:43 |
+| CPU (user) / wall time | 533 s / 2:26 | 1,534 s / 4:43 |
 
-The energy detection found 470 frames the prober misses (mostly TCH_C1 bursts at the CRC
-limit, and 75 TCH_C8 QPSK bursts); the prober finds 4,521 the energy detection missed.
+The energy detection found 418 frames the prober misses (mostly TCH_C1 bursts at the CRC
+limit); the prober finds 4,526 the energy detection missed.
 
 Among the slots inside active TCH_C1 downlink links still without a frame, 76% have no UW
 at all (rho2 < 0.1; idle links send only every 4th frame or so); 7% have a UW at the CRC
