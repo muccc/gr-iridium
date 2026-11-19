@@ -219,6 +219,7 @@ private:
     uint64_t d_n_probe_hits;
     uint64_t d_n_probe_crc_ok;
     uint64_t d_n_energy_associated;
+    uint64_t d_n_direction_mismatch; // probe frames with the UW of the other direction
     // Statistics per type index
     uint64_t d_n_surveys[3];
     uint64_t d_n_type_probes[3];
@@ -253,6 +254,8 @@ private:
     void probe_slot(
         const tch_c_sat_track& track, int type, int64_t frame, int slot, int64_t t_ns);
     bool already_probed(int type, int64_t t_ns, double doppler_hz) const;
+    // Tolerances in time (ns) and Doppler (Hz) of already_probed() for a type
+    void same_slot(int type, double* ns, double* hz) const;
 
 public:
     tch_c_slot_prober_impl(double center_frequency,

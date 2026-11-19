@@ -44,7 +44,11 @@ static const double RING_MARGIN_S = 0.03;
 // measurement for a while); otherwise +-1 bin
 static const double STALE_SEARCH_HZ = 3000;
 
-// Two tracks probe the same slot (one satellite) if their predictions are this close
+// Two tracks probe the same slot (one satellite) if their predictions are this close.
+// For the DL types at most the part of the survey's range the other track's prediction
+// still covers (see same_slot()): TCH_C1 finds a burst only within about +-1.5 bins
+// (+-0.6 kHz at 10 MS/s) and +-0.5 symbol of its prediction, and a track that far off
+// would otherwise take the slot from a good one and miss the burst.
 static const double SAME_SLOT_NS = 20000;
 static const double SAME_SLOT_HZ = 2000;
 
@@ -241,6 +245,7 @@ tch_c_slot_prober_impl::tch_c_slot_prober_impl(double center_frequency,
       d_n_probe_hits(0),
       d_n_probe_crc_ok(0),
       d_n_energy_associated(0),
+      d_n_direction_mismatch(0),
       d_n_missed_slots(0),
       d_n_shared_slots(0),
       d_ira_delay_sum(0),
@@ -301,13 +306,15 @@ bool tch_c_slot_prober_impl::stop()
         fprintf(stderr,
                 "tch_c_slot_prober: tracks %" PRIu64 " created, %" PRIu64
                 " merged, %" PRIu64 " expired, %" PRIu64
-                " evicted; slots %" PRIu64 " missed, %" PRIu64 " shared\n",
+                " evicted; slots %" PRIu64 " missed, %" PRIu64 " shared; %" PRIu64
+                " frames with the UW of the other direction\n",
                 d_tracks.n_created(),
                 d_tracks.n_merged(),
                 d_tracks.n_expired(),
                 d_tracks.n_evicted(),
                 d_n_missed_slots,
-                d_n_shared_slots);
+                d_n_shared_slots,
+                d_n_direction_mismatch);
         fprintf(stderr,
                 "tch_c_slot_prober: CPU %.2f s in work(): survey %.2f s, fine timing "
                 "and extraction %.2f s, uplink %.2f s\n",
@@ -642,6 +649,13 @@ void tch_c_slot_prober_impl::on_hit(const tch_c_hit& hit)
     if (!hit.crc_ok) {
         return;
     }
+    // A probe's frame whose UW is of the other direction (tch_c_demod's hard UW check
+    // can pass both UWs of a weak burst): its time and slot are not those of a slot of
+    // that direction, as a DL hit it would move the track and the timing bias
+    if (hit.probe && hit.probe->uplink != hit.uplink) {
+        d_n_direction_mismatch++;
+        return;
+    }
     if (hit.uplink) {
         on_ul_hit(hit);
         return;
@@ -767,13 +781,28 @@ void tch_c_slot_prober_impl::slot_window(int type,
     *end = std::max<int64_t>(i0 + d_survey.window_length(type) + m, ee2);
 }
 
+void tch_c_slot_prober_impl::same_slot(int type, double* ns, double* hz) const
+{
+    *ns = SAME_SLOT_NS;
+    *hz = SAME_SLOT_HZ;
+    if (type == 1 || type == 2 || type == 8) {
+        // Half a bin and a quarter symbol beyond the other prediction leave the survey
+        // a bin and a quarter symbol of margin for the burst
+        const double sps = d_survey.samples_per_symbol(type);
+        *ns = std::min(*ns, (time_search(type) + 0.25 * sps) / d_sample_rate * 1e9);
+        *hz = std::min(*hz, 0.5 * d_survey.bin_width(type));
+    }
+}
+
 bool tch_c_slot_prober_impl::already_probed(int type,
                                             int64_t t_ns,
                                             double doppler_hz) const
 {
+    double same_ns, same_hz;
+    same_slot(type, &same_ns, &same_hz);
     for (const auto& p : d_probed) {
-        if (p.type == type && std::fabs((double)(p.t_ns - t_ns)) < SAME_SLOT_NS &&
-            std::fabs(p.doppler_hz - doppler_hz) < SAME_SLOT_HZ) {
+        if (p.type == type && std::fabs((double)(p.t_ns - t_ns)) < same_ns &&
+            std::fabs(p.doppler_hz - doppler_hz) < same_hz) {
             return true;
         }
     }

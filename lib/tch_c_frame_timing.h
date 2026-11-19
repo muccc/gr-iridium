@@ -126,6 +126,9 @@ struct tch_c_timing_config {
     double bias_step_ns =
         10000;                  // timing residuals clamped to +- this for the bias update
     double max_bias_ns = 20000; // bias clamped to +- this
+    // New tracks start from the median bias of the tracks with at least this many bias
+    // updates of the type (a track's bias has then converged from where it started)
+    uint64_t bias_min_updates = 32;
 };
 
 struct tch_c_timing_measurement {
@@ -162,7 +165,8 @@ public:
         : d_id(id), d_cfg(cfg)
     {
         for (int i = 0; i < 3; i++) {
-            d_bias_ns[i] = bias_ns ? bias_ns[i] : 0;
+            const double b = bias_ns ? bias_ns[i] : 0;
+            d_bias_ns[i] = std::max(-d_cfg.max_bias_ns, std::min(d_cfg.max_bias_ns, b));
         }
     }
 
@@ -190,6 +194,11 @@ public:
     void set_bias_ns(int type, double b)
     {
         d_bias_ns[tch_c_timing::type_index(type)] = b;
+    }
+    // Bias updates of the type (strong hits) over the lifetime
+    uint64_t n_bias_updates(int type) const
+    {
+        return d_n_bias[tch_c_timing::type_index(type)];
     }
 
     // Measurement from an IRA (frequency as received). Returns false if outside the
@@ -234,6 +243,7 @@ public:
                 double& b = d_bias_ns[type_index(type)];
                 b = std::max(-d_cfg.max_bias_ns,
                              std::min(d_cfg.max_bias_ns, b + d_cfg.bias_gain * r));
+                d_n_bias[type_index(type)]++;
             }
         }
         d_n_hit++;
@@ -508,6 +518,7 @@ private:
     tch_c_timing_config d_cfg;
     std::vector<tch_c_timing_measurement> d_meas; // sorted by time
     double d_bias_ns[3];
+    uint64_t d_n_bias[3] = { 0, 0, 0 };
     int64_t d_first_ns = INT64_MAX;
     int64_t d_last_ira_ns = INT64_MIN;
     uint64_t d_n_ira = 0;
@@ -678,13 +689,33 @@ public:
         const double r =
             tr->add_hit(t_uw_ns, freq_hz, type, slot, nominal_hz, update_bias);
         if (update_bias) {
-            // new tracks start from the bias of the others
-            const double step =
-                std::max(-d_cfg.bias_step_ns, std::min(d_cfg.bias_step_ns, r));
-            d_bias_ns[tch_c_timing::type_index(type)] += d_cfg.bias_gain * step;
+            update_bias_ns(type);
         }
         merge();
         return r;
+    }
+
+    /*
+     * The bias new tracks start from: the median of the tracks whose bias of the type
+     * has converged, else unchanged. Not the sum of the updates of all tracks: tracks
+     * which converge at the same time from the same start (after a rebuild of all of
+     * them) would each add their whole correction, and a value beyond the timing range
+     * of the survey would lock the type out of every new track, as no hit can then
+     * correct it.
+     */
+    void update_bias_ns(int type)
+    {
+        std::vector<std::pair<double, double>> v;
+        for (const auto& t : d_tracks) {
+            if (t.n_bias_updates(type) >= d_cfg.bias_min_updates) {
+                v.emplace_back(t.bias_ns(type), 1.0);
+            }
+        }
+        if (!v.empty()) {
+            d_bias_ns[tch_c_timing::type_index(type)] =
+                std::max(-d_cfg.max_bias_ns,
+                         std::min(d_cfg.max_bias_ns, tch_c_timing::weighted_median(v)));
+        }
     }
 
     // A hit of unknown slot (energy path): associated by the gate, returns the track or

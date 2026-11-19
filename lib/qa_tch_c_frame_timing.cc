@@ -481,6 +481,91 @@ BOOST_AUTO_TEST_CASE(test_tch_c_timing_bias)
     BOOST_CHECK_CLOSE(table.tracks()[1].bias_ns(2), table.bias_ns(2), 1e-9);
 }
 
+/*
+ * The bias new tracks start from, over rebuilds of all tracks (a gap longer than the
+ * expiry, then every satellite at once, as after a stall). The TCH_C1 bursts are a few
+ * us off the table offset, differently per satellite, and a slot is only found within
+ * 17 us (+-0.5 symbol) of its prediction, as by the survey. Summing the bias updates of
+ * all tracks, every rebuild multiplied the error: after one or two the start bias was
+ * beyond 17 us, no new track found a TCH_C1 burst and none could correct it.
+ */
+BOOST_AUTO_TEST_CASE(test_tch_c_timing_bias_rebuild)
+{
+    const double bias_us[] = { 4.0, 3.5, 3.0, 4.0, 2.5, 3.5 };
+    const int n_sats = 6;
+    std::vector<sat_pass> passes;
+    for (int i = 0; i < n_sats; i++) {
+        passes.push_back({ 100.0 + 120 * i, R_MIN + 150e3 * i, V, 30.0 + 0.7 * i, 0 });
+    }
+    tch_c_track_table table;
+    noise nz(17);
+    const double nominal = 1616e6 + 100.5 * 1e7 / 240;
+    const int64_t round_frames = 1500, gap_frames = 800; // gap 72 s: longer than expiry_s
+    for (int round = 0; round < 5; round++) {
+        const int64_t first = round * (round_frames + gap_frames);
+        const int64_t last = first + round_frames;
+        std::vector<ira> iras;
+        for (const auto& p : passes) {
+            auto v = make_iras(p, first, last, 13, nz);
+            iras.insert(iras.end(), v.begin(), v.end());
+        }
+        std::sort(iras.begin(), iras.end(), [](const ira& a, const ira& b) {
+            return a.t_ns < b.t_ns;
+        });
+        size_t next = 0;
+        uint64_t tried = 0, found = 0;
+        for (int64_t n = first; n <= last; n++) {
+            const int k = n % N_SLOTS;
+            for (int s = 0; s < n_sats; s++) {
+                const sat_pass& p = passes[s];
+                const double ts = p.slot_s(n, k, 1);
+                const int64_t t_true = p.ns(ts) + int64_t(bias_us[s] * 1e3);
+                table.expire(t_true);
+                while (next < iras.size() && iras[next].t_ns <= t_true - 50000000LL) {
+                    table.add_ira(iras[next].t_ns, iras[next].f_hz);
+                    next++;
+                }
+                if (n < first + 100) { // warm up: every satellite has a track
+                    continue;
+                }
+                const double f = nominal * (1 + p.doppler(ts) / F_RING);
+                tch_c_track_table::slot_match m;
+                if (!table.match_hit(t_true, f, 1, nominal, m)) {
+                    continue;
+                }
+                tried++;
+                const int64_t t_pred = table.find(m.track)->slot_time_ns(m.frame, k, 1);
+                if (std::llabs(t_true - t_pred) >= 17000) {
+                    continue; // not found by the survey
+                }
+                found++;
+                const int64_t t_meas = t_true + int64_t(std::llround(1000 * nz.gauss()));
+                table.add_hit(m.track, t_meas, f, 1, k, nominal, true);
+            }
+        }
+        BOOST_TEST_MESSAGE("rebuild " << round << ": TCH_C1 found " << found << " of "
+                                      << tried << ", start bias " << table.bias_ns(1)
+                                      << " ns, " << table.n_created()
+                                      << " tracks created");
+        BOOST_CHECK_GT(tried, 0.9 * n_sats * (round_frames - 100));
+        BOOST_CHECK_GT(found, 0.95 * tried);
+        BOOST_CHECK_LT(std::fabs(table.bias_ns(1) - 3500), 1500);
+    }
+    // every round rebuilt all tracks
+    BOOST_CHECK_EQUAL(table.n_created(), 5u * n_sats);
+}
+
+// A new track never starts beyond the bias limit
+BOOST_AUTO_TEST_CASE(test_tch_c_timing_bias_start_clamped)
+{
+    const double far[3] = { 1e6, -1e6, 0 };
+    tch_c_timing_config cfg;
+    tch_c_sat_track tr(0, cfg, far);
+    BOOST_CHECK_EQUAL(tr.bias_ns(1), cfg.max_bias_ns);
+    BOOST_CHECK_EQUAL(tr.bias_ns(2), -cfg.max_bias_ns);
+    BOOST_CHECK_EQUAL(tr.bias_ns(8), 0);
+}
+
 // Without IRAs (after the first 2 s), energy-path hits associated by the gate carry the
 // track
 BOOST_AUTO_TEST_CASE(test_tch_c_timing_hits_only)
