@@ -29,7 +29,7 @@ class FlowGraph(gr.top_block):
     def __init__(self, center_frequency, sample_rate, decimation, filename, sample_format=None, threshold=7.0,
                  burst_width=40e3, offline=False, max_queue_len=500, handle_multiple_frames_per_burst=False,
                  raw_capture_filename=None, debug_id=None, max_bursts=0, verbose=False, file_info="",
-                 samples_per_symbol=10, config={}, tch_c=(), tch_c_history=0.75, tch_c_probe_threshold=0,
+                 samples_per_symbol=10, config={}, tch_c=(), tch_c_history=3.0, tch_c_probe_threshold=0,
                  tch_c_uplink=True):
         gr.top_block.__init__(self, "Top Block")
         self.handle_sigint = False

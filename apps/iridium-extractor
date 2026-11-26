@@ -136,9 +136,12 @@ if __name__ == "__main__":
     parser.add_argument('--tch-c-types', dest='tch_c_types', default='1,2,8',
                         help='Comma separated list of the TCH_C types to look for with --tch-c. '
                         'Default: 1,2,8.')
-    parser.add_argument('--tch-c-history', dest='tch_c_history', type=float, default=0.75,
+    parser.add_argument('--tch-c-history', dest='tch_c_history', type=float, default=3.0,
                         help='Seconds of samples kept to probe the past TDMA slots of a satellite '
-                        'once it is found. Default: 0.75 s.')
+                        'once it is found. A satellite is only tracked once its first ring alert is '
+                        'decoded (often several seconds in), so a longer history recovers its early '
+                        'downlink bursts; the cost is memory (~96 MB/s of history at 12 MS/s). '
+                        'Default: 3 s.')
     parser.add_argument('--tch-c-probe-threshold', dest='tch_c_probe_threshold', type=float, default=0,
                         help='Minimum normalized UW correlation (0..1) of a probed TCH_C burst. '
                         'Default: 0.6 for TCH_C1, 0.55 for TCH_C2 and TCH_C8.')

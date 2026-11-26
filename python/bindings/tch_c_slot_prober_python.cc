@@ -12,7 +12,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(tch_c_slot_prober.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(cfd9af7a3f00cd562ba3de4b6c043074)                     */
+/* BINDTOOL_HEADER_FILE_HASH(77c89939d348e719fd93dd1d04a7a536)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -38,7 +38,7 @@ void bind_tch_c_slot_prober(py::module& m)
            py::arg("center_frequency"),
            py::arg("sample_rate"),
            py::arg("types"),
-           py::arg("history_s") = 0.75,
+           py::arg("history_s") = 3,
            py::arg("threshold") = 0,
            py::arg("outstanding_limit") = 500,
            py::arg("drop_overflow") = false,

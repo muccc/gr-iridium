@@ -70,7 +70,7 @@ public:
     static sptr make(double center_frequency,
                      double sample_rate,
                      const std::vector<int>& types,
-                     float history_s = 0.75,
+                     float history_s = 3,
                      float threshold = 0,
                      int outstanding_limit = 500,
                      bool drop_overflow = false,
