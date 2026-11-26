@@ -187,6 +187,25 @@ static int nearest_position(int type, double nominal_hz)
     return std::max(0, std::min(tch_c_slot_survey::n_positions(type) - 1, pos));
 }
 
+/*
+ * The uplink channel raster. A TCH_C1 uplink shares the center frequency of its
+ * downlink, which may be a TCH_C2 or TCH_C8 (a voice call). The center of a channel of
+ * any type is an exact multiple of half a channel width above BAND_START (TCH_C1 at odd
+ * multiples, TCH_C2 and TCH_C8 at even ones), so a UL "position" is that half-channel
+ * index: it represents the uplink of a downlink of any type exactly, where the integer
+ * TCH_C1 raster of nearest_position() would be off by half a channel (~20 kHz).
+ */
+static double ul_nominal_frequency(int ul_position)
+{
+    return tch_c_slot_survey::BAND_START +
+           ul_position * (tch_c_slot_survey::CHANNEL_WIDTH / 2);
+}
+static int ul_position_of(double nominal_hz)
+{
+    return (int)std::lround((nominal_hz - tch_c_slot_survey::BAND_START) /
+                            (tch_c_slot_survey::CHANNEL_WIDTH / 2));
+}
+
 tch_c_slot_prober_impl::tch_c_slot_prober_impl(double center_frequency,
                                                double sample_rate,
                                                const std::vector<int>& types,
@@ -667,9 +686,14 @@ void tch_c_slot_prober_impl::on_hit(const tch_c_hit& hit)
             return;
         }
         const tch_c_probe_info& p = *hit.probe;
-        if (p.type == 1) {
-            ul_link_dl(p.track, p.slot, p.position, hit.t_ns);
-        }
+        // The TCH_C1 uplink shares the center frequency of the downlink of any type
+        // (a voice call's downlink is TCH_C2 or TCH_C8): link it at the uplink channel
+        // of that frequency so its UL slot is searched as well.
+        ul_link_dl(
+            p.track,
+            p.slot,
+            ul_position_of(tch_c_slot_survey::nominal_frequency(p.type, p.position)),
+            hit.t_ns);
         d_tracks.add_hit(p.track,
                          hit.t_ns,
                          hit.f_hz,
@@ -702,10 +726,7 @@ void tch_c_slot_prober_impl::on_hit(const tch_c_hit& hit)
         }
     }
     if (best >= 0) {
-        if (hit.type == 1) {
-            ul_link_dl(
-                best, best_match.slot, nearest_position(1, best_nominal), hit.t_ns);
-        }
+        ul_link_dl(best, best_match.slot, ul_position_of(best_nominal), hit.t_ns);
         d_tracks.add_hit(
             best, hit.t_ns, hit.f_hz, hit.type, best_match.slot, best_nominal, false);
         d_n_energy_associated++;
@@ -1019,7 +1040,7 @@ void tch_c_slot_prober_impl::probe_ul_back(const tch_c_sat_track& tr, uint64_t b
             const double t0 = d_debug ? cpu_s() : 0;
             const gr_complex* x = samples(first, end - first);
             d_survey.set_window(x, d_survey.window_capacity());
-            const double f0 = tch_c_slot_survey::nominal_frequency(1, r->position) *
+            const double f0 = ul_nominal_frequency(r->position) *
                               (1 - tr.doppler(t) / TCH_C_F_RING);
             tch_c_slot_survey::channel_candidate cc;
             double p_uw;
@@ -1103,7 +1124,7 @@ uint64_t tch_c_slot_prober_impl::ul_search(const gr_complex* x,
         const int D = d_survey.uw_offset(1);
         tch_c_slot_survey::candidate c;
         c.position = position;
-        c.nominal_frequency = tch_c_slot_survey::nominal_frequency(1, position);
+        c.nominal_frequency = ul_nominal_frequency(position);
         c.frequency = f_c;
         c.estimated_frequency = cc->frequency;
         c.rho2 = cc->rho2;
@@ -1174,7 +1195,7 @@ void tch_c_slot_prober_impl::probe_ul_slot(const tch_c_sat_track& track,
         if (!tracked && !dl_active(t_ns, l.last_dl_ns)) {
             continue;
         }
-        const double f0 = tch_c_slot_survey::nominal_frequency(1, position) *
+        const double f0 = ul_nominal_frequency(position) *
                           (1 - doppler / TCH_C_F_RING);
         double p_c, s, f_c, f_s;
         if (tracked) {
@@ -1300,7 +1321,7 @@ void tch_c_slot_prober_impl::probe_ul_sweep(const tch_c_sat_track& tr,
         d_survey.set_window(x, d_survey.window_capacity(true));
         for (const auto& ch : channels) {
             const int position = ch.first;
-            const double f0 = tch_c_slot_survey::nominal_frequency(1, position) *
+            const double f0 = ul_nominal_frequency(position) *
                               (1 - doppler / TCH_C_F_RING);
             tch_c_slot_survey::channel_candidate cc;
             double p_uw;
@@ -1387,7 +1408,7 @@ void tch_c_slot_prober_impl::on_ul_hit(const tch_c_hit& hit)
     if (slot < 0) {
         slot = hit.probe->slot;
     }
-    const double nominal = tch_c_slot_survey::nominal_frequency(1, position);
+    const double nominal = ul_nominal_frequency(position);
     auto it = d_ul_links
                   .insert({ std::make_tuple(track, slot, position),
                             { UL_NEVER, UL_NEVER, 0, 0 } })
