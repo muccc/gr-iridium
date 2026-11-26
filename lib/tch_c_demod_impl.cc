@@ -415,36 +415,6 @@ static bool decode_tch_c(const tch_c_format& f,
     return tch_c_decoder::check_crc(msg, f.n_codewords * K);
 }
 
-// Mean squared distance of the data symbols to the nearest constellation point
-static float
-tch_c_fit(const tch_c_format& f, const gr_complex* y, float gain, int bits_per_symbol)
-{
-    float sum = 0;
-    int n = 0;
-    for (int s = 0; s < f.n_segments; s++) {
-        for (int k = f.segment[s][0]; k < f.segment[s][0] + f.segment[s][1]; k++) {
-            const gr_complex z = y[k] / gain;
-            float best;
-            if (bits_per_symbol == 2) {
-                best = std::norm(gr_complex(std::fabs(z.real()), std::fabs(z.imag())) -
-                                 gr_complex(M_SQRT1_2, M_SQRT1_2));
-            } else {
-                best = 1e30f;
-                for (int i = 0; i < 16; i++) {
-                    best = std::min(
-                        best,
-                        std::norm(z -
-                                  gr_complex(TCH_C_APSK16_I[i] * TCH_C_APSK16_SCALE,
-                                             TCH_C_APSK16_Q[i] * TCH_C_APSK16_SCALE)));
-                }
-            }
-            sum += best;
-            n++;
-        }
-    }
-    return sum / n;
-}
-
 tch_c_decoder& tch_c_demod_impl::decoder_for(const tch_c_format& f)
 {
     if (f.type == 8) {
@@ -539,8 +509,21 @@ void tch_c_demod_impl::handle_burst(int channel,
         if (tch_type == 8) {
             float noise;
             float gain = soft_bits(TCH_C8Q, d_burst_after_pll, uw, d_llr, &noise);
-            bool apsk_first = tch_c_fit(TCH_C8A, d_burst_after_pll, gain, 4) <
-                              tch_c_fit(TCH_C8Q, d_burst_after_pll, gain, 2);
+            // Order by the share of data symbols on the inner 16APSK ring (radius ~0.38
+            // of the QPSK pilots): 16APSK puts a quarter of its points there, QPSK none.
+            // The nearest-point MSE fit is biased towards 16APSK (16 points beat 4 for any
+            // noisy QPSK burst), so it mis-ordered almost every QPSK burst into the much
+            // costlier 16APSK decode first. Both formats are still tried; only order changes.
+            int n_inner = 0, n_data = 0;
+            for (int s = 0; s < layout.n_segments; s++) {
+                for (int k = layout.segment[s][0];
+                     k < layout.segment[s][0] + layout.segment[s][1];
+                     k++) {
+                    n_inner += std::norm(d_burst_after_pll[k] / gain) < 0.69f * 0.69f;
+                    n_data++;
+                }
+            }
+            bool apsk_first = n_inner >= 0.15f * n_data;
             formats[0] = apsk_first ? &TCH_C8A : &TCH_C8Q;
             formats[1] = apsk_first ? &TCH_C8Q : &TCH_C8A;
             n_formats = 2;
