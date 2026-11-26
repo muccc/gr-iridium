@@ -34,6 +34,7 @@ namespace iridium {
 namespace tch_c_timing {
 
 const double F_RING = 1626270833.3333333; // 1616 MHz + 246.5 * 10 MHz / 240
+const double SIMPLEX_CHANNEL_HZ = 10e6 / 240; // spacing of the simplex channels, ~41.7 kHz
 const int64_t FRAME_NS = 90000000;
 const double FRAME_MS = 90.0;
 const double SLOT_MS = 8.380; // spacing of the downlink slots
@@ -594,10 +595,47 @@ public:
      * An IRA: added to the matching track, else a new track is created (the least
      * recently updated one is dropped if there are max_tracks). Returns the track id.
      */
+    /*
+     * A satellite also transmits on the neighbour simplex channels (messaging, not ring
+     * alerts). Those bursts share its frame phase but are a channel width off in
+     * frequency, so freq - F_RING looks like a Doppler a channel width away and they
+     * each seed a spurious track. The IRA frequency window (+-45 kHz) admits the +-1
+     * neighbours. A candidate that matches a confirmed track once its frequency is
+     * shifted back by a whole channel width (same phase, Doppler then agrees) is such a
+     * neighbour: return that track's id, else -1.
+     */
+    int neighbor_image(int64_t t_ns, double freq_hz) const
+    {
+        for (int k = -1; k <= 1; k++) {
+            if (k == 0) {
+                continue;
+            }
+            const tch_c_timing_measurement m = {
+                t_ns,
+                tch_c_timing::frame_phase_ms(t_ns),
+                freq_hz - tch_c_timing::F_RING - k * tch_c_timing::SIMPLEX_CHANNEL_HZ,
+                1.f,
+                false
+            };
+            const int id = match(m);
+            const tch_c_sat_track* tr = id >= 0 ? find(id) : nullptr;
+            if (tr && tr->confirmed()) {
+                return id;
+            }
+        }
+        return -1;
+    }
+
     int add_ira(int64_t t_ns, double freq_hz)
     {
         int id = match_ira(t_ns, freq_hz);
         if (id < 0) {
+            // A messaging burst of a satellite we already track, on a neighbour simplex
+            // channel: drop it instead of seeding a spurious track
+            if (neighbor_image(t_ns, freq_hz) >= 0) {
+                d_n_neighbor++;
+                return -1;
+            }
             if (d_tracks.size() >= d_cfg.max_tracks) {
                 auto victim = std::min_element(
                     d_tracks.begin(),
@@ -745,6 +783,7 @@ public:
 
     double bias_ns(int type) const { return d_bias_ns[tch_c_timing::type_index(type)]; }
     uint64_t n_created() const { return d_n_created; }
+    uint64_t n_neighbor() const { return d_n_neighbor; }
     uint64_t n_merged() const { return d_n_merged; }
     uint64_t n_expired() const { return d_n_expired; }
     uint64_t n_evicted() const { return d_n_evicted; }
@@ -818,6 +857,7 @@ private:
     double d_bias_ns[3];
     int d_next_id = 0;
     uint64_t d_n_created = 0;
+    uint64_t d_n_neighbor = 0;
     uint64_t d_n_merged = 0;
     uint64_t d_n_expired = 0;
     uint64_t d_n_evicted = 0;
