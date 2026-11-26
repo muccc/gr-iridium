@@ -535,6 +535,22 @@ bool tch_c_slot_survey::search_channel(int type,
     const int q0 = (int)std::lround(f_res / dbin);
     const int Q = std::min(CS_DFT / 2 - 2, (int)std::ceil(search_hz / dbin) + 1);
 
+    // The matched filter peak spans ~1 symbol = s output samples, so stepping the lag
+    // by 1 output sample oversamples it ~s-fold. A coarse stride cuts the per-lag
+    // frequency FFTs; the parabola below recovers sub-stride timing.
+    // Stride 2 keeps >=1.5 samples across the ~1 symbol (s output samples) peak and the
+    // refine below samples the peak itself at full resolution; measured recall-neutral
+    // while cutting the UL search FFTs. IRIDIUM_UL_STRIDE overrides it (1 disables).
+    static const int s_ul_stride = [] {
+        const char* e = std::getenv("IRIDIUM_UL_STRIDE");
+        const int v = e ? std::atoi(e) : 2;
+        return v < 1 ? 1 : v;
+    }();
+    const int stride = s_ul_stride;
+    // How far below threshold a coarse (strided) lag may fall and still be refined: the
+    // peak can sit between strided samples, a shoulder down by the UW autocorrelation.
+    const float coarse_margin = stride > 1 ? 0.8f : 1.0f;
+
     const int* uw = uw_of(uplink);
     gr_complex* z = d_fft_uw->get_inbuf();
     const gr_complex* Z = d_fft_uw->get_outbuf();
@@ -542,7 +558,9 @@ bool tch_c_slot_survey::search_channel(int type,
     int best_n = -1, best_q = 0;
     float best_r = -1, best_e = 0;
     float best_a = 0, best_b = 0, best_c = 0;
-    for (int n = n_lo; n <= n_hi; n++) {
+    // Evaluate the rho2 of one lag n (correlate the UW, search the carrier). Fills r[]
+    // and keeps the running best. Returns the lag's rho2.
+    auto eval_lag = [&](int n) -> float {
         float e = 0;
         for (int k = 0; k < TCH_C_UW_LENGTH; k++) {
             const double pos = n + k * s;
@@ -575,6 +593,26 @@ bool tch_c_slot_survey::search_channel(int type,
             best_b = std::abs(Z[(best_q + CS_DFT) % CS_DFT]);
             best_c = std::abs(Z[(best_q + 1 + CS_DFT) % CS_DFT]);
         }
+        return rr;
+    };
+
+    // Coarse pass over the lags with the stride, then (for stride > 1) refine the two
+    // immediate neighbours of the best lag at full resolution so the peak rho2 and its
+    // parabola are exact - the stride only skips the shoulders, never the peak.
+    for (int n = n_lo; n <= n_hi; n += stride) {
+        eval_lag(n);
+    }
+    if (best_n < 0 || !(best_r >= threshold * coarse_margin)) {
+        return false;
+    }
+    if (stride > 1) {
+        for (int n = std::max(n_lo, best_n - stride + 1);
+             n <= std::min(n_hi, best_n + stride - 1);
+             n++) {
+            if (n != best_n && r[n - n_lo] == 0) {
+                eval_lag(n);
+            }
+        }
     }
     if (best_n < 0 || !(best_r >= threshold)) {
         return false;
@@ -582,7 +620,8 @@ bool tch_c_slot_survey::search_channel(int type,
 
     // Peak between the lags and between the frequency bins
     float dn = 0, peak;
-    if (best_n > n_lo && best_n < n_hi) {
+    if (best_n > n_lo && best_n < n_hi && r[best_n - 1 - n_lo] > 0 &&
+        r[best_n + 1 - n_lo] > 0) {
         parabola(r[best_n - 1 - n_lo], best_r, r[best_n + 1 - n_lo], &dn, &peak);
         dn = std::max(-0.5f, std::min(0.5f, dn));
     }
