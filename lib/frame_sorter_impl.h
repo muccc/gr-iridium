@@ -34,12 +34,13 @@ class frame_sorter_impl : public frame_sorter
 private:
     std::map<frame, pmt::pmt_t> frames;
     upstream_done_counter d_upstream_done;
+    const int64_t d_reorder_window_ns;
 
     void handler(const pmt::pmt_t& msg);
 
 
 public:
-    frame_sorter_impl();
+    frame_sorter_impl(int64_t reorder_window_ns = 2000000000);
     ~frame_sorter_impl();
 
     bool stop();

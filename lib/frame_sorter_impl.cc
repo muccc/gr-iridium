@@ -11,19 +11,20 @@
 namespace gr {
 namespace iridium {
 
-frame_sorter::sptr frame_sorter::make()
+frame_sorter::sptr frame_sorter::make(int64_t reorder_window_ns)
 {
-    return gnuradio::make_block_sptr<frame_sorter_impl>();
+    return gnuradio::make_block_sptr<frame_sorter_impl>(reorder_window_ns);
 }
 
 
 /*
  * The private constructor
  */
-frame_sorter_impl::frame_sorter_impl()
+frame_sorter_impl::frame_sorter_impl(int64_t reorder_window_ns)
     : gr::block("frame_sorter",
                 gr::io_signature::make(0, 0, 0),
-                gr::io_signature::make(0, 0, 0))
+                gr::io_signature::make(0, 0, 0)),
+      d_reorder_window_ns(reorder_window_ns)
 {
     message_port_register_out(pmt::mp("pdus"));
     d_upstream_done.install(this);
@@ -61,7 +62,7 @@ void frame_sorter_impl::handler(const pmt::pmt_t& msg)
     auto it = frames.begin();
 
     while (it != frames.end()) {
-        if (it->first.timestamp < f.timestamp - 2000000000) {
+        if (it->first.timestamp < f.timestamp - d_reorder_window_ns) {
             message_port_pub(pmt::mp("pdus"), it->second);
             it = frames.erase(it);
         } else {

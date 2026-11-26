@@ -557,7 +557,12 @@ class FlowGraph(gr.top_block):
                                                                 outstanding_limit=self._max_queue_len,
                                                                 drop_overflow=not self._offline,
                                                                 uplink=tch_c_uplink)
-        self._frame_sorter = iridium.frame_sorter()
+        # The TCH_C slot prober emits frames late: it back-probes up to tch_c_history
+        # seconds, so its frames reach the sorter that much after the real-time legacy
+        # frames. The reorder window must cover that latency (plus a margin) or the late
+        # TCH_C frames come out of time order. Legacy-only keeps the 2 s default.
+        reorder_window_ns = int((tch_c_history + 2.0) * 1e9) if self._tch_c_types else 2000000000
+        self._frame_sorter = iridium.frame_sorter(reorder_window_ns)
         self._iridium_frame_printer = iridium.iridium_frame_printer(file_info)
 
         if raw_capture_filename:

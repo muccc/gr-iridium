@@ -14,7 +14,7 @@
 /* BINDTOOL_GEN_AUTOMATIC(0)                                                       */
 /* BINDTOOL_USE_PYGCCXML(0)                                                        */
 /* BINDTOOL_HEADER_FILE(frame_sorter.h)                                        */
-/* BINDTOOL_HEADER_FILE_HASH(46b53ce1c2b86d2a92ed8fe3c1697739)                     */
+/* BINDTOOL_HEADER_FILE_HASH(6e4baa0811c4b993d2fea526f15e53a6)                     */
 /***********************************************************************************/
 
 #include <pybind11/complex.h>
@@ -37,6 +37,7 @@ void bind_frame_sorter(py::module& m)
         std::shared_ptr<frame_sorter>>(m, "frame_sorter", D(frame_sorter))
 
         .def(py::init(&frame_sorter::make),
+           py::arg("reorder_window_ns") = 2000000000,
            D(frame_sorter,make)
         )
         

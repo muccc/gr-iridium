@@ -32,7 +32,14 @@ public:
      * class. iridium::frame_sorter::make is the public interface for
      * creating new instances.
      */
-    static sptr make();
+    /*!
+     * \param reorder_window_ns a frame is held until a frame this many nanoseconds
+     * newer arrives, then emitted. Must exceed the largest latency difference between
+     * the demodulators feeding the sorter: the TCH_C slot prober back-probes up to its
+     * history, so with TCH_C the window must cover that history plus a margin, else its
+     * late frames are emitted out of time order. Default 2 s (the legacy-only latency).
+     */
+    static sptr make(int64_t reorder_window_ns = 2000000000);
 
     /*!
      * \brief Number of message connections into this block (default 1). The block
