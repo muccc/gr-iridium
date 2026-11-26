@@ -45,6 +45,12 @@ private:
     std::vector<pmt::pmt_t> d_frame_handled_ports;
     upstream_done_counter d_upstream_done;
 
+    // Sharding: with shard_count parallel instances each decodes only the probes whose
+    // arrival sequence number is this instance's, splitting the decode across threads.
+    int d_shard_index;
+    int d_shard_count;
+    uint64_t d_probe_seq;
+
     // Frames taken from the input ports, by timestamp: (channel, frame)
     std::multimap<uint64_t, std::pair<int, pmt::pmt_t>> d_pending;
     void enqueue(int channel, const pmt::pmt_t& msg);
@@ -84,7 +90,7 @@ private:
                              std::vector<uint8_t>& bits);
 
 public:
-    tch_c_demod_impl();
+    tch_c_demod_impl(int shard_index = 0, int shard_count = 1);
     ~tch_c_demod_impl();
 
     uint64_t get_n_handled_bursts();

@@ -18,16 +18,19 @@
 namespace gr {
 namespace iridium {
 
-tch_c_demod::sptr tch_c_demod::make()
+tch_c_demod::sptr tch_c_demod::make(int shard_index, int shard_count)
 {
-    return gnuradio::make_block_sptr<tch_c_demod_impl>();
+    return gnuradio::make_block_sptr<tch_c_demod_impl>(shard_index, shard_count);
 }
 
-tch_c_demod_impl::tch_c_demod_impl()
+tch_c_demod_impl::tch_c_demod_impl(int shard_index, int shard_count)
     : gr::block("tch_c_demod",
                 gr::io_signature::make(0, 0, 0),
                 gr::io_signature::make(0, 0, 0)),
       d_alpha(1 / 5.),
+      d_shard_index(shard_index),
+      d_shard_count(std::max(1, shard_count)),
+      d_probe_seq(0),
       d_n_handled_bursts(0),
       d_n_access_ok_bursts(0),
       d_n_access_ok_sub_bursts(0),
@@ -640,6 +643,13 @@ void tch_c_demod_impl::frame_handled(int channel, const pmt::pmt_t& meta)
 
 void tch_c_demod_impl::enqueue(int channel, const pmt::pmt_t& msg)
 {
+    // Every shard sees every probe in the same order (the prober broadcasts to all), so a
+    // per-arrival counter partitions them: this shard decodes only its own, the others are
+    // decoded (and reported handled) by their owning shard. Skipped probes are dropped
+    // here, before they reach d_pending, so each is processed exactly once overall.
+    if (d_shard_count > 1 && d_probe_seq++ % d_shard_count != (uint64_t)d_shard_index) {
+        return;
+    }
     uint64_t timestamp =
         pmt::to_uint64(pmt::dict_ref(pmt::car(msg), pmt::mp("timestamp"), pmt::PMT_NIL));
     d_pending.emplace(timestamp, std::make_pair(channel, msg));

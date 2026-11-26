@@ -44,7 +44,14 @@ public:
      * first one at the first UW symbol. Carrier phase and gain do not matter, the
      * carrier frequency may be off by up to +-3 kHz.
      */
-    static sptr make();
+    /*!
+     * \param shard_index this instance's index in [0, shard_count)
+     * \param shard_count number of parallel tch_c_demod instances sharing the probe
+     * stream. Every instance receives every probe (the prober broadcasts), but only
+     * decodes those with (probe sequence number) % shard_count == shard_index, so the
+     * decode work splits across shard_count threads. The default 0, 1 keeps all probes.
+     */
+    static sptr make(int shard_index = 0, int shard_count = 1);
 
     virtual uint64_t get_n_handled_bursts() = 0;
     virtual uint64_t get_n_access_ok_bursts() = 0;

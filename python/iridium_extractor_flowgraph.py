@@ -539,10 +539,16 @@ class FlowGraph(gr.top_block):
         # TCH_C: the prober probes the TDMA slots of the satellites, timed by their ring
         # alerts. It reads the wideband stream and sends its candidates to the TCH_C
         # demodulator. Only with TCH_C: a message block without inputs never terminates.
-        self._tch_c_demod = None
+        # The TCH_C demodulator (carrier recovery + turbo decode) is CPU heavy and runs in
+        # a single GNU Radio thread. Run several in parallel, each decoding a disjoint share
+        # of the probes (the prober broadcasts every probe to all; each shard picks its own
+        # by arrival sequence number), so the decode spreads across cores.
+        self._tch_c_demods = []
         self._tch_c_slot_prober = None
         if self._tch_c_types:
-            self._tch_c_demod = iridium.tch_c_demod()
+            n_tch_c_shards = 2
+            self._tch_c_demods = [iridium.tch_c_demod(i, n_tch_c_shards)
+                                  for i in range(n_tch_c_shards)]
             self._tch_c_slot_prober = iridium.tch_c_slot_prober(center_frequency=self._center_frequency,
                                                                 sample_rate=self._input_sample_rate,
                                                                 types=self._tch_c_types,
@@ -649,24 +655,28 @@ class FlowGraph(gr.top_block):
             self._burst_to_pdu_converters = [burst_to_pdu]
 
         tb.msg_connect((self._iridium_qpsk_demod, 'pdus'), (self._frame_sorter, 'pdus'))
-        if self._tch_c_demod:
-            tb.msg_connect((self._tch_c_demod, 'pdus'), (self._frame_sorter, 'pdus'))
+        for demod in self._tch_c_demods:
+            tb.msg_connect((demod, 'pdus'), (self._frame_sorter, 'pdus'))
         tb.msg_connect((self._frame_sorter, 'pdus'), (self._iridium_frame_printer, 'pdus'))
 
         if self._tch_c_slot_prober:
             prober = self._tch_c_slot_prober
             # Ring alerts from the legacy frames, the TCH_C frames found
             tb.msg_connect((self._iridium_qpsk_demod, 'pdus'), (prober, 'frames'))
-            tb.msg_connect((self._tch_c_demod, 'pdus'), (prober, 'hits'))
-            tb.msg_connect((prober, 'cpdus'), (self._tch_c_demod, 'probes'))
-            tb.msg_connect((self._tch_c_demod, 'probe_handled'), (prober, 'frame_handled'))
+            # Every shard gets every probe (broadcast); each decodes its own share. Their
+            # hits and handled reports all flow back to the prober.
+            for demod in self._tch_c_demods:
+                tb.msg_connect((demod, 'pdus'), (prober, 'hits'))
+                tb.msg_connect((prober, 'cpdus'), (demod, 'probes'))
+                tb.msg_connect((demod, 'probe_handled'), (prober, 'frame_handled'))
 
         # Blocks fed by several message connections must only finish once all of them are
         # done (one downmixer per connected channel).
         n_sets = self._n_burst_downmixers if self._use_channelizer else 1
         self._iridium_qpsk_demod.set_upstream_count(n_sets)
-        if self._tch_c_demod:
-            self._frame_sorter.set_upstream_count(2)
+        if self._tch_c_demods:
+            # The frame sorter waits for the legacy demod and every TCH_C shard.
+            self._frame_sorter.set_upstream_count(1 + len(self._tch_c_demods))
 
     def get_n_detected_bursts(self):
         return self._fft_burst_tagger.get_n_tagged_bursts()
@@ -675,13 +685,13 @@ class FlowGraph(gr.top_block):
         return self._fft_burst_tagger.get_sample_count()
 
     def get_n_handled_bursts(self):
-        return self._iridium_qpsk_demod.get_n_handled_bursts() + (self._tch_c_demod.get_n_handled_bursts() if self._tch_c_demod else 0)
+        return self._iridium_qpsk_demod.get_n_handled_bursts() + sum(d.get_n_handled_bursts() for d in self._tch_c_demods)
 
     def get_n_access_ok_bursts(self):
-        return self._iridium_qpsk_demod.get_n_access_ok_bursts() + (self._tch_c_demod.get_n_access_ok_bursts() if self._tch_c_demod else 0)
+        return self._iridium_qpsk_demod.get_n_access_ok_bursts() + sum(d.get_n_access_ok_bursts() for d in self._tch_c_demods)
 
     def get_n_access_ok_sub_bursts(self):
-        return self._iridium_qpsk_demod.get_n_access_ok_sub_bursts() + (self._tch_c_demod.get_n_access_ok_sub_bursts() if self._tch_c_demod else 0)
+        return self._iridium_qpsk_demod.get_n_access_ok_sub_bursts() + sum(d.get_n_access_ok_sub_bursts() for d in self._tch_c_demods)
 
     def get_queue_size(self):
         size = 0
