@@ -741,7 +741,7 @@ void tch_c_slot_prober_impl::ul_link_dl(int track, int slot, int position, int64
     auto it = d_ul_links.find(std::make_tuple(track, slot, position));
     bool new_link = false;
     if (it == d_ul_links.end()) {
-        d_ul_links[std::make_tuple(track, slot, position)] = { t_ns, UL_NEVER, 0, 0 };
+        d_ul_links[std::make_tuple(track, slot, position)] = { t_ns, UL_NEVER, 0, 0, 0 };
         new_link = true;
     } else {
         new_link = !dl_active(t_ns, it->second.last_dl_ns) &&
@@ -1042,32 +1042,36 @@ void tch_c_slot_prober_impl::probe_ul_back(const tch_c_sat_track& tr, uint64_t b
             d_survey.set_window(x, d_survey.window_capacity());
             const double f0 = ul_nominal_frequency(r->position) *
                               (1 - tr.doppler(t) / TCH_C_F_RING);
-            tch_c_slot_survey::channel_candidate cc;
-            double p_uw;
-            const uint64_t id = ul_search(x,
-                                          first,
-                                          tr,
-                                          r->slot,
-                                          r->position,
-                                          sample_index(t),
-                                          UL_WIDE_S,
-                                          f0 + UL_WIDE_F_HZ,
-                                          UL_WIDE_SEARCH_HZ,
-                                          &cc,
-                                          &p_uw);
-            d_n_ul_back++;
-            if (id != UINT64_MAX && cc.rho2 >= d_debug_rho2) {
-                fprintf(stderr,
-                        "PK t_ns=%" PRId64 " track=%d slot=%d pos=%d f=%.0f rho2=%.3f "
-                        "dt_us=%.2f id=%" PRIu64 "\n",
-                        t,
-                        tr.id(),
-                        r->slot,
-                        r->position,
-                        cc.frequency,
-                        cc.rho2,
-                        (p_uw - sample_index(t)) / d_sample_rate * 1e6,
-                        id);
+            for (int type : d_types) {
+                tch_c_slot_survey::channel_candidate cc;
+                double p_uw;
+                const uint64_t id = ul_search(x,
+                                              first,
+                                              tr,
+                                              type,
+                                              r->slot,
+                                              r->position,
+                                              sample_index(t),
+                                              UL_WIDE_S,
+                                              f0 + UL_WIDE_F_HZ,
+                                              UL_WIDE_SEARCH_HZ,
+                                              &cc,
+                                              &p_uw);
+                d_n_ul_back++;
+                if (id != UINT64_MAX && cc.rho2 >= d_debug_rho2) {
+                    fprintf(stderr,
+                            "PK t_ns=%" PRId64 " track=%d type=%d slot=%d pos=%d f=%.0f "
+                            "rho2=%.3f dt_us=%.2f id=%" PRIu64 "\n",
+                            t,
+                            tr.id(),
+                            type,
+                            r->slot,
+                            r->position,
+                            cc.frequency,
+                            cc.rho2,
+                            (p_uw - sample_index(t)) / d_sample_rate * 1e6,
+                            id);
+                }
             }
             if (d_debug) {
                 d_cpu[3] += cpu_s() - t0;
@@ -1102,6 +1106,7 @@ void tch_c_slot_prober_impl::ul_slot_window(double p,
 uint64_t tch_c_slot_prober_impl::ul_search(const gr_complex* x,
                                            int64_t first,
                                            const tch_c_sat_track& track,
+                                           int type,
                                            int slot,
                                            int position,
                                            double p_c,
@@ -1115,13 +1120,13 @@ uint64_t tch_c_slot_prober_impl::ul_search(const gr_complex* x,
     const float threshold = std::min(UL_THRESHOLD, d_debug_rho2);
     const double S = s * d_sample_rate;
     if (!d_survey.search_channel(
-            1, true, f_c, f_s, p_c - S - first, p_c + S - first, threshold, cc)) {
+            type, true, f_c, f_s, p_c - S - first, p_c + S - first, threshold, cc)) {
         return UINT64_MAX;
     }
     double p_uw = first + cc->p_uw;
     uint64_t id = 0;
     if (cc->rho2 >= UL_THRESHOLD) {
-        const int D = d_survey.uw_offset(1);
+        const int D = d_survey.uw_offset(type);
         tch_c_slot_survey::candidate c;
         c.position = position;
         c.nominal_frequency = ul_nominal_frequency(position);
@@ -1132,10 +1137,10 @@ uint64_t tch_c_slot_prober_impl::ul_search(const gr_complex* x,
         c.magnitude = cc->magnitude;
         c.bin = 0;
         const int64_t i0 = std::lround(p_uw) - D;
-        p_uw = i0 + D + d_survey.fine_timing(x + (i0 - first), 1, true, c, nullptr);
+        p_uw = i0 + D + d_survey.fine_timing(x + (i0 - first), type, true, c, nullptr);
         const int n =
-            d_survey.extract(x, p_uw - first, 1, cc->frequency, true, &d_symbols[0]);
-        id = publish_probe(1,
+            d_survey.extract(x, p_uw - first, type, cc->frequency, true, &d_symbols[0]);
+        id = publish_probe(type,
                            time_ns(p_uw),
                            cc->frequency,
                            &d_symbols[0],
@@ -1191,49 +1196,56 @@ void tch_c_slot_prober_impl::probe_ul_slot(const tch_c_sat_track& track,
     for (auto it = first_link; in_slot(it); ++it) {
         const ul_link& l = it->second;
         const int position = std::get<2>(it->first);
-        const bool tracked = ul_tracked(t_ns, l.last_ul_ns);
-        if (!tracked && !dl_active(t_ns, l.last_dl_ns)) {
+        if (!ul_tracked(t_ns, l.last_ul_ns) && !dl_active(t_ns, l.last_dl_ns)) {
             continue;
         }
-        const double f0 = ul_nominal_frequency(position) *
-                          (1 - doppler / TCH_C_F_RING);
-        double p_c, s, f_c, f_s;
-        if (tracked) {
-            // Where the last UL frame of the link was, within the wide search
-            const double dv = std::max(-(UL_WIDE_S - UL_TRACK_S) * 1e3,
-                                       std::min((UL_WIDE_S - UL_TRACK_S) * 1e3,
-                                                tch_c_timing::wrap_ms(l.v_ms - v_nom)));
-            p_c = p_nom + dv * 1e-3 * d_sample_rate;
-            s = UL_TRACK_S;
-            f_c = f0 + l.f_offset_hz;
-            f_s = UL_TRACK_SEARCH_HZ;
-        } else {
-            p_c = p_nom;
-            s = UL_WIDE_S;
-            f_c = f0 + UL_WIDE_F_HZ;
-            f_s = UL_WIDE_SEARCH_HZ;
-        }
-        tch_c_slot_survey::channel_candidate cc;
-        double p_uw;
-        const uint64_t id =
-            ul_search(x, first, track, slot, position, p_c, s, f_c, f_s, &cc, &p_uw);
-        if (id != UINT64_MAX && cc.rho2 >= d_debug_rho2) {
-            fprintf(stderr,
-                    "PU t_ns=%" PRId64 " track=%d frame=%" PRId64
-                    " slot=%d pos=%d tracked=%d f=%.0f df=%.0f rho2=%.3f mag=%.1f "
-                    "dt_us=%.2f id=%" PRIu64 "\n",
-                    t_ns,
-                    track.id(),
-                    frame,
-                    slot,
-                    position,
-                    tracked,
-                    cc.frequency,
-                    cc.frequency - f0,
-                    cc.rho2,
-                    cc.magnitude,
-                    (p_uw - p_nom) / d_sample_rate * 1e6,
-                    id);
+        const double f0 = ul_nominal_frequency(position) * (1 - doppler / TCH_C_F_RING);
+        // Once a frame fixed the channel's uplink type search only that one, else every
+        // configured type (a voice call's uplink can be TCH_C1, TCH_C2 or TCH_C8)
+        const size_t n_try = l.type ? 1 : d_types.size();
+        for (size_t ti = 0; ti < n_try; ti++) {
+            const int type = l.type ? l.type : d_types[ti];
+            const bool tracked = type == l.type && ul_tracked(t_ns, l.last_ul_ns);
+            double p_c, s, f_c, f_s;
+            if (tracked) {
+                // Where the last UL frame of the link was, within the wide search
+                const double dv =
+                    std::max(-(UL_WIDE_S - UL_TRACK_S) * 1e3,
+                             std::min((UL_WIDE_S - UL_TRACK_S) * 1e3,
+                                      tch_c_timing::wrap_ms(l.v_ms - v_nom)));
+                p_c = p_nom + dv * 1e-3 * d_sample_rate;
+                s = UL_TRACK_S;
+                f_c = f0 + l.f_offset_hz;
+                f_s = UL_TRACK_SEARCH_HZ;
+            } else {
+                p_c = p_nom;
+                s = UL_WIDE_S;
+                f_c = f0 + UL_WIDE_F_HZ;
+                f_s = UL_WIDE_SEARCH_HZ;
+            }
+            tch_c_slot_survey::channel_candidate cc;
+            double p_uw;
+            const uint64_t id = ul_search(
+                x, first, track, type, slot, position, p_c, s, f_c, f_s, &cc, &p_uw);
+            if (id != UINT64_MAX && cc.rho2 >= d_debug_rho2) {
+                fprintf(stderr,
+                        "PU t_ns=%" PRId64 " track=%d type=%d frame=%" PRId64
+                        " slot=%d pos=%d tracked=%d f=%.0f df=%.0f rho2=%.3f mag=%.1f "
+                        "dt_us=%.2f id=%" PRIu64 "\n",
+                        t_ns,
+                        track.id(),
+                        type,
+                        frame,
+                        slot,
+                        position,
+                        tracked,
+                        cc.frequency,
+                        cc.frequency - f0,
+                        cc.rho2,
+                        cc.magnitude,
+                        (p_uw - p_nom) / d_sample_rate * 1e6,
+                        id);
+            }
         }
     }
     if (d_debug) {
@@ -1323,33 +1335,37 @@ void tch_c_slot_prober_impl::probe_ul_sweep(const tch_c_sat_track& tr,
             const int position = ch.first;
             const double f0 = ul_nominal_frequency(position) *
                               (1 - doppler / TCH_C_F_RING);
-            tch_c_slot_survey::channel_candidate cc;
-            double p_uw;
-            const uint64_t id = ul_search(x,
-                                          first,
-                                          tr,
-                                          ch.second.first,
-                                          position,
-                                          p_c,
-                                          S / d_sample_rate,
-                                          f0 + UL_WIDE_F_HZ,
-                                          UL_WIDE_SEARCH_HZ,
-                                          &cc,
-                                          &p_uw);
-            if (id != UINT64_MAX && cc.rho2 >= d_debug_rho2) {
-                fprintf(stderr,
-                        "PW t_ns=%" PRId64 " track=%d slot=%d pos=%d f=%.0f df=%.0f "
-                        "rho2=%.3f mag=%.1f v=%.3f id=%" PRIu64 "\n",
-                        t,
-                        tr.id(),
-                        ch.second.first,
-                        position,
-                        cc.frequency,
-                        cc.frequency - f0,
-                        cc.rho2,
-                        cc.magnitude,
-                        tr.ul_phase_ms(time_ns(p_uw)),
-                        id);
+            for (int type : d_types) {
+                tch_c_slot_survey::channel_candidate cc;
+                double p_uw;
+                const uint64_t id = ul_search(x,
+                                              first,
+                                              tr,
+                                              type,
+                                              ch.second.first,
+                                              position,
+                                              p_c,
+                                              S / d_sample_rate,
+                                              f0 + UL_WIDE_F_HZ,
+                                              UL_WIDE_SEARCH_HZ,
+                                              &cc,
+                                              &p_uw);
+                if (id != UINT64_MAX && cc.rho2 >= d_debug_rho2) {
+                    fprintf(stderr,
+                            "PW t_ns=%" PRId64 " track=%d type=%d slot=%d pos=%d f=%.0f "
+                            "df=%.0f rho2=%.3f mag=%.1f v=%.3f id=%" PRIu64 "\n",
+                            t,
+                            tr.id(),
+                            type,
+                            ch.second.first,
+                            position,
+                            cc.frequency,
+                            cc.frequency - f0,
+                            cc.rho2,
+                            cc.magnitude,
+                            tr.ul_phase_ms(time_ns(p_uw)),
+                            id);
+                }
             }
         }
         if (d_debug) {
@@ -1367,8 +1383,8 @@ void tch_c_slot_prober_impl::probe_ul_sweep(const tch_c_sat_track& tr,
  */
 void tch_c_slot_prober_impl::on_ul_hit(const tch_c_hit& hit)
 {
-    if (!d_probe_uplink || hit.type != 1 || d_offset_ns != 0 || !hit.probe ||
-        hit.probe->track < 0 || !hit.probe->uplink) {
+    if (!d_probe_uplink || d_offset_ns != 0 || !hit.probe || hit.probe->track < 0 ||
+        !hit.probe->uplink) {
         return;
     }
     const int track = hit.probe->track;
@@ -1411,9 +1427,11 @@ void tch_c_slot_prober_impl::on_ul_hit(const tch_c_hit& hit)
     const double nominal = ul_nominal_frequency(position);
     auto it = d_ul_links
                   .insert({ std::make_tuple(track, slot, position),
-                            { UL_NEVER, UL_NEVER, 0, 0 } })
+                            { UL_NEVER, UL_NEVER, 0, 0, 0 } })
                   .first;
     ul_link& l = it->second;
+    // Lock the channel to the uplink type found: later slots search only this one
+    l.type = hit.type;
     if (t >= l.last_ul_ns) {
         l.last_ul_ns = t;
         l.v_ms = v;
@@ -1536,7 +1554,10 @@ void tch_c_slot_prober_impl::relabel_ul_links()
         l.last_ul_ns = UL_NEVER;
     }
     for (const auto& mv : moves) {
-        auto it = d_ul_links.insert({ mv.first, { UL_NEVER, UL_NEVER, 0, 0 } }).first;
+        auto it = d_ul_links.insert({ mv.first, { UL_NEVER, UL_NEVER, 0, 0, 0 } }).first;
+        if (mv.second.type) {
+            it->second.type = mv.second.type;
+        }
         if (mv.second.last_ul_ns > it->second.last_ul_ns) {
             it->second.last_ul_ns = mv.second.last_ul_ns;
             it->second.v_ms = mv.second.v_ms;

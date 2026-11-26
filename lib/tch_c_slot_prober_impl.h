@@ -120,6 +120,8 @@ private:
         int64_t last_ul_ns;
         double v_ms;        // v of the newest UL frame
         double f_offset_hz; // its carrier minus nominal * (1 - Doppler / F_RING)
+        int type;           // the uplink TCH_C type found on the channel (0: unknown,
+                            // search all configured types until the first frame)
     };
     std::map<std::tuple<int, int, int>, ul_link> d_ul_links; // (track, slot, position)
     struct ul_cursor {
@@ -177,6 +179,7 @@ private:
     uint64_t ul_search(const gr_complex* x,
                        int64_t first,
                        const tch_c_sat_track& track,
+                       int type,
                        int slot,
                        int position,
                        double p_c,
