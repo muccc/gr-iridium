@@ -18,6 +18,11 @@
 #include <algorithm>
 #include <cmath>
 
+#if defined(__x86_64__) || defined(__i386__)
+#include <immintrin.h>
+#define IRIDIUM_X86_SIMD 1
+#endif
+
 namespace gr {
 namespace iridium {
 
@@ -51,8 +56,16 @@ tch_c_decoder::tch_c_decoder(const tch_c_code& code, int iterations)
     : d_iterations(iterations),
       d_n_couples(code.info_bits / 2),
       d_n_coded(code.coded_bits),
-      d_n_info(code.info_bits)
+      d_n_info(code.info_bits),
+      d_use_avx2(false)
 {
+#ifdef IRIDIUM_X86_SIMD
+    __builtin_cpu_init();
+    // IRIDIUM_NO_AVX2 forces the scalar path (escape hatch / A-B check); both are
+    // bit-identical, so this changes only speed.
+    d_use_avx2 = __builtin_cpu_supports("avx2") && std::getenv("IRIDIUM_NO_AVX2") == nullptr;
+#endif
+
     for (int i = 0; i < 4; i++) {
         d_puncture_y[i] = code.puncture_y[i];
     }
@@ -156,11 +169,14 @@ uint16_t tch_c_decoder::crc10(const uint8_t* bits, int n)
  * The trellis is a ring without a known start state. The forward recursion starts
  * PROLOG couples before its start (the backward recursion after its end) from the state
  * metrics the previous iteration had there.
+ *
+ * This is the scalar reference; siso_avx2() is a bit-identical SIMD version and siso()
+ * picks between them at runtime.
  */
-void tch_c_decoder::siso(int c,
-                         const float (*in)[4],
-                         const float* parity_llr,
-                         float (*out)[4])
+void tch_c_decoder::siso_scalar(int c,
+                                const float (*in)[4],
+                                const float* parity_llr,
+                                float (*out)[4])
 {
     const int N = d_n_couples;
     const int prolog = std::min(PROLOG, N - 1);
@@ -255,6 +271,129 @@ void tch_c_decoder::siso(int c,
             out[k][v] -= mx;
         }
     }
+}
+
+#ifdef IRIDIUM_X86_SIMD
+namespace {
+#define TGT __attribute__((target("avx2")))
+// max_star() over the 8 lanes of a vector, with the identical parabola and operation
+// order as the scalar max_star(), so the AVX2 siso is bit-for-bit the scalar one.
+TGT inline __m256 ms8(__m256 a, __m256 b)
+{
+    const __m256 absmask = _mm256_castsi256_ps(_mm256_set1_epi32(0x7fffffff));
+    __m256 t = _mm256_max_ps(
+        _mm256_setzero_ps(),
+        _mm256_sub_ps(_mm256_set1_ps(3.46f), _mm256_and_ps(_mm256_sub_ps(a, b), absmask)));
+    return _mm256_add_ps(_mm256_max_ps(a, b),
+                         _mm256_mul_ps(_mm256_mul_ps(_mm256_set1_ps(0.05484f), t), t));
+}
+TGT inline __m128 ms4(__m128 a, __m128 b)
+{
+    const __m128 absmask = _mm_castsi128_ps(_mm_set1_epi32(0x7fffffff));
+    __m128 t = _mm_max_ps(
+        _mm_setzero_ps(),
+        _mm_sub_ps(_mm_set1_ps(3.46f), _mm_and_ps(_mm_sub_ps(a, b), absmask)));
+    return _mm_add_ps(_mm_max_ps(a, b),
+                      _mm_mul_ps(_mm_mul_ps(_mm_set1_ps(0.05484f), t), t));
+}
+} // namespace
+
+// Hand-vectorised siso_scalar(): the 8 trellis states live in one __m256, the branch
+// permutations are _mm256_permutevar8x32_ps and the parity select a blendv. The max*
+// tree and its operation order match the scalar code exactly (no FMA), so the output is
+// bit-identical.
+TGT void tch_c_decoder::siso_avx2(int c,
+                                  const float (*in)[4],
+                                  const float* parity_llr,
+                                  float (*out)[4])
+{
+    const int N = d_n_couples;
+    const int prolog = std::min(PROLOG, N - 1);
+
+    __m256i fperm[4], bperm[4];
+    __m256 fmask[4], bmask[4];
+    for (int v = 0; v < 4; v++) {
+        fperm[v] = _mm256_loadu_si256((const __m256i*)d_prev_state[v]);
+        bperm[v] = _mm256_loadu_si256((const __m256i*)d_next_state[v]);
+        fmask[v] = _mm256_castsi256_ps(_mm256_sub_epi32(
+            _mm256_setzero_si256(), _mm256_loadu_si256((const __m256i*)d_prev_parity[v])));
+        bmask[v] = _mm256_castsi256_ps(_mm256_sub_epi32(
+            _mm256_setzero_si256(), _mm256_loadu_si256((const __m256i*)d_parity[v])));
+    }
+    __m256 cand[4];
+    // cand[v][s] = m[perm[v][s]] + (mask ? in[k][v] - pl : in[k][v])
+    auto step = [&](int k, __m256 m, const __m256i* perm, const __m256* mask) TGT {
+        const float pl = parity_llr[k];
+        for (int v = 0; v < 4; v++) {
+            const __m256 a0 = _mm256_set1_ps(in[k][v]);
+            const __m256 a1 = _mm256_set1_ps(in[k][v] - pl);
+            cand[v] = _mm256_add_ps(_mm256_permutevar8x32_ps(m, perm[v]),
+                                    _mm256_blendv_ps(a0, a1, mask[v]));
+        }
+        __m256 r = ms8(ms8(cand[0], cand[1]), ms8(cand[2], cand[3]));
+        return _mm256_sub_ps(r, _mm256_permutevar8x32_ps(r, _mm256_setzero_si256()));
+    };
+
+    __m256 a = _mm256_loadu_ps(d_alpha_start[c]);
+    for (int k = N - prolog; k < N; k++) {
+        a = step(k, a, fperm, fmask);
+    }
+    for (int k = 0; k < N; k++) {
+        if (k == N - prolog) {
+            _mm256_storeu_ps(d_alpha_start[c], a);
+        }
+        _mm256_storeu_ps(d_alpha[k], a);
+        a = step(k, a, fperm, fmask);
+    }
+
+    __m256 b = _mm256_loadu_ps(d_beta_start[c]);
+    for (int k = prolog - 1; k >= 0; k--) {
+        b = step(k, b, bperm, bmask);
+    }
+    const __m256i evenodd = _mm256_setr_epi32(0, 2, 4, 6, 1, 3, 5, 7);
+    for (int k = N - 1; k >= 0; k--) {
+        b = step(k, b, bperm, bmask);
+        if (k == prolog) {
+            _mm256_storeu_ps(d_beta_start[c], b);
+        }
+        const __m256 al = _mm256_loadu_ps(d_alpha[k]);
+        __m256 e[4];
+        for (int v = 0; v < 4; v++) {
+            e[v] = _mm256_permutevar8x32_ps(_mm256_add_ps(al, cand[v]), evenodd);
+        }
+        __m256 p01 = ms8(_mm256_permute2f128_ps(e[0], e[1], 0x20),
+                         _mm256_permute2f128_ps(e[0], e[1], 0x31));
+        __m256 p23 = ms8(_mm256_permute2f128_ps(e[2], e[3], 0x20),
+                         _mm256_permute2f128_ps(e[2], e[3], 0x31));
+        __m256 x = _mm256_shuffle_ps(p01, p23, 0x88);
+        __m256 y = _mm256_shuffle_ps(p01, p23, 0xdd);
+        __m256 q = ms8(x, y);
+        __m128 lo = _mm256_castps256_ps128(q), hi = _mm256_extractf128_ps(q, 1);
+        __m128 qa = _mm_shuffle_ps(lo, hi, 0x88);
+        __m128 qb = _mm_shuffle_ps(lo, hi, 0xdd);
+        __m128 r = ms4(qa, qb);
+        r = _mm_shuffle_ps(r, r, 0xd8);
+        __m128 o = _mm_sub_ps(r, _mm_loadu_ps(in[k]));
+        __m128 mx = _mm_max_ps(o, _mm_shuffle_ps(o, o, 0x4e));
+        mx = _mm_max_ps(mx, _mm_shuffle_ps(mx, mx, 0xb1));
+        _mm_storeu_ps(out[k], _mm_sub_ps(o, mx));
+    }
+}
+#undef TGT
+#endif // IRIDIUM_X86_SIMD
+
+void tch_c_decoder::siso(int c,
+                         const float (*in)[4],
+                         const float* parity_llr,
+                         float (*out)[4])
+{
+#ifdef IRIDIUM_X86_SIMD
+    if (d_use_avx2) {
+        siso_avx2(c, in, parity_llr, out);
+        return;
+    }
+#endif
+    siso_scalar(c, in, parity_llr, out);
 }
 
 bool tch_c_decoder::decode(const float* llr, uint8_t* msg)

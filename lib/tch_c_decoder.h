@@ -96,7 +96,17 @@ private:
     float d_alpha_start[2][8];
     float d_beta_start[2][8];
 
+    // AVX2 availability, decided once at construction (x86 only, else false)
+    bool d_use_avx2;
+
+    // One log-MAP pass over the tail-biting trellis of constituent code c. siso()
+    // dispatches to the hand-vectorised AVX2 path when available, else the scalar
+    // reference; both are bit-identical.
     void siso(int c, const float (*in)[4], const float* parity_llr, float (*out)[4]);
+    void siso_scalar(int c, const float (*in)[4], const float* parity_llr, float (*out)[4]);
+#if defined(__x86_64__) || defined(__i386__)
+    void siso_avx2(int c, const float (*in)[4], const float* parity_llr, float (*out)[4]);
+#endif
 };
 
 } // namespace iridium
